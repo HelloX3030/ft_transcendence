@@ -11,7 +11,7 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 | Frontend | Vue 3 + Vite + TypeScript + Tailwind CSS + Reka UI | Decided |
 | Backend | Express + TypeScript | Decided |
 | ORM | Prisma | Decided |
-| Database | TBD (PostgreSQL recommended) | Open |
+| Database | PostgreSQL 16 | Decided |
 | Auth | OAuth 2.0 (Google + 42) | Decided |
 | Real-time | WebSockets (library TBD) | Open |
 | Movie data | TMDB API (provisional) | Open |
