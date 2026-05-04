@@ -5,15 +5,6 @@ When resolved, move the decision to [ARCHITECTURE.md](ARCHITECTURE.md) and delet
 
 ---
 
-## Blocks Phase 0
-
-### Which database?
-
-PostgreSQL 16 recommended — fits the relational model, works with Prisma, easy in Docker.
-Alternatives: SQLite (dev only), MongoDB (adds complexity for relational data).
-
----
-
 ## Blocks Phase 1
 
 ### Do we have 42 OAuth credentials?
