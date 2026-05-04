@@ -75,3 +75,15 @@ Required for:
 | Local orchestration | docker-compose | Decided |
 | Hosting / deployment | TBD | Open |
 | PWA | TBD | Open |
+
+## Dev Setup
+
+```
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173` (Vite dev server + HMR)
+- Backend: `http://localhost:3000` (tsx --watch)
+- PostgreSQL: `localhost:5432`
+
+Vite proxies `/api/*` to the backend via `BACKEND_URL` env var (`http://backend:3000` in Docker, `http://localhost:3000` as fallback for local runs).
