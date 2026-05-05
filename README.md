@@ -10,7 +10,6 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 - [Architecture & Tech Decisions](_meta/doc/ARCHITECTURE.md)
 - [Implementation Roadmap](_meta/doc/ROADMAP.md)
-- [Open Questions](_meta/doc/OPEN_QUESTIONS.md)
 
 ---
 
