@@ -22,7 +22,7 @@ This document records all tech stack decisions: what was chosen, why, and what r
 
 | Item | Decision | Status |
 |---|---|---|
-| Framework | Express + TypeScript | Decided |
+| Framework | Express + TypeScript → NestJS (planned) | In progress |
 | ORM | Prisma | Decided |
 | Database | PostgreSQL 16 | Decided |
 | Auth strategy | OAuth 2.0 — Google + 42 | Decided |

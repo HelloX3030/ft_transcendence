@@ -9,7 +9,7 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 | Layer | Technology | Status |
 |---|---|---|
 | Frontend | Vue 3 + Vite + TypeScript + Tailwind CSS + Reka UI | Decided |
-| Backend | Express + TypeScript | Decided |
+| Backend | Express + TypeScript → NestJS (planned migration) | In progress |
 | ORM | Prisma | Decided |
 | Database | PostgreSQL 16 | Decided |
 | Auth | OAuth 2.0 (Google + 42) | Decided |
@@ -26,11 +26,11 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 ```
 ft_transcendence/
 ├── frontend/          Vue 3 app (Vite, Tailwind, Reka UI)
-├── backend/           Express API (to be created)
+├── backend/           Express API (planned migration to NestJS)
 ├── _meta/
 │   ├── product/       Product requirements and MVP scope
 │   └── doc/           Technical decisions, workflow, roadmap
-├── docker-compose.yml (to be created)
+├── docker-compose.yml
 └── CLAUDE.md          This file
 ```
 
@@ -38,8 +38,15 @@ ft_transcendence/
 
 ## Development Setup
 
-Setup instructions will be added once the backend and Docker configuration are in place.
-See `_meta/doc/ARCHITECTURE.md` for tech stack decisions.
+```
+docker compose up --build
+```
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:3000`
+- PostgreSQL: `localhost:5432`
+
+See `_meta/doc/ARCHITECTURE.md` for full tech stack decisions.
 
 ---
 
