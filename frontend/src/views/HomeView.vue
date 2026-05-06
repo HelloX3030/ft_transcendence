@@ -1,5 +1,7 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import Feed from "@/components/Feed.vue";
+</script>
 
 <template>
-  <div><h1>Moin moin</h1></div>
+  <Feed />
 </template>
