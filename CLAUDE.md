@@ -9,7 +9,7 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 | Layer | Technology | Status |
 |---|---|---|
 | Frontend | Vue 3 + Vite + TypeScript + Tailwind CSS + Reka UI | Decided |
-| Backend | Express + TypeScript → NestJS (planned migration) | In progress |
+| Backend | NestJS + TypeScript | Decided |
 | ORM | Prisma | Decided |
 | Database | PostgreSQL 16 | Decided |
 | Auth | OAuth 2.0 (Google + 42) | Decided |
@@ -26,7 +26,7 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 ```
 ft_transcendence/
 ├── frontend/          Vue 3 app (Vite, Tailwind, Reka UI)
-├── backend/           Express API (planned migration to NestJS)
+├── backend/           NestJS API
 ├── _meta/
 │   ├── product/       Product requirements and MVP scope
 │   └── doc/           Technical decisions, workflow, roadmap
