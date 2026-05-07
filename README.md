@@ -15,12 +15,14 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 ## Setup
 
-**1. Create secret files** (first time only):
+**1. Create config and secret files** (first time only):
 
 ```bash
-cp secrets/db_user.txt.example        secrets/db_user.txt
-cp secrets/db_password.txt.example    secrets/db_password.txt
-cp secrets/db_name.txt.example        secrets/db_name.txt
+cp .env.example .env
+
+cp secrets/db_user.txt.example          secrets/db_user.txt
+cp secrets/db_password.txt.example      secrets/db_password.txt
+cp secrets/db_name.txt.example          secrets/db_name.txt
 cp secrets/pgadmin_password.txt.example secrets/pgadmin_password.txt
 ```
 
