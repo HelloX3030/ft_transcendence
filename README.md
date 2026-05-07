@@ -38,3 +38,26 @@ docker compose up --build
 | PostgreSQL | localhost:5432 |
 
 On subsequent runs `--build` can be omitted unless dependencies changed.
+
+---
+
+## Testing
+
+**Unit tests** (no DB required):
+
+```bash
+docker compose exec backend npm test
+```
+
+**E2e tests** (DB must be running):
+
+```bash
+# With the full stack up:
+docker compose exec backend npm run test:e2e
+
+# Or locally against the port-forwarded DB (docker compose up db first):
+cd backend
+DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_password.txt)@localhost:5432/$(cat ../secrets/db_name.txt)" npm run test:e2e
+```
+
+Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts` (e2e)

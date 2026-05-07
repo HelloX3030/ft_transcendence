@@ -7,7 +7,7 @@ import { AppModule } from './../src/app.module';
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -16,14 +16,17 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('GET /api/ping returns pong and a valid db_time', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/ping')
+      .expect(200);
+
+    expect(response.body.message).toBe('pong');
+    expect(typeof response.body.db_time).toBe('string');
+    expect(new Date(response.body.db_time).getTime()).not.toBeNaN();
   });
 });
