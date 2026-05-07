@@ -1,3 +1,4 @@
 * @ausperg
 .github/CODEOWNERS @HelloX3030
 frontend/ @jofmann
+backend/ @HelloX3030
