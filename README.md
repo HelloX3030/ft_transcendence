@@ -15,4 +15,14 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 ## Setup
 
-Setup instructions will be added once the Docker and backend configuration are finalized.
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:3000 |
+| PostgreSQL | localhost:5432 |
+
+On subsequent runs `--build` can be omitted unless dependencies changed.
