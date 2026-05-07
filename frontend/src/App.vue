@@ -15,7 +15,7 @@ const isMobile = useMediaQuery("(max-width: 768px)");
     <SidebarInset>
       <Header />
       <main class="flex flex-col flex-1">
-        <section class="flex-1 bg-accent">
+        <section class="flex-1">
           <RouterView />
         </section>
         <MobileFooter v-if="isMobile" />
