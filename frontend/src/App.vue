@@ -1,11 +1,27 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import Header from './components/Header.vue'
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+
+import Header from "./components/Header.vue";
+import AppSidebar from "./components/appsidebar/AppSidebar.vue";
+import MobileFooter from "./components/MobileFooter.vue";
+
+import { useMediaQuery } from "@vueuse/core";
+const isMobile = useMediaQuery("(max-width: 768px)");
 </script>
 
 <template>
-  <Header />
-  <RouterView />
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset>
+      <Header />
+      <main class="flex flex-1 flex-col">
+        <section class="flex-1">
+          <RouterView />
+        </section>
+        <MobileFooter v-if="isMobile" />
+      </main>
+    </SidebarInset>
+  </SidebarProvider>
 </template>
 
 <style scoped></style>
