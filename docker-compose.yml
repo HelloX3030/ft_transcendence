@@ -56,6 +56,25 @@ services:
     networks:
       - db
 
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/pgadmin_password
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    secrets:
+      - pgadmin_password
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - web
+      - db
+
 secrets:
   db_user:
     file: ./secrets/db_user.txt
@@ -63,6 +82,8 @@ secrets:
     file: ./secrets/db_password.txt
   db_name:
     file: ./secrets/db_name.txt
+  pgadmin_password:
+    file: ./secrets/pgadmin_password.txt
 
 networks:
   web:
@@ -73,3 +94,4 @@ networks:
 
 volumes:
   pgdata:
+  pgadmin_data:

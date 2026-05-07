@@ -18,12 +18,13 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 **1. Create secret files** (first time only):
 
 ```bash
-cp secrets/db_user.txt.example     secrets/db_user.txt
-cp secrets/db_password.txt.example secrets/db_password.txt
-cp secrets/db_name.txt.example     secrets/db_name.txt
+cp secrets/db_user.txt.example        secrets/db_user.txt
+cp secrets/db_password.txt.example    secrets/db_password.txt
+cp secrets/db_name.txt.example        secrets/db_name.txt
+cp secrets/pgadmin_password.txt.example secrets/pgadmin_password.txt
 ```
 
-Edit `secrets/db_password.txt` to set a real password if desired.
+Edit the `*.txt` files to set real passwords if desired.
 
 **2. Start the stack:**
 
@@ -35,6 +36,7 @@ docker compose up --build
 |---|---|
 | Frontend | http://localhost:5173 |
 | Backend API | http://localhost:3000 |
+| pgAdmin | http://localhost:5050 |
 | PostgreSQL | localhost:5432 |
 
 On subsequent runs `--build` can be omitted unless dependencies changed.

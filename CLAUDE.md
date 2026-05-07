@@ -47,6 +47,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
+- pgAdmin: `http://localhost:5050` (login: `PGADMIN_EMAIL` from `.env`, password from `secrets/pgadmin_password.txt` — email must be a valid address, e.g. `admin@example.com`)
 - PostgreSQL: `localhost:5432`
 
 See `_meta/doc/ARCHITECTURE.md` for full tech stack decisions.
