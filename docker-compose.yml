@@ -15,17 +15,21 @@ services:
 
   backend:
     build: ./backend
-    command: sh -c "npx prisma generate && npm run dev"
+    command: >
+      sh -c "export DATABASE_URL=\"postgresql://$(cat /run/secrets/db_user):$(cat /run/secrets/db_password)@db:5432/$(cat /run/secrets/db_name)\"
+      && npx prisma generate && npm run dev"
     ports:
       - "3000:3000"
     volumes:
       - ./backend:/app
       - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/trailertinder
     depends_on:
       db:
         condition: service_healthy
+    secrets:
+      - db_user
+      - db_password
+      - db_name
     networks:
       - web
       - db
@@ -33,20 +37,32 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: trailertinder
+      POSTGRES_USER_FILE:     /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB_FILE:       /run/secrets/db_name
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)"]
       interval: 5s
       timeout: 5s
       retries: 5
+    secrets:
+      - db_user
+      - db_password
+      - db_name
     networks:
       - db
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  db_name:
+    file: ./secrets/db_name.txt
 
 networks:
   web:
