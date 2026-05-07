@@ -1,0 +1,97 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - BACKEND_URL=${BACKEND_URL}
+    depends_on:
+      - backend
+    networks:
+      - web
+
+  backend:
+    build: ./backend
+    command: >
+      sh -c "export DATABASE_URL=\"postgresql://$(cat /run/secrets/db_user):$(cat /run/secrets/db_password)@db:5432/$(cat /run/secrets/db_name)\"
+      && npx prisma generate && npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    secrets:
+      - db_user
+      - db_password
+      - db_name
+    networks:
+      - web
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER_FILE:     /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_DB_FILE:       /run/secrets/db_name
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    secrets:
+      - db_user
+      - db_password
+      - db_name
+    networks:
+      - db
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/pgadmin_password
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    secrets:
+      - pgadmin_password
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - web
+      - db
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+  db_name:
+    file: ./secrets/db_name.txt
+  pgadmin_password:
+    file: ./secrets/pgadmin_password.txt
+
+networks:
+  web:
+    driver: bridge
+  db:
+    driver: bridge
+    internal: true
+
+volumes:
+  pgdata:
+  pgadmin_data:
