@@ -71,7 +71,7 @@ function togglePlay() {
 
 <template>
   <div ref="video-container" class="h-full relative overflow-hidden">
-    <div class="absolute inset-0 z-10 bg-amber-600/10" @click="togglePlay" />
+    <div class="absolute inset-0 z-10" @click="togglePlay" />
     <Controls @fullscreen-event="toggleFullscreen(container!)" />
     <div
       :id="`player-${videoId}`"
