@@ -4,12 +4,13 @@ import {
   ButtonGroupSeparator,
   ButtonGroupText,
 } from "@/components/ui/button-group";
-import Button from "./ui/button/Button.vue";
-import { Play, Volume2, VolumeOff } from "lucide-vue-next";
+import { Maximize, Minimize, Play, Volume2, VolumeOff } from "lucide-vue-next";
 import { ref } from "vue";
 import { useVideoPlayer } from "@/composables/useVideoPlayer";
+import { Button } from "../ui/button";
 
-const { toggleVolume, isMuted } = useVideoPlayer();
+const { toggleVolume, isMuted, isFullscreen, toggleFullscreen } =
+  useVideoPlayer();
 </script>
 
 <template>
@@ -21,6 +22,10 @@ const { toggleVolume, isMuted } = useVideoPlayer();
     <Button @click="toggleVolume" variant="outline">
       <VolumeOff v-if="isMuted" />
       <Volume2 v-else />
+    </Button>
+    <Button variant="outline" @click="$emit('fullscreen-event')">
+      <Minimize v-if="isFullscreen" />
+      <Maximize v-else />
     </Button>
   </ButtonGroup>
 </template>

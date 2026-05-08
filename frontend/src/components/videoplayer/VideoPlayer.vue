@@ -1,32 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, useTemplateRef, watch } from "vue";
 import { useVideoPlayer } from "@/composables/useVideoPlayer";
 import Controls from "./Controls.vue";
 
 interface PropsType {
   title: string;
-  videoId?: string;
+  videoId: string;
   controls?: boolean;
   active: boolean;
 }
 
 const props = defineProps<PropsType>();
 
+const container = useTemplateRef("video-container");
 const player = ref<YT.Player>();
 const isPlaying = ref(false);
-const { isMuted } = useVideoPlayer();
-
-watch(
-  () => props.active,
-  (isActive) => {
-    if (!player.value) return;
-    if (isActive) {
-      player.value.playVideo();
-    } else {
-      player.value.pauseVideo();
-    }
-  },
-);
+const { isMuted, toggleFullscreen } = useVideoPlayer();
 
 onMounted(() => {
   const init = () => {
@@ -57,6 +46,18 @@ onMounted(() => {
   }
 });
 
+watch(
+  () => props.active,
+  (isActive) => {
+    if (!player.value) return;
+    if (isActive) {
+      player.value.playVideo();
+    } else {
+      player.value.pauseVideo();
+    }
+  },
+); //TODO: search for better solution
+
 watch(isMuted, (muted) => {
   if (!player.value) return;
   muted ? player.value.mute() : player.value.unMute();
@@ -69,9 +70,12 @@ function togglePlay() {
 </script>
 
 <template>
-  <div class="h-full relative overflow-hidden">
-    <div class="absolute inset-0 z-10" @click="togglePlay" />
-    <Controls class="" />
-    <div :id="`player-${videoId}`" class="w-full h-full scale-y-125" />
+  <div ref="video-container" class="h-full relative overflow-hidden">
+    <div class="absolute inset-0 z-10 bg-amber-600/10" @click="togglePlay" />
+    <Controls @fullscreen-event="toggleFullscreen(container!)" />
+    <div
+      :id="`player-${videoId}`"
+      class="w-full h-full lg:scale-y-125 scale-y-150"
+    />
   </div>
 </template>
