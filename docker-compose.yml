@@ -16,8 +16,7 @@ services:
   backend:
     build: ./backend
     command: >
-      sh -c "export DATABASE_URL=\"postgresql://$(cat /run/secrets/db_user):$(cat /run/secrets/db_password)@db:5432/$(cat /run/secrets/db_name)\"
-      && npx prisma generate && npm run dev"
+      sh -c "export DATABASE_URL=\"postgresql://$(cat /run/secrets/db_user):$(cat /run/secrets/db_password)@db:5432/$(cat /run/secrets/db_name)\" && npx prisma generate && npm run dev"
     ports:
       - "3000:3000"
     volumes:
@@ -37,15 +36,16 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER_FILE:     /run/secrets/db_user
+      POSTGRES_USER_FILE: /run/secrets/db_user
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-      POSTGRES_DB_FILE:       /run/secrets/db_name
+      POSTGRES_DB_FILE: /run/secrets/db_name
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)"]
+      test: [ "CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)" ]
       interval: 5s
       timeout: 5s
       retries: 5

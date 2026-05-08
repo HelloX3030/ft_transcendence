@@ -1,0 +1,74 @@
+CREATE TYPE language_code AS ENUM ('de', 'en', 'es'); -- ISO 639-1 language code
+CREATE TYPE user_role AS ENUM ('admin', 'user');
+CREATE TYPE friend_status AS ENUM ('pending', 'accepted', 'blocked');
+CREATE TYPE watchlist_role AS ENUM ( 'owner', 'editor', 'viewer');
+CREATE TYPE reaction_type AS ENUM ( 'like', 'dislike'); -- superlike
+
+
+CREATE TABLE users (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  username varchar(32) NOT NULL UNIQUE,
+  password varchar(512) NOT NULL,
+  email varchar(255) NOT NULL UNIQUE,
+  image varchar(255),
+  language language_code NOT NULL,
+  role user_role NOT NULL,
+  created_at TIMESTAMP DEFAULT timezone('utc', now())
+);
+
+
+CREATE TABLE friends (
+  user_a_id INT REFERENCES users(id),
+  user_b_id INT REFERENCES users(id),
+  status friend_status NOT NULL,
+  created_at TIMESTAMP DEFAULT timezone('utc', now()),
+  CONSTRAINT check_user_order CHECK (user_a_id < user_b_id),
+  PRIMARY KEY (user_a_id, user_b_id)
+);
+
+
+CREATE TABLE movies (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tmdb_id integer NOT NULL UNIQUE,
+  name varchar(255) NOT NULL
+);
+
+
+CREATE TABLE watchlists (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name varchar(255) NOT NULL,
+  image varchar(255),
+  created_at TIMESTAMP DEFAULT timezone('utc', now())
+);
+
+CREATE TABLE ratings (
+  user_id INT REFERENCES users(id),
+  movie_id INT REFERENCES movies(id),
+  trailer_rating reaction_type NOT NULL,
+  movie_rating smallint DEFAULT 0,
+  created_at TIMESTAMP DEFAULT timezone('utc', now()),
+  CHECK (movie_rating BETWEEN 0 AND 5),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE TABLE watchlist_users (
+  watchlist_id INT REFERENCES watchlists(id),
+  user_id INT REFERENCES users(id),
+  role watchlist_role NOT NULL,
+  PRIMARY KEY (watchlist_id, user_id)
+);
+
+CREATE TABLE watchlist_movies (
+  watchlist_id INT REFERENCES watchlists(id),
+  movie_id INT REFERENCES movies(id),
+  PRIMARY KEY (watchlist_id, movie_id)
+);
+
+
+-- CREATE INDEX idx_ratings_user ON ratings(user_id);
+-- CREATE INDEX idx_ratings_movie ON ratings(movie_id);
+
+-- CREATE INDEX idx_watchlist_users_user ON watchlist_users(user_id);
+-- CREATE INDEX idx_watchlist_movies_movie ON watchlist_movies(movie_id);
+
+-- CREATE INDEX idx_friends_status ON friends(status);
