@@ -1,7 +1,7 @@
-CREATE TYPE language_type AS ENUM ('de', 'en', 'esp');
-CREATE TYPE user_role_type AS ENUM ('admin', 'user');
+CREATE TYPE language_code AS ENUM ('de', 'en', 'es'); -- ISO 639-1 language code
+CREATE TYPE user_role AS ENUM ('admin', 'user');
 CREATE TYPE friend_status AS ENUM ('pending', 'accepted', 'blocked');
-CREATE TYPE role_type AS ENUM ( 'owner', 'editor', 'viewer');
+CREATE TYPE watchlist_role AS ENUM ( 'owner', 'editor', 'viewer');
 
 
 CREATE TABLE users (
@@ -10,8 +10,8 @@ CREATE TABLE users (
   password varchar(512) NOT NULL,
   email varchar(255) NOT NULL UNIQUE,
   image varchar(255),
-  language language_type NOT NULL,
-  role user_role_type NOT NULL,
+  language language_code NOT NULL,
+  role user_role NOT NULL,
   created_at TIMESTAMP DEFAULT timezone('utc', now())
 );
 
@@ -53,7 +53,7 @@ CREATE TABLE ratings (
 CREATE TABLE watchlist_users (
   watchlist_id INT REFERENCES watchlists(id),
   user_id INT REFERENCES users(id),
-  role role_type NOT NULL,
+  role watchlist_role NOT NULL,
   PRIMARY KEY (watchlist_id, user_id)
 );
 
