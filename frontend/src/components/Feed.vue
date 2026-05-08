@@ -15,7 +15,7 @@ const trailers = [
   { key: "l0X5R1hRw8g", name: "Cybord" },
 ];
 
-const currentIndex = ref(0);
+const currentIndex = ref(0); //TODO: check ob VideoPlayer component immer neu rendert wegen dem currentIndex ref
 const api = ref<CarouselApi>();
 const setApi = (val: CarouselApi) => {
   api.value = val;
