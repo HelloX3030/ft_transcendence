@@ -2,6 +2,7 @@ CREATE TYPE language_code AS ENUM ('de', 'en', 'es'); -- ISO 639-1 language code
 CREATE TYPE user_role AS ENUM ('admin', 'user');
 CREATE TYPE friend_status AS ENUM ('pending', 'accepted', 'blocked');
 CREATE TYPE watchlist_role AS ENUM ( 'owner', 'editor', 'viewer');
+CREATE TYPE reaction_type AS ENUM ( 'like', 'dislike'); -- superlike
 
 
 CREATE TABLE users (
@@ -40,13 +41,13 @@ CREATE TABLE watchlists (
   created_at TIMESTAMP DEFAULT timezone('utc', now())
 );
 
-
 CREATE TABLE ratings (
   user_id INT REFERENCES users(id),
   movie_id INT REFERENCES movies(id),
-  trailer_like bool NOT NULL,
-  movie_rating smallint DEFAULT -1,
+  trailer_rating reaction_type NOT NULL,
+  movie_rating smallint DEFAULT 0,
   created_at TIMESTAMP DEFAULT timezone('utc', now()),
+  CHECK (movie_rating BETWEEN 0 AND 5),
   PRIMARY KEY (user_id, movie_id)
 );
 
