@@ -1,48 +1,65 @@
-# ./
+# TrailerTinder — Frontend
 
-This template should help get you started developing with Vue 3 in Vite.
+Vue 3 + Vite SPA. Runs on port 5173 inside Docker.
 
-## Recommended IDE Setup
+---
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Stack
 
-## Recommended Browser Setup
+| | |
+|---|---|
+| Framework | Vue 3 (Composition API) |
+| Language | TypeScript (strict) |
+| Bundler | Vite |
+| Styling | Tailwind CSS 4 |
+| Component library | Reka UI (shadcn-vue pattern) |
+| State management | Pinia |
+| Routing | Vue Router |
+| Icons | Lucide Vue |
+| Utilities | VueUse |
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+---
 
-## Type Support for `.vue` Imports in TS
+## Directory layout
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
+```
+src/
+├── views/           Page-level components (one per route)
+├── components/      Reusable feature components
+│   └── ui/          Reka UI wrappers — generated via shadcn-vue CLI, do not hand-edit
+├── stores/          Pinia stores
+├── router/          Vue Router configuration
+├── lib/
+│   └── utils.ts     Shared utility functions
+├── App.vue          Root component
+└── main.ts          Bootstrap
 ```
 
-### Compile and Hot-Reload for Development
+---
 
-```sh
-npm run dev
+## Running (via Docker Compose)
+
+```bash
+docker compose up --build   # Start the full stack (frontend on port 5173)
 ```
 
-### Type-Check, Compile and Minify for Production
+---
 
-```sh
-npm run build
+## Standalone dev commands
+
+```bash
+npm install           # Install dependencies
+
+npm run dev           # Hot-reload dev server
+npm run build         # Type-check + production build
+npm run type-check    # Type-check only (vue-tsc)
+npm run lint          # oxlint + ESLint (both with --fix)
+npm run format        # Prettier
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+---
 
-```sh
-npm run lint
-```
+## IDE setup
+
+- **VS Code** + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) — disable Vetur if installed
+- Browser: [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) (Chrome) · [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/) (Firefox)
