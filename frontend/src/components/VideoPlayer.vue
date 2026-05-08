@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
+import Controls from "./Controls.vue";
 
 interface PropsType {
   title: string;
@@ -10,8 +11,9 @@ interface PropsType {
 
 const props = defineProps<PropsType>();
 
-const player = ref();
+const player = ref<YT.Player>();
 const isPlaying = ref(false);
+const volume = ref(false);
 
 watch(
   () => props.active,
@@ -54,6 +56,11 @@ onMounted(() => {
   }
 });
 
+function toggleVolume() {
+  if (!player.value) return;
+  player.value.isMuted() ? player.value.unMute() : player.value.mute();
+}
+
 function togglePlay() {
   if (!player.value) return;
   isPlaying.value ? player.value.pauseVideo() : player.value.playVideo();
@@ -63,11 +70,7 @@ function togglePlay() {
 <template>
   <div class="h-full relative overflow-hidden">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
-    <!-- <Button
-      class="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
-      variant="ghost"
-      @click="togglePlay"
-    ></Button> -->
+    <Controls class="" @volume-event="toggleVolume" />
     <div :id="`player-${videoId}`" class="w-full h-full scale-y-125" />
   </div>
 </template>
