@@ -1,29 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, useTemplateRef, watch } from "vue";
+import { useVideoPlayer } from "@/composables/useVideoPlayer";
+import Controls from "./Controls.vue";
 
 interface PropsType {
   title: string;
-  videoId?: string;
+  videoId: string;
   controls?: boolean;
   active: boolean;
 }
 
 const props = defineProps<PropsType>();
 
-const player = ref();
+const container = useTemplateRef("video-container");
+const player = ref<YT.Player>();
 const isPlaying = ref(false);
-
-watch(
-  () => props.active,
-  (isActive) => {
-    if (!player.value) return;
-    if (isActive) {
-      player.value.playVideo();
-    } else {
-      player.value.pauseVideo();
-    }
-  },
-);
+const { isMuted, toggleFullscreen } = useVideoPlayer();
 
 onMounted(() => {
   const init = () => {
@@ -54,6 +46,23 @@ onMounted(() => {
   }
 });
 
+watch(
+  () => props.active,
+  (isActive) => {
+    if (!player.value) return;
+    if (isActive) {
+      player.value.playVideo();
+    } else {
+      player.value.pauseVideo();
+    }
+  },
+); //TODO: search for better solution
+
+watch(isMuted, (muted) => {
+  if (!player.value) return;
+  muted ? player.value.mute() : player.value.unMute();
+});
+
 function togglePlay() {
   if (!player.value) return;
   isPlaying.value ? player.value.pauseVideo() : player.value.playVideo();
@@ -61,13 +70,12 @@ function togglePlay() {
 </script>
 
 <template>
-  <div class="h-full relative overflow-hidden">
+  <div ref="video-container" class="h-full relative overflow-hidden">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
-    <!-- <Button
-      class="absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
-      variant="ghost"
-      @click="togglePlay"
-    ></Button> -->
-    <div :id="`player-${videoId}`" class="w-full h-full scale-y-125" />
+    <Controls @fullscreen-event="toggleFullscreen(container!)" />
+    <div
+      :id="`player-${videoId}`"
+      class="w-full h-full lg:scale-y-125 scale-y-150"
+    />
   </div>
 </template>
