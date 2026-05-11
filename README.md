@@ -28,7 +28,15 @@ cp secrets/pgadmin_password.txt.example secrets/pgadmin_password.txt
 
 Edit the `*.txt` files to set real passwords if desired.
 
-**2. Start the stack:**
+**2. Activate git hooks** (first time only):
+
+```bash
+npm install
+```
+
+This installs husky and wires up the pre-commit hook. Without this step, lint and format checks won't run locally before commits.
+
+**3. Start the stack:**
 
 ```bash
 docker compose up --build
@@ -42,6 +50,8 @@ docker compose up --build
 | PostgreSQL | localhost:5432 |
 
 On subsequent runs `--build` can be omitted unless dependencies changed.
+
+**VS Code:** Open the repo and accept the "Install recommended extensions" prompt — this sets up Prettier (format on save) and ESLint automatically.
 
 ---
 

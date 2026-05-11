@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
   SidebarContent,
@@ -16,15 +16,10 @@ import {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-} from "@/components/ui/sidebar";
-import {
-  BookHeart,
-  CircleQuestionMark,
-  Clapperboard,
-  LogOut,
-} from "lucide-vue-next";
-import AppSidebarHeader from "./AppSidebarHeader.vue";
-import AppSidebarItem from "./AppSidebarItem.vue";
+} from '@/components/ui/sidebar';
+import { BookHeart, CircleQuestionMark, Clapperboard, LogOut } from 'lucide-vue-next';
+import AppSidebarHeader from './AppSidebarHeader.vue';
+import AppSidebarItem from './AppSidebarItem.vue';
 </script>
 
 <template>
@@ -35,17 +30,9 @@ import AppSidebarItem from "./AppSidebarItem.vue";
         <!-- <SidebarGroupLabel>Platform</SidebarGroupLabel> -->
         <SidebarGroupContent>
           <SidebarMenu>
-            <AppSidebarItem
-              titel="Discover"
-              path="/discover"
-              :icon="Clapperboard"
-            />
+            <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
 
-            <AppSidebarItem
-              titel="Watchlist"
-              path="/watchlist"
-              :icon="BookHeart"
-            />
+            <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

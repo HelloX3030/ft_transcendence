@@ -87,3 +87,27 @@ docker compose up --build
 - PostgreSQL: `localhost:5432`
 
 Vite proxies `/api/*` to the backend via `BACKEND_URL` env var (`http://backend:3000` in Docker, `http://localhost:3000` as fallback for local runs).
+
+---
+
+## Code Quality & Formatting
+
+Three-layer pipeline: editor → pre-commit hook → CI. See [`_meta/notes/02-formatting-pipeline.md`](../notes/02-formatting-pipeline.md) for the full reference.
+
+| Tool | Role | Scope |
+|---|---|---|
+| **Prettier** | Formatting (whitespace, quotes, line endings) | All files |
+| **ESLint** | Code correctness, type-safety rules | `.ts`, `.vue` |
+| **oxlint** | Fast linter (subset of ESLint rules, no false positives) | Frontend only |
+| **husky + lint-staged** | Pre-commit hook — runs ESLint + Prettier on staged files only | Both packages |
+| **GitHub Actions** | CI gate — format:check, lint, type-check, unit tests on every PR | Both packages |
+
+**Shared config at repo root:**
+- `.prettierrc` — single source of truth for formatting rules (`singleQuote`, `trailingComma`, `endOfLine: lf`, `printWidth: 100`); inherited by both `frontend/` and `backend/`
+- `.gitattributes` — enforces LF line endings in git (must match `endOfLine: lf` in Prettier to avoid churn)
+
+**Per-package ESLint configs** (`frontend/eslint.config.mjs`, `backend/eslint.config.mjs`) — flat config format (ESLint 9+). Both include `eslint-config-prettier` to disable formatting rules, deferring entirely to Prettier.
+
+**Key constraint:** Prettier and ESLint must never configure the same rules. `eslint-config-prettier` is the last entry in both ESLint configs to enforce this.
+
+**Developer first-time setup** — after cloning, run `npm install` at the repo root to activate the pre-commit hook via husky's `prepare` script. Without this, git hooks don't exist on the local machine.

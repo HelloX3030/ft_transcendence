@@ -1,5 +1,5 @@
-import { Controller, Get } from '@nestjs/common'
-import { AppService } from './app.service'
+import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
@@ -7,12 +7,12 @@ export class AppController {
 
   @Get('health')
   health() {
-    return { status: 'ok' }
+    return { status: 'ok' };
   }
 
   @Get('api/ping')
   async ping() {
-    const db_time = await this.appService.getDbTime()
-    return { message: 'pong', db_time }
+    const db_time = await this.appService.getDbTime();
+    return { message: 'pong', db_time };
   }
 }

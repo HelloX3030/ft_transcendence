@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import type { LucideIcon } from "lucide-vue-next";
-import { SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
+import type { LucideIcon } from 'lucide-vue-next';
+import { SidebarMenuButton, SidebarMenuItem } from '../ui/sidebar';
 
 interface PropsType {
   titel: string;
