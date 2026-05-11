@@ -7,8 +7,6 @@
     "noUncheckedIndexedAccess": true,
 
     // Path mapping for cleaner imports.
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     },
