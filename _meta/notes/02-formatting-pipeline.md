@@ -55,14 +55,20 @@ When a dev runs `npm install`, npm automatically runs `prepare`, husky runs, and
 
 ---
 
-**What happens:** When you run `git commit`, Git fires the `.husky/pre-commit` hook, which runs `lint-staged` in both `frontend/` and `backend/`. lint-staged runs ESLint (`--fix`) and Prettier (`--write`) on only the files you've staged — not the whole repo. Fixed files are re-staged automatically. If ESLint finds an error it can't auto-fix (a real code problem), the commit aborts and you see the error.
+**What happens:** When you run `git commit`, Git fires the `.husky/pre-commit` hook. The hook runs `lint-staged` inside a `node:22-slim` Docker container, which runs ESLint (`--fix`) and Prettier (`--write`) on only the files you've staged — not the whole repo. Fixed files are re-staged automatically. If ESLint finds an error it can't auto-fix (a real code problem), the commit aborts and you see the error.
+
+**Why Docker?** ESLint 10 requires Node ≥ 20.12. School machines often run older system Node versions that can't be upgraded. Running the hook inside Docker guarantees Node 22 regardless of what's installed on the host.
+
+**What happens if Docker is not running?** The hook prints a warning and exits 0 (commit proceeds). CI on Node 22 is the fallback enforcement gate.
+
+**First use:** Docker pulls `node:22` (~1.1 GB, includes git which lint-staged needs) the first time the hook fires. Subsequent commits use the cached image and are fast.
 
 **Config files:**
-- `.husky/pre-commit` — the hook script (calls lint-staged in each package)
+- `.husky/pre-commit` — the hook script (runs lint-staged in Node 22 via Docker)
 - `frontend/package.json` → `"lint-staged"` key — rules for `.ts`/`.vue` files
 - `backend/package.json` → `"lint-staged"` key — rules for `.ts` files
 
-**What devs need:** Run `npm install` once in the repo root after cloning:
+**What devs need:** Run `npm install` once in the repo root after cloning, and have Docker running when committing:
 ```bash
 # From the repo root (ft_transcendence/):
 npm install
