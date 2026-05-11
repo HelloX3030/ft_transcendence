@@ -9,4 +9,9 @@ export default defineConfigWithVueTs(
   vueTsConfigs.recommended,
   pluginOxlint.configs['flat/recommended'],
   configPrettier,
+  {
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
 )

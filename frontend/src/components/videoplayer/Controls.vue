@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ButtonGroup, ButtonGroupSeparator, ButtonGroupText } from '@/components/ui/button-group';
-import { Maximize, Minimize, Play, Volume2, VolumeOff } from 'lucide-vue-next';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Maximize, Minimize, Volume2, VolumeOff } from 'lucide-vue-next';
 
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import { Button } from '../ui/button';
