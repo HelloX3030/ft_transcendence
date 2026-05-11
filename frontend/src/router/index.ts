@@ -1,26 +1,26 @@
-import DiscoverView from "@/views/DiscoverView.vue";
-import HomeView from "@/views/HomeView.vue";
-import ProfileView from "@/views/ProfileView.vue";
-import WatchlistView from "@/views/WatchlistView.vue";
-import { createRouter, createWebHistory } from "vue-router";
+import DiscoverView from '@/views/DiscoverView.vue';
+import HomeView from '@/views/HomeView.vue';
+import ProfileView from '@/views/ProfileView.vue';
+import WatchlistView from '@/views/WatchlistView.vue';
+import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: "/",
+      path: '/',
       component: HomeView,
     },
     {
-      path: "/discover",
+      path: '/discover',
       component: DiscoverView,
     },
     {
-      path: "/profile",
+      path: '/profile',
       component: ProfileView,
     },
     {
-      path: "/watchlist",
+      path: '/watchlist',
       component: WatchlistView,
     },
   ],

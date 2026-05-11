@@ -28,6 +28,7 @@ describe('AppController', () => {
       const result = await appController.ping();
 
       expect(result).toEqual({ message: 'pong', db_time: fakeDate });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(appService.getDbTime).toHaveBeenCalledTimes(1);
     });
 
