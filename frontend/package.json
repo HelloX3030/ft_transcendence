@@ -38,6 +38,7 @@
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.2.2",
     "eslint-plugin-oxlint": "~1.60.0",
     "eslint-plugin-vue": "~10.8.0",
     "jiti": "^2.6.1",
