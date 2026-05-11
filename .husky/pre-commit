@@ -1,2 +1,10 @@
+#!/bin/sh
+# ESLint 10 requires Node >= 20.12.0 (uses util.styleText added in 20.12).
+# On older Node the hook crashes before linting anything — skip it and let CI verify.
+NODE_VERSION=$(node -e "const [ma,mi]=process.versions.node.split('.');process.stdout.write(ma*10000+mi*1+'')")
+if [ "$NODE_VERSION" -lt 200012 ]; then
+  echo "pre-commit: Node $(node -v) < 20.12 — skipping lint-staged (CI on Node 22 will verify)"
+  exit 0
+fi
 cd frontend && npx lint-staged
 cd ../backend && npx lint-staged
