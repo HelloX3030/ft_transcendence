@@ -72,6 +72,25 @@ Never hardcode values directly in `docker-compose.yml`.
 
 ---
 
+## CI Checks
+
+Run the full CI suite locally (Docker must be running, no full stack required):
+
+```bash
+npm run check          # format:check + lint + type-check/test for both layers
+```
+
+Or per layer:
+
+```bash
+docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
+docker compose run --rm --no-deps backend  sh -c 'npm run format:check && npm run lint && npm run test'
+```
+
+The pre-commit hook only covers staged files; `npm run check` runs all files, identical to CI.
+
+---
+
 ## Commit Policy
 
 - **Claude writes commit messages** following [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, etc.)
