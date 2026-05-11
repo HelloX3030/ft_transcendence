@@ -36,6 +36,8 @@ npm install
 
 This installs husky and wires up the pre-commit hook. Without this step, lint and format checks won't run locally before commits.
 
+The hook runs lint-staged inside a `node:22` Docker container so it works regardless of your host Node version. **Docker must be running when you commit** — on first use it pulls the image (~1.1 GB, cached after that). If Docker is not running the hook skips with a warning and CI verifies instead.
+
 **3. Start the stack:**
 
 ```bash
