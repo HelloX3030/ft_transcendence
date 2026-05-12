@@ -55,13 +55,12 @@ When a dev runs `npm install`, npm automatically runs `prepare`, husky runs, and
 
 ---
 
-**What happens:** When you run `git commit`, Git fires the `.husky/pre-commit` hook. The hook runs `lint-staged` inside a `node:22` Docker container with per-workspace rules:
+**What happens:** When you run `git commit`, Git fires the `.husky/pre-commit` hook. The hook runs `lint-staged` inside a `node:22` Docker container — **formatting only, no linting**:
 
-- **frontend** `src/**/*.{ts,vue}` → `oxlint --fix`, then `eslint --fix`
-- **frontend** `src/**/*.{css,json}` → `prettier --write`
-- **backend** `{src,test}/**/*.ts` → `eslint --fix`
+- **frontend** `src/**/*.{ts,vue,css,json}` → `prettier --write`
+- **backend** `{src,test}/**/*.ts` → `prettier --write`
 
-Fixed files are re-staged automatically. If a linter finds an error it can't auto-fix (a real code problem), the commit aborts and you see the error.
+Staged files are reformatted and re-staged automatically. The hook never blocks a commit — lint errors are only enforced by CI (Layer 3).
 
 **Why Docker?** ESLint 10 requires Node ≥ 20.12. School machines often run older system Node versions that can't be upgraded. Running the hook inside Docker guarantees Node 22 regardless of what's installed on the host.
 
@@ -71,8 +70,8 @@ Fixed files are re-staged automatically. If a linter finds an error it can't aut
 
 **Config files:**
 - `.husky/pre-commit` — the hook script (runs lint-staged in Node 22 via Docker)
-- `frontend/package.json` → `"lint-staged"` key — oxlint+eslint for `.ts`/`.vue`, prettier for `.css`/`.json`
-- `backend/package.json` → `"lint-staged"` key — eslint for `.ts` files (Prettier not wired into the hook)
+- `frontend/package.json` → `"lint-staged"` key — prettier for all staged source files
+- `backend/package.json` → `"lint-staged"` key — prettier for all staged source files
 
 **What devs need:** Run `npm install` once in the repo root after cloning, and have Docker running when committing:
 ```bash
@@ -91,16 +90,12 @@ The hook can be bypassed intentionally with `git commit --no-verify`, which is s
 
 **Frontend job** (`working-directory: frontend`):
 1. `npm ci` — clean install
-2. `npm run format:check` — fails if any file doesn't match Prettier's output
-3. `npm run lint` — ESLint + oxlint (with `--fix`, so unfixable errors cause failure)
-4. `npm run type-check` — `vue-tsc` full TypeScript check
+2. `npm run check` → `format:check` + `lint` (oxlint + ESLint) + `type-check`
 
 **Backend job** (`working-directory: backend`):
 1. `npm ci` — clean install
 2. `npx prisma generate` — generates the Prisma client (required before linting, which imports from `@prisma/client`)
-3. `npm run format:check` — fails if any file doesn't match Prettier
-4. `npm run lint` — ESLint with `--fix`
-5. `npm run test` — Jest unit tests (no DB required)
+3. `npm run check` → `format:check` + `lint` (ESLint) + `test` (Jest)
 
 If any step fails, the PR is blocked. E2e tests are excluded from CI because they need the full Docker stack.
 

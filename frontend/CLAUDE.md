@@ -56,7 +56,7 @@ docker compose up --build   # Start everything (frontend on port 5173)
 **CI checks (format + lint + type-check, no stack required):**
 
 ```bash
-docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
+docker compose run --rm --no-deps frontend npm run check
 ```
 
 ---

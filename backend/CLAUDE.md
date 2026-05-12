@@ -72,7 +72,7 @@ docker compose exec backend npm run lint     # ESLint (auto-fix)
 **CI checks (format + lint + test, no stack required):**
 
 ```bash
-docker compose run --rm --no-deps backend sh -c 'npm run format:check && npm run lint && npm run test'
+docker compose run --rm --no-deps backend npm run check
 ```
 
 ---

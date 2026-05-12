@@ -83,11 +83,11 @@ npm run check          # format:check + lint + type-check/test for both layers
 Or per layer:
 
 ```bash
-docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
-docker compose run --rm --no-deps backend  sh -c 'npm run format:check && npm run lint && npm run test'
+docker compose run --rm --no-deps frontend npm run check
+docker compose run --rm --no-deps backend  npm run check
 ```
 
-The pre-commit hook only covers staged files; `npm run check` runs all files, identical to CI.
+The pre-commit hook only covers staged files (Prettier only); `npm run check` runs all files, identical to CI.
 
 ---
 

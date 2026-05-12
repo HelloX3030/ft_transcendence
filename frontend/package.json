@@ -13,7 +13,8 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
-    "format:check": "prettier --check --experimental-cli src/"
+    "format:check": "prettier --check --experimental-cli src/",
+    "check": "run-s format:check lint type-check"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
@@ -56,7 +57,6 @@
     "node": "^20.19.0 || >=22.12.0"
   },
   "lint-staged": {
-    "src/**/*.{ts,vue}": ["oxlint --fix", "eslint --fix"],
-    "src/**/*.{css,json}": ["prettier --write"]
+    "src/**/*.{ts,vue,css,json}": ["prettier --write"]
   }
 }

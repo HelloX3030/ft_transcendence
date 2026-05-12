@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "check": "npm run format:check && npm run lint && npm run test",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -75,7 +76,7 @@
     "testEnvironment": "node"
   },
   "lint-staged": {
-    "{src,test}/**/*.ts": ["eslint --fix"]
+    "{src,test}/**/*.ts": ["prettier --write"]
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
