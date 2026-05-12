@@ -53,6 +53,12 @@ The frontend runs inside Docker — use the root `docker-compose.yml`:
 docker compose up --build   # Start everything (frontend on port 5173)
 ```
 
+**CI checks (format + lint + type-check, no stack required):**
+
+```bash
+docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
+```
+
 ---
 
 ## Testing
