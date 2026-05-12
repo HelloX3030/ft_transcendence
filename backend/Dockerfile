@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY nest-cli.json ./
 COPY prisma/ ./prisma/
-RUN npm install
+RUN npm ci
 COPY . .
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
