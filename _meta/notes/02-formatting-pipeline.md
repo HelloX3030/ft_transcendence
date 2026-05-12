@@ -8,7 +8,7 @@ How the code quality tooling works in TrailerTinder, what runs when, and what ev
 
 ```
 Save file  →  Editor formats automatically          (Layer 1 — instant, local)
-git commit →  Hook lints + formats staged files     (Layer 2 — local gate)
+git commit →  Hook formats staged files              (Layer 2 — local gate)
 PR / push  →  CI checks format, lint, types, tests  (Layer 3 — enforced gate)
 ```
 
@@ -62,7 +62,7 @@ When a dev runs `npm install`, npm automatically runs `prepare`, husky runs, and
 
 Staged files are reformatted and re-staged automatically. The hook never blocks a commit — lint errors are only enforced by CI (Layer 3).
 
-**Why Docker?** ESLint 10 requires Node ≥ 20.12. School machines often run older system Node versions that can't be upgraded. Running the hook inside Docker guarantees Node 22 regardless of what's installed on the host.
+**Why Docker?** School machines often run older system Node versions. Running the hook inside Docker guarantees a consistent Node 22 environment regardless of what's installed on the host — and keeps the hook self-contained without requiring a local `npm install` in each workspace first.
 
 **What happens if Docker is not running?** The hook prints a warning and exits 0 (commit proceeds). CI on Node 22 is the fallback enforcement gate.
 
@@ -131,10 +131,10 @@ ft_transcendence/
 │   └── ci.yml               Format check + lint + type-check + tests on every PR
 ├── frontend/
 │   ├── eslint.config.mjs    Vue 3 + TypeScript + oxlint + prettier rules
-│   └── package.json         lint-staged config + lint/format/format:check scripts
+│   └── package.json         lint-staged + format / format:check / lint / check scripts
 └── backend/
     ├── eslint.config.mjs    NestJS + TypeScript + prettier rules
-    └── package.json         lint-staged config + lint/format/format:check scripts
+    └── package.json         lint-staged + format / format:check / lint / check scripts
 ```
 
 ---
@@ -142,19 +142,23 @@ ft_transcendence/
 ## Running manually
 
 ```bash
-# Format all frontend files:
-cd frontend && npm run format
+# Run the full check suite (format:check + lint + type-check/test) — identical to CI:
+npm run check                        # both layers via Docker
+cd frontend && npm run check         # frontend only (needs Node 22)
+cd backend  && npm run check         # backend only (needs Node 22)
 
-# Check formatting without changing files (what CI runs):
+# Format all files (Prettier --write):
+npm run format                       # both layers via Docker
+cd frontend && npm run format        # frontend only (needs Node 22)
+cd backend  && npm run format        # backend only (needs Node 22)
+
+# Check formatting without changing files:
 cd frontend && npm run format:check
+cd backend  && npm run format:check
 
-# Lint + auto-fix frontend:
+# Lint + auto-fix only:
 cd frontend && npm run lint
-
-# Same for backend:
-cd backend && npm run format
-cd backend && npm run format:check
-cd backend && npm run lint
+cd backend  && npm run lint
 ```
 
 ---
