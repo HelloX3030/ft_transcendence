@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
-    "check": "docker compose -f docker-compose.check.yml run --rm frontend sh -c 'npm run format:check && npm run lint && npm run type-check' && docker compose -f docker-compose.check.yml run --rm backend sh -c 'npm run format:check && npm run lint && npm run test'"
+    "check": "docker compose -f docker-compose.check.yml run --rm frontend npm run check && docker compose -f docker-compose.check.yml run --rm backend npm run check"
   },
   "devDependencies": {
     "husky": "^9.1.7"
