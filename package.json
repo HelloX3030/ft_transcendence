@@ -1,0 +1,12 @@
+{
+  "name": "ft-transcendence",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "format": "docker compose -f docker-compose.check.yml run --rm frontend npm run format && docker compose -f docker-compose.check.yml run --rm backend npm run format",
+    "check": "docker compose -f docker-compose.check.yml run --rm frontend npm run check && docker compose -f docker-compose.check.yml run --rm backend npm run check"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

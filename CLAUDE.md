@@ -51,7 +51,7 @@ docker compose up --build
 - PostgreSQL: `localhost:5432`
 
 See `_meta/doc/ARCHITECTURE.md` for full tech stack decisions.
-See `backend/README.md` for the backend module structure, endpoints, and test commands.
+See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for folder-specific conventions, test commands, and formatting setup.
 
 ---
 
@@ -72,46 +72,22 @@ Never hardcode values directly in `docker-compose.yml`.
 
 ---
 
-## Testing
+## CI Checks
 
-Currently backend-only. Frontend test infrastructure is not yet set up.
-
-### Unit tests (no DB required)
+Run the full CI suite locally (Docker must be running, no full stack required):
 
 ```bash
-docker compose exec backend npm test
+npm run check          # format:check + lint + type-check/test for both layers
 ```
 
-### E2e tests (DB must be running)
+Or per layer:
 
 ```bash
-# With the full stack up:
-docker compose exec backend npm run test:e2e
-
-# Or locally against the port-forwarded DB (docker compose up db first):
-cd backend
-DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_password.txt)@localhost:5432/$(cat ../secrets/db_name.txt)" npm run test:e2e
+docker compose run --rm --no-deps frontend npm run check
+docker compose run --rm --no-deps backend  npm run check
 ```
 
-### Coverage
-
-```bash
-docker compose exec backend npm run test:cov
-```
-
-Test files live in `backend/src/**/*.spec.ts` (unit) and `backend/test/**/*.e2e-spec.ts` (e2e).
-
----
-
-## Keeping documentation in sync
-
-`backend/README.md` documents the backend's current module structure, endpoints, and test commands. **Keep it up to date** when any of the following change:
-
-- A new NestJS module, controller, or service is added or removed
-- A new HTTP endpoint is added or changed
-- Test infrastructure changes (new test type, new commands, etc.)
-
-Similarly, update this file (`CLAUDE.md`) when project-wide conventions or setup steps change.
+The pre-commit hook only covers staged files (Prettier only); `npm run check` runs all files, identical to CI.
 
 ---
 

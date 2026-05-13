@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
-import Header from "./components/Header.vue";
-import AppSidebar from "./components/appsidebar/AppSidebar.vue";
-import MobileFooter from "./components/MobileFooter.vue";
+import Header from './components/Header.vue';
+import AppSidebar from './components/appsidebar/AppSidebar.vue';
+import MobileFooter from './components/MobileFooter.vue';
 
-import { useMediaQuery } from "@vueuse/core";
-const isMobile = useMediaQuery("(max-width: 768px)");
+import { useMediaQuery } from '@vueuse/core';
+const isMobile = useMediaQuery('(max-width: 768px)');
 </script>
 
 <template>

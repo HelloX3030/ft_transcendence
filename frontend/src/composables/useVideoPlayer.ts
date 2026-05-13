@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref } from 'vue';
 
 const isMuted = ref(true);
 const isFullscreen = ref(false);

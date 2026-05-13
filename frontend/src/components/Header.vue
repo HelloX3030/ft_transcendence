@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell } from "lucide-vue-next";
-import Separator from "./ui/separator/Separator.vue";
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Bell } from 'lucide-vue-next';
+import Separator from './ui/separator/Separator.vue';
 </script>
 
 <template>
@@ -10,15 +10,9 @@ import Separator from "./ui/separator/Separator.vue";
       <SidebarTrigger />
       <RouterLink to="/">
         <div class="flex items-center">
-          <img
-            src="/logo-512x512.png"
-            alt="logo"
-            class="size-12 rounded-full"
-          />
+          <img src="/logo-512x512.png" alt="logo" class="size-12 rounded-full" />
 
-          <p class="text-lg font-medium hover:text-primary transition-colors">
-            Trailer Tinder
-          </p>
+          <p class="text-lg font-medium hover:text-primary transition-colors">Trailer Tinder</p>
         </div>
       </RouterLink>
 
