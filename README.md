@@ -28,7 +28,17 @@ cp secrets/pgadmin_password.txt.example secrets/pgadmin_password.txt
 
 Edit the `*.txt` files to set real passwords if desired.
 
-**2. Start the stack:**
+**2. Activate git hooks** (first time only):
+
+```bash
+npm install
+```
+
+This installs husky and wires up the pre-commit hook. Without this step, lint and format checks won't run locally before commits.
+
+The hook runs lint-staged inside a `node:22` Docker container so it works regardless of your host Node version. **Docker must be running when you commit** — on first use it pulls the image (~1.1 GB, cached after that). If Docker is not running the hook skips with a warning and CI verifies instead.
+
+**3. Start the stack:**
 
 ```bash
 docker compose up --build
@@ -42,6 +52,8 @@ docker compose up --build
 | PostgreSQL | localhost:5432 |
 
 On subsequent runs `--build` can be omitted unless dependencies changed.
+
+**VS Code:** Open the repo and accept the "Install recommended extensions" prompt — this sets up Prettier (format on save) and ESLint automatically.
 
 ---
 
@@ -65,3 +77,22 @@ DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_pas
 ```
 
 Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts` (e2e)
+
+---
+
+## Code Quality
+
+Run the full CI check suite locally (Docker must be running, no full stack required):
+
+```bash
+npm run check
+```
+
+Or target a single layer:
+
+```bash
+docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
+docker compose run --rm --no-deps backend  sh -c 'npm run format:check && npm run lint && npm run test'
+```
+
+The pre-commit hook covers only staged files; `npm run check` runs all files, identical to CI.

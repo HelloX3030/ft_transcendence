@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, useTemplateRef, watch } from "vue";
-import { useVideoPlayer } from "@/composables/useVideoPlayer";
-import Controls from "./Controls.vue";
+import { onMounted, ref, useTemplateRef, watch } from 'vue';
+import { useVideoPlayer } from '@/composables/useVideoPlayer';
+import Controls from './Controls.vue';
 
 interface PropsType {
   title: string;
@@ -12,7 +12,7 @@ interface PropsType {
 
 const props = defineProps<PropsType>();
 
-const container = useTemplateRef("video-container");
+const container = useTemplateRef('video-container');
 const player = ref<YT.Player>();
 const isPlaying = ref(false);
 const { isMuted, toggleFullscreen } = useVideoPlayer();
@@ -73,9 +73,6 @@ function togglePlay() {
   <div ref="video-container" class="h-full relative overflow-hidden">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
     <Controls @fullscreen-event="toggleFullscreen(container!)" />
-    <div
-      :id="`player-${videoId}`"
-      class="w-full h-full lg:scale-y-125 scale-y-150"
-    />
+    <div :id="`player-${videoId}`" class="w-full h-full lg:scale-y-125 scale-y-150" />
   </div>
 </template>
