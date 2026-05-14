@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@prisma/client": "^6.0.0",
@@ -76,7 +77,9 @@
     "testEnvironment": "node"
   },
   "lint-staged": {
-    "{src,test}/**/*.ts": ["prettier --write"]
+    "{src,test}/**/*.ts": [
+      "prettier --write"
+    ]
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
