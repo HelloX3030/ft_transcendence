@@ -15,18 +15,13 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 ## Setup
 
-**1. Create config and secret files** (first time only):
+**1. Create the config file** (first time only):
 
 ```bash
 cp .env.example .env
-
-cp secrets/db_user.txt.example          secrets/db_user.txt
-cp secrets/db_password.txt.example      secrets/db_password.txt
-cp secrets/db_name.txt.example          secrets/db_name.txt
-cp secrets/pgadmin_password.txt.example secrets/pgadmin_password.txt
 ```
 
-Edit the `*.txt` files to set real passwords if desired.
+Edit `.env` to set real passwords if desired.
 
 **2. Activate git hooks** (first time only):
 
@@ -73,7 +68,7 @@ docker compose exec backend npm run test:e2e
 
 # Or locally against the port-forwarded DB (docker compose up db first):
 cd backend
-DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_password.txt)@localhost:5432/$(cat ../secrets/db_name.txt)" npm run test:e2e
+source ../.env && npm run test:e2e
 ```
 
 Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts` (e2e)

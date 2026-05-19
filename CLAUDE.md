@@ -30,7 +30,7 @@ ft_transcendence/
 ├── _meta/
 │   ├── product/       Product requirements and MVP scope
 │   └── doc/           Technical decisions, workflow, roadmap
-├── secrets/           Docker secrets (gitignored *.txt, committed *.txt.example)
+├── secrets/           Obsolete — can be deleted (*.txt files are gitignored and no longer used)
 ├── .env               Non-sensitive config vars (gitignored)
 ├── .env.example       Template for .env (committed)
 ├── docker-compose.yml
@@ -47,7 +47,7 @@ docker compose up --build
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
-- pgAdmin: `http://localhost:5050` (login: `PGADMIN_EMAIL` from `.env`, password from `secrets/pgadmin_password.txt` — email must be a valid address, e.g. `admin@example.com`)
+- pgAdmin: `http://localhost:5050` (login: `PGADMIN_EMAIL` and `PGADMIN_PASSWORD` from `.env` — email must be a valid address, e.g. `admin@example.com`)
 - PostgreSQL: `localhost:5432`
 
 See `_meta/doc/ARCHITECTURE.md` for full tech stack decisions.
@@ -57,16 +57,14 @@ See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for folder-specific conventions
 
 ## Environment Variables
 
-No values are hardcoded in `docker-compose.yml`. Two mechanisms are used depending on sensitivity:
+All config and credentials live in `.env` (gitignored). `.env.example` is the committed template.
 
-| Type | Mechanism | Committed? |
-|---|---|---|
-| Credentials (DB user, password, name) | Docker secrets via `secrets/` | No — only `*.txt.example` |
-| Non-sensitive config (URLs, flags) | `.env` file, interpolated as `${VAR}` | No — only `.env.example` |
+No values are hardcoded in `docker-compose.yml` — all are interpolated as `${VAR}` from `.env`.
 
 When adding a new config value:
-- **Sensitive** → add a file under `secrets/`, wire it in `docker-compose.yml` via `secrets:`, and add a corresponding `*.txt.example`
-- **Non-sensitive** → add the variable to `.env` and `.env.example`, reference it in `docker-compose.yml` as `${VAR}`
+1. Add `VAR_NAME=example_value` to `.env.example` and `.env` (with the real value)
+2. Add `VAR_NAME: ${VAR_NAME}` to the relevant service's `environment:` block in `docker-compose.yml`
+3. Consume via `process.env.VAR_NAME` in NestJS
 
 Never hardcode values directly in `docker-compose.yml`.
 

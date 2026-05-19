@@ -15,20 +15,17 @@ services:
 
   backend:
     build: ./backend
-    command: >
-      sh -c "export DATABASE_URL=\"postgresql://$(cat /run/secrets/db_user):$(cat /run/secrets/db_password)@db:5432/$(cat /run/secrets/db_name)\" && npx prisma generate && npm run dev"
+    command: sh -c "npx prisma generate && npm run dev"
     ports:
       - "3000:3000"
     volumes:
       - ./backend:/app
       - /app/node_modules
+    environment:
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
     depends_on:
       db:
         condition: service_healthy
-    secrets:
-      - db_user
-      - db_password
-      - db_name
     networks:
       - web
       - db
@@ -36,23 +33,18 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER_FILE: /run/secrets/db_user
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-      POSTGRES_DB_FILE: /run/secrets/db_name
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $(cat /run/secrets/db_user)"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    secrets:
-      - db_user
-      - db_password
-      - db_name
     networks:
       - db
 
@@ -60,29 +52,17 @@ services:
     image: dpage/pgadmin4
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/pgadmin_password
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
       - "5050:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    secrets:
-      - pgadmin_password
     depends_on:
       db:
         condition: service_healthy
     networks:
       - web
       - db
-
-secrets:
-  db_user:
-    file: ./secrets/db_user.txt
-  db_password:
-    file: ./secrets/db_password.txt
-  db_name:
-    file: ./secrets/db_name.txt
-  pgadmin_password:
-    file: ./secrets/pgadmin_password.txt
 
 networks:
   web:
