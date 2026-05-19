@@ -32,6 +32,8 @@ wobei:
 - $\text{age}_f$ = Tage seit der Interaktion
 - $\lambda = 0.01$ (Zerfallskonstante, Hyperparameter)
 
+Der Profil-Vektor $\vec{u}$ wird nach jeder Interaktion inkrementell aktualisiert und **in der Datenbank persistiert** (siehe 2.6). Beim Start des Services wird er geladen, nicht neu berechnet.
+
 **Kosinus-Ähnlichkeit** zwischen Nutzerprofil und Film:
 
 $$S_{\text{vec}}(\vec{u}, \vec{f}) = \frac{\vec{u} \cdot \vec{f}}{\|\vec{u}\| \cdot \|\vec{f}\|}$$
@@ -52,11 +54,13 @@ wobei:
 
 $$S_{\text{overview}}(\vec{u}_{\text{tfidf}},\ \vec{f}_{\text{tfidf}}) = \frac{\vec{u}_{\text{tfidf}} \cdot \vec{f}_{\text{tfidf}}}{\|\vec{u}_{\text{tfidf}}\| \cdot \|\vec{f}_{\text{tfidf}}\|}$$
 
+> **Hinweis zum Scope:** TF-IDF-Vektoren werden nicht über den gesamten TMDB-Katalog aufgebaut, sondern **nur über den aktuellen Kandidaten-Pool** (60–80 Filme, die TMDB zurückgibt). Der Index ist dadurch leichtgewichtig und muss nicht vorberechnet werden.
+
 > **Abgrenzung zu 1.1:** Die TF-IDF-Vektoren fangen semantischen Kontext ein, den TMDB-Keywords nicht abdecken. Beide Quellen werden explizit gewichtet kombiniert (siehe 1.4), um doppelte Gewichtung ähnlicher Informationen zu vermeiden.
 
 ### 1.3 Collaborative Filtering – Matrix-Faktorisierung (SVD)
 
-**Nutzer-Film-Interaktionsmatrix:**
+**Nutzer-Film-Interaktionsmatrix** (gespeist aus der DB, siehe 2.6):
 
 $$R \in \mathbb{R}^{|U| \times |F|}$$
 
@@ -105,7 +109,11 @@ Das Onboarding liefert zwei Cold-Start-Signale:
 1. **Explizite Genre-Präferenzen** → initialisiert $\vec{u}$ direkt ohne Likes
 2. **Top-5-Lieblingsfilme** → werden als virtuelle Likes mit $\text{age}_f = 0$ in $L_u$ eingetragen
 
+> **Cold-Start und Parameter-Translation:** Auch im reinen Popularity-Modus wird die Parameter-Translation genutzt — der TMDB-Aufruf wird dann allein durch Genre-Präferenzen aus dem Onboarding und `sort_by=popularity.desc` gesteuert, ohne Profil-Vektor.
+
 ### 1.6 Engagement-Signale (Real-Time Layer)
+
+Alle Signale werden sofort in der DB gespeichert (siehe 2.6) und inkrementell auf den Profil-Vektor $\vec{u}$ angewendet.
 
 | Signal | Bedingung | $\Delta$ Score | Begründung |
 |:--|:--|:--|:--|
@@ -115,6 +123,7 @@ Das Onboarding liefert zwei Cold-Start-Signale:
 | `share` | Trailer geteilt | $+0.60$ | Sozialer Beweis |
 | `dislike` | aktives Dislike | $-0.40$ | Explizite Ablehnung |
 | `like` | aktives Like | $+0.20$ | Positives Basissignal |
+| `watchlist_add` | Film zur Watchlist hinzugefügt | $+0.50$ | Starke Absichtserklärung |
 
 ### 1.7 Diversification & Freshness
 
@@ -145,24 +154,112 @@ NestJS Backend  ──HTTP──▶  FastAPI Recommender  ──▶  PostgreSQL
     :3000                        :8000
 ```
 
-### 2.1 FastAPI-Endpunkte
+### 2.1 Pipeline-Überblick (Hybrid)
+
+Der Feed wird nicht mehr durch Scoring eines lokalen Filmkatalogs erzeugt, sondern durch eine **Parameter-Translation** des Nutzerprofils in einen TMDB-Discover-Aufruf, gefolgt von einem leichtgewichtigen Re-Ranking der zurückgegebenen Kandidaten.
+
+```
+1. Nutzerprofil aus DB laden (Vektor + Interaktionshistorie)
+        │
+        ▼
+2. Parameter-Translation: Profil-Vektor → TMDB Discover-Parameter
+        │
+        ▼
+3. TMDB Discover API aufrufen (60–80 Ergebnisse, paginiert)   ← Ort: offen (siehe 2.2)
+        │
+        ▼
+4. Gesehene Filme herausfiltern (aus DB-Interaktionshistorie)
+   → Bei zu kleinem Pool: nächste Seite nachladen
+        │
+        ▼
+5. Re-Ranking: Hybrid-Score auf verbleibendem Kandidaten-Pool
+        │
+        ▼
+6. Engagement-Signale + Diversifikation anwenden
+        │
+        ▼
+7. Top N zurückgeben: [{movie_id, score}]
+```
+
+> **Vorteil gegenüber lokalem Katalog:** Kein Aufbau oder Pflege eines vollständigen Filmvektoren-Indexes nötig. TMDB liefert automatisch neue Releases. Der TF-IDF-Index wird nur über den aktuellen Kandidaten-Pool (60–80 Filme) aufgebaut — kein wöchentliches Rebuild.
+
+### 2.2 TMDB-Aufruf: Offene Entscheidung
+
+Der Ort des TMDB-Aufrufs ist noch nicht final entschieden. Beide Optionen sind architektonisch valide:
+
+| | Option A: Python ruft TMDB | Option B: NestJS ruft TMDB |
+|:--|:--|:--|
+| **Ablauf** | Python übersetzt Profil → Parameter → ruft TMDB → re-rankt → gibt `[{movie_id, score}]` zurück | Python gibt nur TMDB-Parameter zurück → NestJS ruft TMDB → schickt Ergebnisse ggf. zurück zum Re-Ranking |
+| **NestJS↔Python-Vertrag** | Unverändert: Request `{user_id, limit}`, Response `[{movie_id, score}]` | Neuer Vertrag nötig: zwei Roundtrips oder Re-Ranking entfällt |
+| **Pro** | Vollständige Pipeline im Python-Service, klare Trennung | NestJS hält TMDB-Integration zentral (falls bereits vorhanden) |
+| **Con** | TMDB-Key im Python-Service, zusätzliche HTTP-Abhängigkeit | Komplexerer Ablauf; Re-Ranking ohne Python-Service schwieriger |
+
+### 2.3 Parameter-Translation (Profil-Vektor → TMDB Discover)
+
+Der Profil-Vektor $\vec{u}$ wird in konkrete TMDB Discover-Parameter übersetzt:
+
+| Profil-Komponente | TMDB-Parameter | Logik |
+|:--|:--|:--|
+| Genre-Gewichte $g_i$ | `with_genres` | Top-3 Genres nach Gewicht, AND-verknüpft |
+| Schauspieler/Regisseur $a_i$ | `with_cast`, `with_crew` | Top-2 nach Gewicht (optional, wird bei schwachen Signalen weggelassen) |
+| Keyword-Gewichte $k_i$ | `with_keywords` | Top-5 Keywords nach TF-IDF-Gewicht |
+| Interaktionshistorie | `vote_average.gte` | Durchschnittliche Bewertung gelikter Filme als untere Schwelle |
+| Watch-Time-Signale | `primary_release_date.gte` | Präferenz für neuere Filme bei hoher Watch-Time auf aktuellen Releases |
+| Diversifikations-Flag | `with_genres` (modifiziert) | Bei aktiver Diversifikation: dominantes Genre aus Top-3 entfernen |
+
+**Beispiel-Output:**
+```json
+{
+  "with_genres": "28,12",
+  "with_keywords": "4565,1701,818",
+  "with_cast": "6193",
+  "vote_average.gte": 6.5,
+  "vote_count.gte": 100,
+  "sort_by": "popularity.desc",
+  "page": 2
+}
+```
+
+> **Granularität:** Die Parameter-Translation ist bewusst verlustbehaftet — sie approximiert den hochdimensionalen Profil-Vektor. Das Re-Ranking (Schritt 5 in 2.1) kompensiert diese Vergröberung durch feingranulares Scoring auf dem zurückgegebenen Pool.
+
+### 2.4 Kandidaten-Pool, Deduplizierung & Seitenrotation
+
+**Pool-Größe:** TMDB gibt standardmäßig 20 Ergebnisse pro Seite zurück. Es werden **3 Seiten parallel** abgefragt (60 Kandidaten), um nach Deduplizierung einen ausreichend großen Re-Ranking-Pool zu haben.
+
+**Deduplizierung:** Gesehene Filme werden anhand der DB-Interaktionshistorie herausgefiltert (`user_interactions`-Tabelle). Ist der verbleibende Pool nach dem Filter kleiner als `2 × limit`, wird eine weitere Seite nachgeladen.
+
+**Seitenrotation für Abwechslung:** Um zu vermeiden, dass bei identischen Parametern immer dieselben 60 Filme erscheinen, wird die Startseite pro Session leicht variiert:
+
+```python
+base_page = hash(user_id + date.today().isoformat()) % 5 + 1
+```
+
+Dadurch verschiebt sich das Ergebnisfenster täglich, ohne dass eine Zustandsverwaltung pro Session nötig ist.
+
+### 2.5 FastAPI-Endpunkte
 
 | Method | Path | Request Body | Response | Beschreibung |
 |:--|:--|:--|:--|:--|
-| `POST` | `/feed` | `{user_id, candidate_ids[], limit}` | `[{movie_id, score}]` | Personalisierten Feed berechnen |
+| `POST` | `/feed` | `{user_id, limit}` | `[{movie_id, score}]` | Personalisierten Feed berechnen (inkl. TMDB-Aufruf, falls Option A) |
+| `POST` | `/feed/params` | `{user_id}` | `{tmdb_params, page}` | Nur Parameter zurückgeben (falls Option B) |
 | `POST` | `/signal` | `{user_id, movie_id, action, watch_time?}` | `204` | Engagement-Signal aufzeichnen + Profil aktualisieren |
 | `POST` | `/retrain` | `{secret}` | `202` | SVD-Neutraining triggern (intern, abgesichert) |
 | `GET` | `/health` | — | `{status}` | Health-Check für Docker |
 
-### 2.2 Kandidaten-Vorselektion
+> **Hinweis:** `/feed` und `/feed/params` sind Alternativen je nach Entscheidung in 2.2 — nur einer der beiden Endpunkte wird im finalen System aktiv sein.
 
-`get_feed()` erhält bereits vorgefilterte `candidate_ids`. Das NestJS-Backend ist verantwortlich für:
+### 2.6 Nutzerinteraktionen in der DB
 
-1. Gesehene Filme ausfiltern (`NOT IN user_interactions`)
-2. Kürzlich verworfene Filme ausfiltern (z. B. Dislike in den letzten 30 Tagen)
-3. Popularity-Threshold anwenden (z. B. nur Filme mit TMDB `vote_count > 50`)
+Die Datenbank ist die **einzige persistente Quelle** für Nutzerdaten. Der Python-Service hält $\vec{u}$ zusätzlich im RAM für schnelle Laufzeit-Updates — bei Neustart wird aus der DB rekonstruiert.
 
-Der FastAPI-Service scored dann typischerweise 200–500 Filme, nicht den gesamten Katalog.
+| Datenpunkt | Tabelle | Verwendung im Algorithmus |
+|:--|:--|:--|
+| Likes / Dislikes | `user_interactions` | Aufbau von $L_u$ für Profil-Vektor + SVD-Matrix |
+| Watch-Time pro Film | `user_interactions` | Engagement-Signale (`watched_long`, `skip_fast`) |
+| Watchlist-Einträge | `watchlist` | Starkes positives Signal ($+0.50$) bei Profil-Update |
+| Gesehene Filme | `user_interactions` | Deduplizierung nach TMDB-Aufruf (Schritt 4 in 2.1) |
+| Profil-Vektor $\vec{u}$ | `user_profiles` | Geladen beim Service-Start; nach jeder Interaktion geschrieben |
+| Onboarding-Genres / -Filme | `user_preferences` | Cold-Start-Initialisierung von $\vec{u}$ |
 
 ---
 
@@ -177,8 +274,11 @@ backend/app/recommendation/
 ├── hybrid.py          # Hybride Score-Berechnung
 ├── engagement.py      # Echtzeit-Engagement-Signale
 ├── diversifier.py     # Diversifikation & Freshness
+├── tmdb_bridge.py     # Parameter-Translation + TMDB Discover-Aufruf (Option A)
 └── retrain.py         # Batch-Retraining-Job (nightly)
 ```
+
+> **`tmdb_bridge.py`** übernimmt zwei Aufgaben: (1) Übersetzung des Profil-Vektors in TMDB Discover-Parameter (`profile_to_params()`), (2) optionaler TMDB-Aufruf und Rückgabe der Kandidaten-Liste (`fetch_candidates()`). Bei Option B wird nur (1) genutzt.
 
 ---
 
@@ -186,11 +286,14 @@ backend/app/recommendation/
 
 | Komponente | Update-Typ | Frequenz | Mechanismus |
 |:--|:--|:--|:--|
-| Nutzerprofil $\vec{u}$ | Inkrementell (im RAM) | Sofort bei jedem Signal | `update_user_profile()` |
+| Nutzerprofil $\vec{u}$ (RAM) | Inkrementell | Sofort bei jedem Signal | `update_user_profile()` |
+| Nutzerprofil $\vec{u}$ (DB) | Persistenz-Schreiben | Sofort nach RAM-Update | `user_profiles`-Tabelle |
 | SVD (kollaborative Matrix) | Batch-Retrain | Nightly (03:00 UTC) | `/retrain`-Endpoint, Cronjob |
-| TF-IDF-Vektoren (Filme) | Batch-Retrain | Wöchentlich oder bei Katalog-Update | `content_based.py` rebuild |
+| TF-IDF (Kandidaten-Pool) | On-the-fly | Pro Feed-Request | Kein persistierter Index nötig |
 
 **Fallback während Retrain:** Der alte SVD-Checkpoint bleibt aktiv, bis der neue validiert ist — atomarer Dateiaustausch via `joblib`. Während des Retrains fällt $\alpha$ auf $1.0$ zurück (Content-only).
+
+> **Kein wöchentlicher TF-IDF-Rebuild mehr:** Da TF-IDF nur noch auf dem aktuellen Kandidaten-Pool (60–80 Filme) berechnet wird, entfällt das Rebuild über den gesamten Katalog. Der SVD-Retrain über die DB-Interaktionsmatrix bleibt der einzige schwere Batch-Job.
 
 ---
 
@@ -209,6 +312,7 @@ from .collaborative import CollaborativeFilter
 from .hybrid import HybridScorer
 from .engagement import EngagementTracker
 from .diversifier import Diversifier
+from .tmdb_bridge import TMDBBridge
 
 class RecommenderEngine:
     """Zentrale Empfehlungs-Engine. Hält alle Modelle im RAM."""
@@ -219,6 +323,7 @@ class RecommenderEngine:
         self.hybrid_scorer: HybridScorer
         self.engagement_tracker: EngagementTracker
         self.diversifier: Diversifier
+        self.tmdb_bridge: TMDBBridge
 
         # Hyperparameter
         self.alpha: float = 0.6       # Content vs. Collaborative
@@ -245,24 +350,33 @@ class RecommenderEngine:
 
         self.engagement_tracker = EngagementTracker()
         self.diversifier = Diversifier(gamma=self.gamma, delta=self.delta, mu=self.mu)
+        self.tmdb_bridge = TMDBBridge()
 
     def get_feed(
         self,
         user_id: str,
-        candidate_ids: List[int],
         limit: int = 10,
+        seen_ids: List[int] = [],
     ) -> List[dict]:
         """
         Berechnet personalisierten Feed für einen Nutzer.
 
         Args:
-            user_id:       Eindeutige Nutzer-ID
-            candidate_ids: Vorgefilterte Film-IDs (nicht gesehen, nicht kürzlich verworfen)
-            limit:         Maximale Anzahl zurückgegebener Empfehlungen
+            user_id:  Eindeutige Nutzer-ID
+            limit:    Maximale Anzahl zurückgegebener Empfehlungen
+            seen_ids: Bereits gesehene Film-IDs (aus DB) zur Deduplizierung
 
         Returns:
             Sortierte Liste: [{movie_id, score}, ...]
         """
+        user_profile = self.content_filter.get_profile(user_id)
+        tmdb_params = self.tmdb_bridge.profile_to_params(
+            user_profile,
+            diversify=self.diversifier.should_diversify(user_id),
+        )
+
+        candidate_ids = self.tmdb_bridge.fetch_candidates(tmdb_params, exclude=seen_ids)
+
         scores = self.hybrid_scorer.batch_score(user_id, candidate_ids)
         scores = self.engagement_tracker.apply_signals(user_id, scores)
         scores = self.diversifier.apply(user_id, scores)
@@ -275,12 +389,12 @@ class RecommenderEngine:
 
     def update_user_profile(self, user_id: str, movie_id: int, action: str) -> None:
         """
-        Aktualisiert das Nutzerprofil nach einem Swipe (sofort im RAM wirksam).
+        Aktualisiert das Nutzerprofil nach einem Swipe (sofort im RAM + DB wirksam).
 
         Args:
             user_id:  Nutzer-ID
             movie_id: Film-ID
-            action:   'like' | 'dislike' | 'super_like'
+            action:   'like' | 'dislike' | 'super_like' | 'watchlist_add'
         """
         self.content_filter.update_profile(user_id, movie_id, action, self.lambda_)
         self.engagement_tracker.record_action(user_id, movie_id, action)
