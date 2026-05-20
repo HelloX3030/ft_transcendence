@@ -57,7 +57,7 @@ const onSubmit = form.handleSubmit((values) => {
               <Button type="button" variant="link" class="">Forgot password?</Button>
             </div>
             <FormControl>
-              <Input v-bind="componentField" placeholder="*********" />
+              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
             </FormControl>
           </FormItem>
         </FormField>
