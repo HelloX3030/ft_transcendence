@@ -53,6 +53,14 @@ The frontend runs inside Docker — use the root `docker-compose.yml`:
 docker compose up --build   # Start everything (frontend on port 5173)
 ```
 
+**Adding a package:**
+
+```bash
+docker compose exec frontend sh -c "npm install <package>"
+```
+
+Installs into the container's `node_modules` volume and updates `package.json`/`package-lock.json` on the host. No restart needed.
+
 **CI checks (format + lint + type-check, no stack required):**
 
 ```bash
