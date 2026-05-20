@@ -46,10 +46,23 @@ docker compose up --build
 | pgAdmin | http://localhost:5050 |
 | PostgreSQL | localhost:5432 |
 
-On subsequent runs `--build` can be omitted unless you changed `package.json` (added/removed/updated a package). Node modules are baked into the image — after any `npm install` locally, rebuild:
+On subsequent runs `--build` can be omitted — node modules live in named Docker volumes and are installed automatically on first container start.
+
+**Adding a package:**
+
+Always install from inside the running container, not on the host. This updates `package.json` and `package-lock.json` on the host (via the bind-mount) and installs into the container's volume:
 
 ```bash
-docker compose up --build
+docker compose exec frontend sh -c "npm install <package>"
+docker compose exec backend  sh -c "npm install <package>"
+```
+
+The container keeps running — no restart needed. Running `npm install <package>` on the host won't work; the container's `node_modules` volume won't see it.
+
+**Full reset** (e.g. after a merge conflict in the lock file):
+
+```bash
+docker compose down -v && docker compose up
 ```
 
 **VS Code:** Open the repo and accept the "Install recommended extensions" prompt — this sets up Prettier (format on save) and ESLint automatically.
