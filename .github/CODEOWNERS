@@ -1,14 +1,12 @@
 * @ausperg
 .github/CODEOWNERS @HelloX3030
-frontend/ @jofmann
-backend/ @HelloX3030
+frontend/ @ausperg @jofmann
+backend/ @ausperg @HelloX3030
 
 # Pipeline & code-quality tooling — requires HelloX3030 approval
 .github/workflows/  @ausperg @HelloX3030
 .husky/             @ausperg @HelloX3030
 .prettierrc         @ausperg @HelloX3030
 .gitattributes      @ausperg @HelloX3030
-package.json        @ausperg @HelloX3030
-frontend/eslint.config.mjs  @jofmann @HelloX3030
-frontend/package.json       @jofmann @HelloX3030
-backend/eslint.config.mjs   @HelloX3030
+frontend/eslint.config.mjs  @ausperg @HelloX3030
+backend/eslint.config.mjs   @ausperg @HelloX3030
