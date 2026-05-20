@@ -37,24 +37,6 @@ src/
 
 ---
 
-## Dev commands
-
-The backend runs inside Docker — use the root `docker-compose.yml`:
-
-```bash
-docker compose up --build   # Start everything (backend on port 3000)
-```
-
-**Adding a package:**
-
-```bash
-docker compose exec backend sh -c "npm install <package>"
-```
-
-Installs into the container's `node_modules` volume and updates `package.json`/`package-lock.json` on the host. No restart needed.
-
----
-
 ## Testing
 
 Unit tests mock `AppService` — no live DB required.  

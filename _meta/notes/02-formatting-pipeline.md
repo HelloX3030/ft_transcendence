@@ -174,5 +174,3 @@ cd backend  && npm run lint
 The root `npm install` in step 2 must be run on the host machine — that's what wires up the git hook. The containers manage their own `node_modules` inside Docker volumes; the host never needs them for the app to run.
 
 **Optional — editor IntelliSense:** Run `npm install` in `frontend/` and `backend/` on the host so VS Code can resolve types locally. Not required for the app to run.
-
-**Adding packages:** Always install from inside the running container — see [README.md](../../README.md) for the workflow.
