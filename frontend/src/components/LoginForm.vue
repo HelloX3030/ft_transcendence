@@ -13,7 +13,7 @@ import { useForm } from 'vee-validate';
 import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
