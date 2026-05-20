@@ -8,8 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WatchlistsModule } from './watchlists/watchlists.module';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtGuard } from './auth/guard';
-
+import { JwtAccessGuard } from './auth/guard';
 
 @Module({
   imports: [PrismaModule, FriendsModule, MoviesModule, AuthModule, UsersModule, WatchlistsModule],
@@ -18,7 +17,7 @@ import { JwtGuard } from './auth/guard';
     AppService,
     {
       provide: APP_GUARD,
-      useClass: JwtGuard,
+      useClass: JwtAccessGuard,
     },
   ],
 })

@@ -1,42 +1,76 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+  Request,
+  BadRequestException,
+  Response,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import { AuthService } from './auth.service';
-import { Public } from './guard';
+import { JwtRefreshGuard, Public } from './guard';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import { JwtRefreshPayload } from 'src/types';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  async handleAuth<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      } else {
+        console.error(error);
+        throw new InternalServerErrorException();
+      }
+    }
+  }
+
   @Public()
   @Post('register')
-  register(@Body() dto: RegisterDto) {
+  async register(@Body() dto: RegisterDto, @Response({ passthrough: true }) res: ExpressResponse) {
     console.log('register request');
-    console.log({
-      dto: dto,
-    });
-    return this.authService.register(dto);
+
+    return this.handleAuth(() => this.authService.register(dto, res));
   }
 
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
+  async login(@Body() dto: LoginDto, @Response({ passthrough: true }) res: ExpressResponse) {
     console.log('login request');
-    console.log({
-      dto: dto,
-    });
-    return this.authService.login(dto);
+    return this.handleAuth(() => this.authService.login(dto, res));
   }
 
   @Public()
+  @UseGuards(JwtRefreshGuard)
   @Post('refresh')
-  refresh() {
+  async refresh(
+    @Request() req: ExpressRequest,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
     console.log('refresh request');
+    if (req.user === undefined) throw new BadRequestException();
+    return this.handleAuth(() => this.authService.refresh(req.user as JwtRefreshPayload, res));
   }
 
-  // guard example
-  // @UseGuards(JwtGuard)
-  // @Post('refresh')
-  // refresh(@Request() req) {
-  //   console.log(req.user);
-  // }
+  @Public()
+  @UseGuards(JwtRefreshGuard)
+  @Get('logout')
+  logout(@Request() req: ExpressRequest, @Response({ passthrough: true }) res: ExpressResponse) {
+    console.log('logout request');
+    if (req.user === undefined) throw new BadRequestException();
+    return this.handleAuth(() => this.authService.logout(req.user as JwtRefreshPayload, res));
+  }
+
+  @Get('test')
+  test() {
+    return { message: 'test sucsessfuly' };
+  }
 }

@@ -4,6 +4,9 @@ import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
+import { randomBytes } from 'crypto';
+import { JwtRefreshPayload, JwtTokens } from 'src/types';
+import type { Response as ExpressResponse } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -12,15 +15,9 @@ export class AuthService {
     private jwt: JwtService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, res: ExpressResponse) {
     let hash: string;
-
-    try {
-      hash = await argon2.hash(dto.password);
-    } catch (error) {
-      console.error('argo2 pasword hashing error: ' + error);
-      throw new InternalServerErrorException('password hashing failed');
-    }
+    hash = await argon2.hash(dto.password);
 
     try {
       const user = await this.prisma.users.create({
@@ -32,10 +29,10 @@ export class AuthService {
           role: 'user',
         },
       });
-      console.log(user);
-      return this.createJwt(user.id, user.email);
+      const tokens = await this.createJwt(user.id, user.email);
+      this.setCookies(tokens, res);
+      return { mssage: 'User registered successfully' };
     } catch (error) {
-      console.error(error);
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ForbiddenException('Credentials taken');
@@ -44,33 +41,86 @@ export class AuthService {
           throw new ForbiddenException('Provided value for the column is too long');
         }
       }
-      throw new InternalServerErrorException('Unexpected error');
+      throw error;
     }
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, res: ExpressResponse) {
     const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
     if (user === null || user.password === undefined)
       throw new ForbiddenException('Invalid credentials');
 
-    try {
-      const isPwMatch = await argon2.verify(user.password, dto.password);
-      if (!isPwMatch) {
-        throw new ForbiddenException('Invalid credentials');
-      }
-    } catch (error) {
-      if (error instanceof ForbiddenException) throw error;
-      console.error(error);
-      throw new InternalServerErrorException('cout not verify the credentials');
+    const isPwMatch = await argon2.verify(user.password, dto.password);
+    if (!isPwMatch) {
+      throw new ForbiddenException('Invalid credentials');
     }
-    return this.createJwt(user.id, user.email);
+
+    const tokens = await this.createJwt(user.id, user.email);
+    this.setCookies(tokens, res);
+    return { message: 'Login successful' };
   }
 
-  async refresh() {}
+  async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
+    const session = await this.prisma.sessions.findUnique({
+      where: {
+        id: payload.sessionId,
+      },
+    });
+    if (session === null) {
+      console.error('could not find the session in the database to issue a new JWT');
+      throw new ForbiddenException('Invalid session id');
+    }
 
-  async createJwt(userId: number, email: string): Promise<{ access_token: string }> {
+    const isMatch = await argon2.verify(session.sessionHash, payload.session);
+    if (!isMatch) {
+      throw new ForbiddenException('Invalid session id');
+    }
+
+    const user = await this.prisma.users.findUnique({
+      where: {
+        id: payload.userId,
+      },
+    });
+    if (user === null) {
+      console.error('could not find the user in the database to issue a new JWT');
+      throw new InternalServerErrorException();
+    }
+    const tokens = {
+      access_token: (await this.createAccessJwt(user.id, user.email)).access_token,
+      refresh_token: (await this.updateRefreshJwt(user.id, payload.sessionId, payload.session))
+        .refresh_token,
+    };
+    this.setCookies(tokens, res);
+    return { message: 'Token refreshed' };
+  }
+
+  async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
+    try {
+      await this.prisma.sessions.delete({
+        where: {
+          id: payload.sessionId,
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
+        throw error;
+      }
+    }
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    return { message: 'Logged out' };
+  }
+
+  async createJwt(userId: number, email: string): Promise<JwtTokens> {
+    return {
+      access_token: (await this.createAccessJwt(userId, email)).access_token,
+      refresh_token: (await this.createRefreshJwt(userId)).refresh_token,
+    };
+  }
+
+  async createAccessJwt(userId: number, email: string): Promise<{ access_token: string }> {
     const payload = {
       sub: userId,
       email: email,
@@ -78,11 +128,87 @@ export class AuthService {
 
     const token = await this.jwt.signAsync(payload, {
       expiresIn: '15m',
-      secret: process.env.JWT_SECRET,
+      secret: process.env.JWT_ACCESS_SECRET,
     });
 
     return {
       access_token: token,
     };
+  }
+
+  async createRefreshJwt(userId: number): Promise<{ refresh_token: string }> {
+    const sessionKey = randomBytes(32).toString('hex');
+    const sessionHash = await argon2.hash(sessionKey);
+
+    const session = await this.prisma.sessions.create({
+      data: {
+        userId: userId,
+        sessionHash: sessionHash,
+        ipAddress: '1.1.1.1',
+        userAgent: 'Android',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
+      },
+    });
+
+    const payload = {
+      sub: userId,
+      sessionId: session.id,
+      session: sessionKey,
+    };
+
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn: '15d',
+      secret: process.env.JWT_REFRESH_SECRET,
+    });
+
+    return {
+      refresh_token: token,
+    };
+  }
+
+  async updateRefreshJwt(
+    userId: number,
+    sessionId: number,
+    sessionKey: string,
+  ): Promise<{ refresh_token: string }> {
+    await this.prisma.sessions.update({
+      where: {
+        id: sessionId,
+      },
+      data: {
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
+      },
+    });
+
+    const payload = {
+      sub: userId,
+      sessionId: sessionId,
+      session: sessionKey,
+    };
+
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn: '15d',
+      secret: process.env.JWT_REFRESH_SECRET,
+    });
+
+    return {
+      refresh_token: token,
+    };
+  }
+
+  setCookies(tokens: JwtTokens, res: ExpressResponse) {
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: false, // todo: set to true
+      sameSite: 'strict',
+      maxAge: 1000 * 60 * 15,
+    });
+
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: false, // todo: set to true
+      sameSite: 'strict',
+      maxAge: 1000 * 60 * 60 * 24 * 15,
+    });
   }
 }
