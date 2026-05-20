@@ -18,15 +18,6 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
 
-// password: z
-//   .string()
-//   .min(8, { message: 'Password should have minimum length of 8' })
-//   .max(15, 'Password is too long')
-//   .regex(/^(?=.*[A-Z]).{8,}$/, {
-//     message:
-//       'Should Contain at least one uppercase letter and have a minimum length of 8 characters.',
-//   }),
-
 const formSchema = z.object({
   email: z.string().email(),
   password: z.string().nonempty(),
@@ -56,7 +47,6 @@ const onSubmit = form.handleSubmit((values) => {
             <FormControl>
               <Input v-bind="componentField" placeholder="email@cinemates.de" />
             </FormControl>
-            <!-- <FormMessage /> -->
           </FormItem>
         </FormField>
         <FormField v-slot="{ componentField }" name="password">
@@ -69,7 +59,6 @@ const onSubmit = form.handleSubmit((values) => {
             <FormControl>
               <Input v-bind="componentField" placeholder="*********" />
             </FormControl>
-            <!-- <FormMessage /> -->
           </FormItem>
         </FormField>
 
