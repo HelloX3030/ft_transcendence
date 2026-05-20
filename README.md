@@ -46,7 +46,11 @@ docker compose up --build
 | pgAdmin | http://localhost:5050 |
 | PostgreSQL | localhost:5432 |
 
-On subsequent runs `--build` can be omitted unless dependencies changed.
+On subsequent runs `--build` can be omitted unless you changed `package.json` (added/removed/updated a package). Node modules are baked into the image — after any `npm install` locally, rebuild:
+
+```bash
+docker compose up --build
+```
 
 **VS Code:** Open the repo and accept the "Install recommended extensions" prompt — this sets up Prettier (format on save) and ESLint automatically.
 
