@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import Hero from '@/components/Hero.vue';
-import Onboarding from '@/components/Onboarding.vue';
-import SignupForm from '@/components/SignupForm.vue';
+
+import SignupForm from '@/components/auth/SignupForm.vue';
 
 import { Separator } from '@/components/ui/separator';
-import { ref } from 'vue';
-
-const step = ref(1);
 </script>
 
 <template>
