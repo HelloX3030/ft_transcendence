@@ -1,5 +1,5 @@
 <template>
-  <section class="mt-12 w-full hidden lg:flex flex-col">
+  <div class="flex flex-col h-full">
     <h1 class="text-4xl lg:text-6xl mb-16 text-center">
       <span class="text-primary">Expierence</span> CineMates
     </h1>
@@ -24,5 +24,5 @@
       The ultimate destination for movie enthusiasts to discover their next favorite story through
       curated cinematic snapshots.
     </p>
-  </section>
+  </div>
 </template>

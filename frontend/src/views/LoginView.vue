@@ -6,9 +6,15 @@ import { Separator } from '@/components/ui/separator';
 </script>
 
 <template>
-  <div class="flex h-full">
-    <Hero />
+  <div class="flex flex-1 h-full">
+    <section class="hidden lg:flex flex-1 items-center justify-center p-12">
+      <Hero />
+    </section>
+
     <Separator orientation="vertical" />
-    <LoginForm />
+
+    <section class="flex flex-1 items-center justify-center p-8">
+      <LoginForm />
+    </section>
   </div>
 </template>
