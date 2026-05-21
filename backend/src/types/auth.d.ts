@@ -1,10 +1,10 @@
 export interface JwtAccessPayload {
-  userId: number;
+  sub: number;
   email: string;
 }
 
 export interface JwtRefreshPayload {
-  userId: number;
+  sub: number;
   sessionId: number;
   session: string;
 }
