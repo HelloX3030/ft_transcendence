@@ -50,7 +50,7 @@ docker compose up --build
 - pgAdmin: `http://localhost:5050` (login: `PGADMIN_EMAIL` and `PGADMIN_PASSWORD` from `.env` — email must be a valid address, e.g. `admin@example.com`)
 - PostgreSQL: `localhost:5432`
 
-**Installing packages:** Always install from inside the running container — this updates `package.json`/`package-lock.json` on the host and installs into the Docker volume. No restart needed:
+**Installing packages:** Always install from inside the running container — this updates `package.json`/`package-lock.json` and `node_modules/` on the host (enabling IDE IntelliSense). No restart needed:
 
 ```bash
 docker compose exec frontend sh -c "npm install <package>"
