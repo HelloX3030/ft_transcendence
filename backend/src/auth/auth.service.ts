@@ -16,8 +16,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto, res: ExpressResponse) {
-    let hash: string;
-    hash = await argon2.hash(dto.password);
+    const hash = await argon2.hash(dto.password);
 
     try {
       const user = await this.prisma.users.create({
@@ -80,7 +79,7 @@ export class AuthService {
 
     const user = await this.prisma.users.findUnique({
       where: {
-        id: payload.userId,
+        id: payload.sub,
       },
     });
     if (user === null) {

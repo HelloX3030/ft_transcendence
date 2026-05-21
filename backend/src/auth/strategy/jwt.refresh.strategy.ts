@@ -9,15 +9,16 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
   constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: ExpressRequest) => {
-          return req?.cookies?.refresh_token || null;
+        (req: ExpressRequest): string | null => {
+          if (typeof req?.cookies?.refresh_token !== 'string') return null;
+          else return req?.cookies?.refresh_token;
         },
       ]),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_REFRESH_SECRET as string,
     });
   }
-  async validate(payload: any): Promise<JwtRefreshPayload> {
-    return { userId: payload.sub, sessionId: payload.sessionId, session: payload.session };
+  validate(payload: JwtRefreshPayload): JwtRefreshPayload {
+    return { sub: payload.sub, sessionId: payload.sessionId, session: payload.session };
   }
 }

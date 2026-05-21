@@ -9,8 +9,9 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
   constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: ExpressRequest) => {
-          return req?.cookies?.access_token || null;
+        (req: ExpressRequest): string | null => {
+          if (typeof req?.cookies?.refresh_token !== 'string') return null;
+          else return req?.cookies?.refresh_token;
         },
       ]),
       ignoreExpiration: false,
@@ -18,7 +19,7 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
     });
   }
 
-  async validate(payload: any): Promise<JwtAccessPayload> {
-    return { userId: payload.sub, email: payload.email };
+  validate(payload: JwtAccessPayload): JwtAccessPayload {
+    return { sub: payload.sub, email: payload.email };
   }
 }
