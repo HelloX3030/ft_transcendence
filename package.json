@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
+    "setup": "npm install && (cd frontend && npm install) && (cd backend && npm install)",
     "format": "docker compose -f docker-compose.check.yml run --rm frontend npm run format && docker compose -f docker-compose.check.yml run --rm backend npm run format",
     "check": "docker compose -f docker-compose.check.yml run --rm frontend npm run check && docker compose -f docker-compose.check.yml run --rm backend npm run check"
   },
