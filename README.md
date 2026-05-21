@@ -44,16 +44,24 @@ The hook runs lint-staged inside a `node:22` Docker container so it works regard
 docker compose up --build
 ```
 
-| Service | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
+| Service     | URL                   |
+| ----------- | --------------------- |
+| Frontend    | http://localhost:5173 |
 | Backend API | http://localhost:3000 |
-| pgAdmin | http://localhost:5050 |
-| PostgreSQL | localhost:5432 |
+| pgAdmin     | http://localhost:5050 |
+| PostgreSQL  | localhost:5432        |
 
 On subsequent runs `--build` can be omitted unless dependencies changed.
 
 **VS Code:** Open the repo and accept the "Install recommended extensions" prompt — this sets up Prettier (format on save) and ESLint automatically.
+
+**4. Run Prisma Setup:**
+
+```bash
+docker compose exec backend  sh -c "npx prisma migrate dev"
+```
+
+`npx prisma migrate dev`: Applies database migrations in development, creating or updating your database schema to match your Prisma schema.
 
 ---
 
