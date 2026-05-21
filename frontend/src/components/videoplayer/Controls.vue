@@ -3,7 +3,6 @@ import { Bookmark, Heart, Maximize, Minimize, Volume2, VolumeOff, X } from 'luci
 
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import { Button } from '../ui/button';
-
 import { ref } from 'vue';
 
 const { toggleVolume, isMuted, isFullscreen } = useVideoPlayer();
