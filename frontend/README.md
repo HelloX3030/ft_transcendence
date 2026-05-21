@@ -50,11 +50,10 @@ docker compose up --build   # Start the full stack (frontend on port 5173)
 ```bash
 npm install           # Install dependencies
 
-npm run dev           # Hot-reload dev server
-npm run build         # Type-check + production build
-npm run type-check    # Type-check only (vue-tsc)
-npm run lint          # oxlint + ESLint (both with --fix)
-npm run format        # Prettier
+npm run dev     # Hot-reload dev server
+npm run build   # Type-check + production build
+npm run fix     # Auto-fix formatting + lint issues
+npm run check   # Read-only validation (format + lint + type-check)
 ```
 
 ---
