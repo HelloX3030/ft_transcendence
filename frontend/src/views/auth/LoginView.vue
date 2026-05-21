@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Hero from '@/components/Hero.vue';
-import LoginForm from '@/components/LoginForm.vue';
+import LoginForm from '@/components/auth/LoginForm.vue';
 
 import { Separator } from '@/components/ui/separator';
 </script>
