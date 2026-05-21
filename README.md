@@ -23,15 +23,19 @@ cp .env.example .env
 
 Edit `.env` to set real passwords if desired.
 
-**2. Activate git hooks** (first time only):
+**2. Install local dependencies** (first time only):
 
 ```bash
-npm install
+npm run setup
 ```
 
-This installs husky and wires up the pre-commit hook. Without this step, lint and format checks won't run locally before commits.
+This does three things in one step:
+- Installs Husky at the repo root and wires up the pre-commit hook
+- Installs `node_modules` locally in `frontend/` and `backend/` so your IDE (VS Code, WebStorm, etc.) gets full IntelliSense
 
 The hook runs lint-staged inside a `node:22` Docker container so it works regardless of your host Node version. **Docker must be running when you commit** — on first use it pulls the image (~1.1 GB, cached after that). If Docker is not running the hook skips with a warning and CI verifies instead.
+
+> **Note:** The local `node_modules` are only for the IDE — the app always runs inside Docker using isolated named volumes. Never use the local `node_modules` to run the app or tests.
 
 **3. Start the stack:**
 
@@ -50,14 +54,18 @@ On subsequent runs `--build` can be omitted — node modules live in named Docke
 
 **Adding a package:**
 
-Always install from inside the running container, not on the host. This updates `package.json` and `package-lock.json` on the host (via the bind-mount) and installs into the container's volume:
+Always install from inside the running container. This updates `package.json` and `package-lock.json` on the host (via the bind-mount) and installs into the container's named volume:
 
 ```bash
 docker compose exec frontend sh -c "npm install <package>"
 docker compose exec backend  sh -c "npm install <package>"
 ```
 
-The container keeps running — no restart needed. Running `npm install <package>` on the host won't work; the container's `node_modules` volume won't see it.
+The container keeps running — no restart needed. Then sync your local IDE node_modules:
+
+```bash
+cd frontend && npm install   # or backend/
+```
 
 **Full reset** (e.g. after a merge conflict in the lock file):
 
@@ -80,12 +88,7 @@ docker compose exec backend npm test
 **E2e tests** (DB must be running):
 
 ```bash
-# With the full stack up:
 docker compose exec backend npm run test:e2e
-
-# Or locally against the port-forwarded DB (docker compose up db first):
-cd backend
-source ../.env && npm run test:e2e
 ```
 
 Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts` (e2e)
