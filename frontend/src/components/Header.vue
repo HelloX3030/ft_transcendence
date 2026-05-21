@@ -12,7 +12,7 @@ import Separator from './ui/separator/Separator.vue';
         <div class="flex items-center">
           <img src="/logo-512x512.png" alt="logo" class="size-12 rounded-full" />
 
-          <p class="text-lg font-medium hover:text-primary transition-colors">Trailer Tinder</p>
+          <p class="text-lg font-medium hover:text-primary transition-colors">Trailer Mates</p>
         </div>
       </RouterLink>
 

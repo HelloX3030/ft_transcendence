@@ -9,66 +9,80 @@ datasource db {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model friends {
-  userAId                        Int @map("user_a_id")
-  userBId                        Int @map("user_b_id")
-  status                         friend_status
-  created_at                     DateTime?     @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamp(6)
+  userAId    Int           @map("user_a_id")
+  userBId    Int           @map("user_b_id")
+  status     friend_status
+  createdAt  DateTime      @default(dbgenerated("timezone('utc'::text, now())"))  @map("created_at")
 
-  userA users @relation("userA", fields: [userAId], references: [id],  onDelete: NoAction, onUpdate: NoAction)
-  userB users @relation("userB", fields: [userBId], references: [id],  onDelete: NoAction, onUpdate: NoAction)
+  userA users @relation("userA", fields: [userAId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  userB users @relation("userB", fields: [userBId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([userAId, userBId])
 }
 
 model movies {
-  id         Int    @id @default(autoincrement())
-  tmdbId     Int    @unique @map("tmdb_id")
-  name       String @db.VarChar(255)
+  id     Int    @id @default(autoincrement())
+  tmdbId Int    @unique @map("tmdb_id")
+  name   String @db.VarChar(255)
 
-  ratings          ratings[]
-  watchlistMovies  watchlist_movies[]
+  ratings         ratings[]
+  watchlistMovies watchlist_movies[]
 }
 
 model ratings {
-  userId      Int @map("user_id")
-  movieId     Int @map("movie_id")
+  userId  Int @map("user_id")
+  movieId Int @map("movie_id")
 
   trailerRating reaction_type @map("trailer_rating")
-  movieRating   Int @default(0) @db.SmallInt @map("movie_rating")
+  movieRating   Int           @default(0) @map("movie_rating") @db.SmallInt
 
-  createdAt DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamp(6)
+  createdAt DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
-  movie movies @relation(fields: [movieId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user  users  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movie movies @relation(fields: [movieId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user  users  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([userId, movieId])
 }
 
+model sessions {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  sessionHash String   @map("session_hash") @db.VarChar(512)
+  ipAddress   String   @map("ip_address") @db.VarChar(16)
+  userAgent   String   @map("user_agent") @db.VarChar(255)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
 model users {
-  id       Int    @id @default(autoincrement())
-  username String @unique @db.VarChar(32)
-  password String @db.VarChar(512)
-  email    String @unique @db.VarChar(255)
+  id       Int     @id @default(autoincrement())
+  username String  @unique @db.VarChar(32)
+  password String  @db.VarChar(512)
+  email    String  @unique @db.VarChar(255)
   image    String? @db.VarChar(255)
 
   language language_code
   role     user_role
 
-  createdAt DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamp(6)
+  createdAt DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
-  friendsA  friends[]   @relation("userA")
-  friendsB  friends[]   @relation("userB")
+  friendsA friends[] @relation("userA")
+  friendsB friends[] @relation("userB")
 
-  ratings          ratings[]
-  watchlistUsers   watchlist_users[]
+  ratings        ratings[]
+  watchlistUsers watchlist_users[]
+
+  sessions sessions[]
 }
 
 model watchlist_movies {
   watchlistId Int @map("watchlist_id")
   movieId     Int @map("movie_id")
 
-  movie     movies     @relation(fields: [movieId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  watchlist watchlists @relation(fields: [watchlistId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movie     movies     @relation(fields: [movieId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  watchlist watchlists @relation(fields: [watchlistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([watchlistId, movieId])
 }
@@ -79,18 +93,18 @@ model watchlist_users {
 
   role watchlist_role
 
-  user       users       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  watchlist  watchlists  @relation(fields: [watchlistId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user      users      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  watchlist watchlists @relation(fields: [watchlistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([watchlistId, userId])
 }
 
 model watchlists {
-  id    Int    @id @default(autoincrement())
-  name  String @db.VarChar(255)
+  id    Int     @id @default(autoincrement())
+  name  String  @db.VarChar(255)
   image String? @db.VarChar(255)
 
-  createdAt DateTime? @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at") @db.Timestamp(6)
+  createdAt DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
   watchlistMovies watchlist_movies[]
   watchlistUsers  watchlist_users[]
