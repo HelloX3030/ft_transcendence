@@ -49,9 +49,6 @@ docker compose exec backend npm test
 # E2e tests (DB must be running):
 docker compose exec backend npm run test:e2e
 
-# Or locally against the port-forwarded DB (docker compose up db first):
-DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_password.txt)@localhost:5432/$(cat ../secrets/db_name.txt)" npm run test:e2e
-
 # Coverage:
 docker compose exec backend npm run test:cov
 ```

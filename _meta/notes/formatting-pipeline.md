@@ -167,9 +167,10 @@ cd backend  && npm run lint
 
 1. Clone the repo
 2. `npm install` in the repo root — activates git hooks
-3. `npm install` in `frontend/` — installs frontend deps
-4. `npm install` in `backend/` — installs backend deps
-5. Open the repo in VS Code — accept "Install recommended extensions" prompt
-6. Done. Format on save and pre-commit hooks are now active.
+3. `docker compose up --build` — starts the stack; node modules are installed automatically inside the containers on first start
+4. Open the repo in VS Code — accept "Install recommended extensions" prompt
+5. Done. Format on save and pre-commit hooks are now active.
 
-(Steps 3–4 are also handled implicitly by `docker compose up --build`, but the root `npm install` in step 2 must be done on the host machine for the git hook to work.)
+The root `npm install` in step 2 must be run on the host machine — that's what wires up the git hook. The containers manage their own `node_modules` inside Docker volumes; the host never needs them for the app to run.
+
+**Optional — editor IntelliSense:** Run `npm install` in `frontend/` and `backend/` on the host so VS Code can resolve types locally. Not required for the app to run.
