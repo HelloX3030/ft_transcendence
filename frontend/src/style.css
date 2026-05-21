@@ -47,7 +47,7 @@
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   /* ... deine bestehenden Variablen ... */
-  
+
   /* CUSTOM BREAKPOINTS */
   --breakpoint-short: 600px;
   --breakpoint-tall: 600px;
