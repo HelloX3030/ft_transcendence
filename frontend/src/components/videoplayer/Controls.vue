@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ButtonGroup } from '@/components/ui/button-group';
-import { Bookmark, Heart, Maximize, Minimize, ThumbsDown, Volume2, VolumeOff, X } from 'lucide-vue-next';
+import { Bookmark, Heart, Maximize, Minimize, Volume2, VolumeOff, X } from 'lucide-vue-next';
 
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import { Button } from '../ui/button';
@@ -29,12 +28,11 @@ function toggleDislike() {
 }
 
 function toggleSave() {
-  isSaved.value = !(isSaved.value)
+  isSaved.value = !isSaved.value;
 }
 </script>
 
 <template>
-
   <!-- TOP RIGHT : SOUND -->
   <div class="absolute top-6 short:top-5 md:top-10 right-6 z-30">
     <Button
@@ -42,10 +40,8 @@ function toggleSave() {
       variant="outline"
       class="rounded-full w-11 h-11 md:w-12 md:h-12 flex items-center justify-center"
     >
-      <VolumeOff v-if="isMuted" 
-        class="size-5 md:size-6"/>
-      <Volume2 v-else 
-        class="size-5 md:size-6"/>
+      <VolumeOff v-if="isMuted" class="size-5 md:size-6" />
+      <Volume2 v-else class="size-5 md:size-6" />
     </Button>
   </div>
 
@@ -53,31 +49,28 @@ function toggleSave() {
   <div
     class="absolute top-1/2 right-6 -translate-y-1/2 z-30 flex flex-col gap-5 short:gap-3 md:gap-8"
   >
-    <Button @click="toggleLike"
+    <Button
+      @click="toggleLike"
       variant="outline"
       class="rounded-full w-11 h-11 md:w-12 md:h-12 flex items-center justify-center"
     >
-      <Heart 
-        :class="[isLiked ? 'text-red-500 fill-red-500' : '', 'size-5 md:size-6']" 
-      />
+      <Heart :class="[isLiked ? 'text-red-500 fill-red-500' : '', 'size-5 md:size-6']" />
     </Button>
 
-    <Button @click="toggleDislike"
+    <Button
+      @click="toggleDislike"
       variant="outline"
       class="rounded-full w-11 h-11 md:w-12 md:h-12 flex items-center justify-center"
     >
-      <X
-        :class="[isDisliked ? 'text-blue-400 fill-blue-400' : '', 'size-5 md:size-6']"
-      />
+      <X :class="[isDisliked ? 'text-blue-400 fill-blue-400' : '', 'size-5 md:size-6']" />
     </Button>
 
-    <Button @click="toggleSave"
+    <Button
+      @click="toggleSave"
       variant="outline"
       class="rounded-full w-11 h-11 md:w-12 md:h-12 flex items-center justify-center"
     >
-      <Bookmark 
-        :class="[isSaved ? 'text-yellow-400 fill-yellow-400' : '', 'size-5 md:size-6']"
-      />
+      <Bookmark :class="[isSaved ? 'text-yellow-400 fill-yellow-400' : '', 'size-5 md:size-6']" />
     </Button>
   </div>
 
@@ -88,10 +81,8 @@ function toggleSave() {
       @click="$emit('fullscreen-event')"
       class="rounded-full w-11 h-11 md:w-12 md:h-12 flex items-center justify-center"
     >
-      <Minimize v-if="isFullscreen" 
-        class="size-5 md:size-6"/>
-      <Maximize v-else 
-        class="size-5 md:size-6"/>
+      <Minimize v-if="isFullscreen" class="size-5 md:size-6" />
+      <Maximize v-else class="size-5 md:size-6" />
     </Button>
   </div>
 </template>

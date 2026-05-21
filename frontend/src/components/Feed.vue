@@ -44,10 +44,10 @@ watch(isFullscreen, (fullscreen) => {
 <template>
   <Carousel
     orientation="vertical"
-    class="w-full h-full border-0 outline-0 md:max-w-5/6 md:mx-auto "
+    class="w-full h-full border-0 outline-0 md:max-w-5/6 md:mx-auto"
     @init-api="setApi"
   >
-    <CarouselContent class="full  h-full">
+    <CarouselContent class="full h-full">
       <CarouselItem v-for="(trailer, index) in trailers" :key="trailer.key" class="h-full">
         <VideoPlayer
           :title="trailer.name"
