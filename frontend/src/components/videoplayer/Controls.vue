@@ -38,65 +38,64 @@ function toggleSave()
 <template>
 
   <!-- TOP RIGHT : SOUND -->
-  <div class="absolute top-10 right-9 z-30">
+  <div class="absolute portrait:top-5 landscape:top-4 right-5 z-30">
     <Button
       @click="toggleVolume"
       variant="outline"
-      class="rounded-full w-16 h-16 flex items-center justify-center"
+      class="rounded-full w-11 h-11 flex items-center justify-center"
     >
       <VolumeOff v-if="isMuted" 
-        class="size-6"/>
+        class="size-5"/>
       <Volume2 v-else 
-        class="size-6"/>
+        class="size-5"/>
     </Button>
   </div>
 
   <!-- CENTER RIGHT : SOCIAL -->
   <div
-    class="absolute top-1/2 right-9 -translate-y-1/2 z-30 flex flex-col gap-10"
+    class="absolute top-1/2 right-5 -translate-y-1/2 z-30 flex flex-col portrait:gap-10 landscape:gap-4"
   >
     <Button @click="toggleLike"
       variant="outline"
-      class="rounded-full w-16 h-16 flex items-center justify-center"
+      class="rounded-full w-11 h-11 flex items-center justify-center"
     >
       <Heart 
-        :class="[isLiked ? 'text-red-500 fill-red-500' : '', 'size-6']" 
+        :class="[isLiked ? 'text-red-500 fill-red-500' : '', 'size-5']" 
       />
     </Button>
 
     <Button @click="toggleDislike"
       variant="outline"
-      class="rounded-full w-16 h-16 flex items-center justify-center"
+      class="rounded-full w-11 h-11 flex items-center justify-center"
     >
       <X
-        :class="[isDisliked ? 'text-blue-400 fill-blue-400' : '', 'size-6']"
+        :class="[isDisliked ? 'text-blue-400 fill-blue-400' : '', 'size-5']"
       />
     </Button>
 
     <Button @click="toggleSave"
       variant="outline"
-      class="rounded-full w-16 h-16 flex items-center justify-center"
+      class="rounded-full w-11 h-11 flex items-center justify-center"
     >
       <Bookmark 
-        :class="[isSaved ? 'text-yellow-400 fill-yellow-400' : '', 'size-6']"
+        :class="[isSaved ? 'text-yellow-400 fill-yellow-400' : '', 'size-5']"
       
       />
     </Button>
   </div>
 
   <!-- BOTTOM RIGHT : FULLSCREEN -->
-  <div class="absolute bottom-10 right-9 z-30">
+  <div class="absolute portrait:bottom-5 landscape:bottom-4 right-5 z-30">
     <Button
       variant="outline"
       @click="$emit('fullscreen-event')"
-      class="rounded-full w-16 h-16 flex items-center justify-center"
+      class="rounded-full w-11 h-11 flex items-center justify-center"
     >
       <Minimize v-if="isFullscreen" 
-        class="size-6"/>
+        class="size-5"/>
       <Maximize v-else 
-        class="size-6"/>
+        class="size-5"/>
     </Button>
   </div>
-
 </template>
 
