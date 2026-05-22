@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import MovieCard from '@/components/MovieCard.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import MovieSearch from '@/components/MovieSearch.vue';
 import { Progress } from '@/components/ui/progress';
 import { popular } from '@/lib/test';
-import { Search } from 'lucide-vue-next';
+
 import { ref } from 'vue';
 
-const progress = ref(0);
-const step = ref(0);
+const selectedMovies = ref<{ title: string; img: string; id: number }[]>([]);
+function handleSelect({
+  title,
+  poster_path,
+  id,
+}: {
+  title: string;
+  poster_path: string;
+  id: number;
+}) {
+  const idx = selectedMovies.value.findIndex((item) => item.id === id);
+  if (idx !== -1) selectedMovies.value.splice(idx, 1);
+  else if (selectedMovies.value.length < 10)
+    selectedMovies.value.push({ title, img: poster_path, id });
+}
 </script>
 
 <template>
@@ -19,22 +31,20 @@ const step = ref(0);
         We'll use these to find your perfect movie trailers and refine your feed.
       </p>
     </div>
-    <div class="flex gap-2">
-      <Input placeholder="Search movie..." />
-      <Button><Search /></Button>
-    </div>
-    <div class="flex items-center justify-between">
-      <span>Selected({{ 0 }}/10)</span>
-      <Progress :model-value="progress" class="w-1/3" />
-    </div>
-    <div class="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
+    <MovieSearch />
+    <!-- <div class="flex items-center justify-between">
+      <span>Selected({{ selectedMovies.length }}/10)</span>
+      <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />
+    </div> -->
+    <!-- <div class="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
       <MovieCard
-        v-for="{ title, poster_path } in popular"
-        :key="title"
+        v-for="{ title, poster_path, id } in popular"
+        :key="id"
         :title="title"
         :img="poster_path"
-        :selected="false"
+        :selected="selectedMovies.some((item) => item.id === id)"
+        @select="handleSelect({ title, poster_path, id })"
       />
-    </div>
+    </div> -->
   </div>
 </template>
