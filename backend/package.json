@@ -9,7 +9,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "postinstall": "prisma generate",
-    "fix": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" && eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix && prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "check": "npm run format:check && npm run lint:check && npm run test",

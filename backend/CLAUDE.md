@@ -62,7 +62,9 @@ Test files: `src/**/*.spec.ts` (unit) · `test/**/*.e2e-spec.ts` (e2e)
 Backend uses `.prettierrc` and `eslint.config.mjs`.
 
 ```bash
-docker compose exec backend npm run fix      # Prettier + ESLint auto-fix
+cd backend && npm run fix      # ESLint auto-fix + Prettier format
+# or from root:
+npm run fix
 ```
 
 **CI checks (format + lint + test, no stack required):**
