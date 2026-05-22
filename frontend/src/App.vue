@@ -8,7 +8,7 @@ const route = useRoute();
 </script>
 
 <template>
-  <template v-if="route.meta.hideLayout">
+  <template v-if="true">
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
@@ -20,7 +20,7 @@ const route = useRoute();
     </SidebarProvider>
   </template>
 
-  <main class="h-screen" v-else>
+  <!-- <main class="h-screen" v-else>
     <RouterView />
-  </main>
+  </main> -->
 </template>
