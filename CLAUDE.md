@@ -79,20 +79,14 @@ Never hardcode values directly in `docker-compose.yml`.
 
 ## CI Checks
 
-Run the full CI suite locally (Docker must be running, no full stack required):
+Two commands cover all workflows (run from the project root or inside any layer):
 
 ```bash
-npm run check          # format:check + lint + type-check/test for both layers
+npm run fix    # auto-fix formatting + lint issues
+npm run check  # read-only: format + lint + type-check/tests — identical to CI
 ```
 
-Or per layer:
-
-```bash
-docker compose run --rm --no-deps frontend npm run check
-docker compose run --rm --no-deps backend  npm run check
-```
-
-The pre-commit hook only covers staged files (Prettier only); `npm run check` runs all files, identical to CI.
+The pre-commit hook covers only staged files (Prettier only); `npm run check` runs all files.
 
 ---
 
