@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -37,7 +42,7 @@ export class AuthService {
           throw new ForbiddenException('Credentials taken');
         }
         if (error.code === 'P2000') {
-          throw new ForbiddenException('Provided value for the column is too long');
+          throw new BadRequestException('Provided value for the column is too long');
         }
       }
       throw error;
