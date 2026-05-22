@@ -57,7 +57,10 @@ docker compose exec backend sh
 ## Tests
 
 ```bash
-# Unit tests (no DB needed):
+# Unit tests (no DB needed) — from project root via Docker:
+npm run test
+
+# Unit tests — inside the running container:
 docker compose exec backend npm test
 
 # E2e tests (DB must be running):
