@@ -47,6 +47,8 @@ docker compose up --build   # Start the full stack (frontend on port 5173)
 
 ## Standalone dev commands
 
+These run directly and require **Node >=22.12.0** on the host. Prefer the root-level `npm run fix` / `npm run check` if your local Node is older — those run via Docker automatically.
+
 ```bash
 npm install           # Install dependencies
 

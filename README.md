@@ -90,7 +90,8 @@ docker compose exec backend  sh -c "npx prisma migrate dev"
 **Unit tests** (no DB required):
 
 ```bash
-docker compose exec backend npm test
+npm run test                         # via Docker from the project root
+docker compose exec backend npm test # inside the running container
 ```
 
 **E2e tests** (DB must be running):
@@ -105,11 +106,12 @@ Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts`
 
 ## Code Quality
 
-Two commands cover everything (run from the project root or inside any layer):
+Three commands cover everything, run from the project root via Docker (no local Node version required):
 
 ```bash
 npm run fix    # auto-fix formatting + lint issues
-npm run check  # read-only validation — identical to CI
+npm run check  # read-only validation: format + lint + type-check + tests — identical to CI
+npm run test   # backend unit tests only
 ```
 
 The pre-commit hook covers only staged files; `npm run check` runs all files.
