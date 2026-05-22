@@ -41,10 +41,14 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'User successfully created' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 403, description: 'Credentials taken' })
-  async register(@Body() dto: RegisterDto, @Response({ passthrough: true }) res: ExpressResponse) {
+  async register(
+    @Request() req: ExpressRequest,
+    @Body() dto: RegisterDto,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
     console.log('register request');
 
-    return this.handleAuth(() => this.authService.register(dto, res));
+    return this.handleAuth(() => this.authService.register(req, dto, res));
   }
 
   @Public()
@@ -54,9 +58,13 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User login successful' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 403, description: 'Invalid credentials' })
-  async login(@Body() dto: LoginDto, @Response({ passthrough: true }) res: ExpressResponse) {
+  async login(
+    @Request() req: ExpressRequest,
+    @Body() dto: LoginDto,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
     console.log('login request');
-    return this.handleAuth(() => this.authService.login(dto, res));
+    return this.handleAuth(() => this.authService.login(req, dto, res));
   }
 
   @Public()
