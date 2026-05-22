@@ -1,7 +1,7 @@
 #!/bin/sh
 # lint-staged runs ESLint 10, which requires Node >= 20.12.
-# We run it inside Docker (node:22-slim) so the hook works regardless of host Node version.
-# First run pulls node:22-slim (~230 MB); subsequent commits use the cached image.
+# We run it inside Docker (node:22) so the hook works regardless of host Node version.
+# First run pulls node:22 (~230 MB); subsequent commits use the cached image.
 # If Docker is not running, commits proceed unverified — CI on Node 22 is the fallback gate.
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -13,8 +13,12 @@ fi
 
 # git refuses to operate in directories owned by a different user (Docker runs as root).
 # Marking /app as safe lets lint-staged call git diff --cached to find staged files.
+# npm install ensures node_modules are present on the host (needed by lint-staged / prettier).
+# It is fast when nothing has changed and self-heals after package.json updates.
 docker run --rm \
   -v "$REPO_ROOT:/app" \
   -w /app \
   node:22 \
-  sh -c "git config --global --add safe.directory /app && cd /app/frontend && npx lint-staged && cd /app/backend && npx lint-staged"
+  sh -c "git config --global --add safe.directory /app && \
+    cd /app/frontend && npm install && npx lint-staged && \
+    cd /app/backend && npm install && npx lint-staged"
