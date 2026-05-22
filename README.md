@@ -33,6 +33,8 @@ This does three things in one step:
 - Installs Husky at the repo root and wires up the pre-commit hook
 - Installs `node_modules` locally in `frontend/` and `backend/` so your IDE (VS Code, WebStorm, etc.) gets full IntelliSense
 
+> **Engine warnings are expected** if your local Node is older than 20.19.0 — the install still completes successfully. All tools (`fix`, `check`, `test`) run inside Docker so your host Node version doesn't matter.
+
 The hook runs lint-staged inside a `node:22` Docker container so it works regardless of your host Node version. **Docker must be running when you commit** — on first use it pulls the image (~1.1 GB, cached after that). If Docker is not running the hook skips with a warning and CI verifies instead.
 
 > **Note:** The local `node_modules` are only for the IDE — the app always runs inside Docker using isolated named volumes. Never use the local `node_modules` to run the app or tests.
