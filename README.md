@@ -105,17 +105,11 @@ Test files: `backend/src/**/*.spec.ts` (unit) · `backend/test/**/*.e2e-spec.ts`
 
 ## Code Quality
 
-Run the full CI check suite locally (Docker must be running, no full stack required):
+Two commands cover everything (run from the project root or inside any layer):
 
 ```bash
-npm run check
+npm run fix    # auto-fix formatting + lint issues
+npm run check  # read-only validation — identical to CI
 ```
 
-Or target a single layer:
-
-```bash
-docker compose run --rm --no-deps frontend sh -c 'npm run format:check && npm run lint && npm run type-check'
-docker compose run --rm --no-deps backend  sh -c 'npm run format:check && npm run lint && npm run test'
-```
-
-The pre-commit hook covers only staged files; `npm run check` runs all files, identical to CI.
+The pre-commit hook covers only staged files; `npm run check` runs all files.

@@ -4,8 +4,8 @@
   "scripts": {
     "prepare": "husky",
     "setup": "npm install && (cd frontend && npm install) && (cd backend && npm install)",
-    "format": "docker compose -f docker-compose.check.yml run --rm frontend sh -c 'npm install && npm run format' && docker compose -f docker-compose.check.yml run --rm backend sh -c 'npm install && npm run format'",
-    "check": "docker compose -f docker-compose.check.yml run --rm frontend sh -c 'npm install && npm run check' && docker compose -f docker-compose.check.yml run --rm backend sh -c 'npm install && npm run check'"
+    "fix": "(cd frontend && npm run fix) && (cd backend && npm run fix)",
+    "check": "(cd frontend && npm run check) && (cd backend && npm run check)"
   },
   "devDependencies": {
     "husky": "^9.1.7"
