@@ -20,9 +20,11 @@ NestJS + TypeScript API. Runs on port 3000 inside Docker.
 
 ```
 src/
-├── app.module.ts          Root module — imports PrismaModule, registers AppController + AppService
+├── app.module.ts          Root module — imports all feature modules
 ├── app.controller.ts      HTTP endpoints (see below)
 ├── app.service.ts         Business logic
+├── auth/                  Authentication (register, login, refresh, logout)
+├── users/                 User profile management
 ├── prisma/
 │   ├── prisma.module.ts   Global module — exports PrismaService to all modules
 │   └── prisma.service.ts  Extends PrismaClient, connects on ModuleInit
@@ -33,10 +35,32 @@ src/
 
 ## Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Returns `{ status: "ok" }` |
-| `GET` | `/api/ping` | Returns `{ message: "pong", db_time }` — verifies DB connectivity |
+All routes except auth are protected by the global `JwtAccessGuard` (requires valid `access_token` cookie).
+
+### App
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/health` | No | Returns `{ status: "ok" }` |
+| `GET` | `/api/ping` | No | Returns `{ message: "pong", db_time }` — verifies DB connectivity |
+
+### Auth
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/auth/register` | No | Create account, sets JWT cookies |
+| `POST` | `/auth/login` | No | Login, sets JWT cookies |
+| `GET` | `/auth/refresh` | Refresh token | Refresh access token |
+| `GET` | `/auth/logout` | Refresh token | Clear session and cookies |
+
+### Users
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/users/me` | Required | Authenticated user's full profile |
+| `PATCH` | `/users/me` | Required | Update own username, language, or image |
+| `DELETE` | `/users/me` | Required | Delete own account |
+| `GET` | `/users/:id` | Required | Any user's public profile `{ id, username, image }` |
 
 ---
 
