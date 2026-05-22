@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, useTemplateRef, watch } from 'vue';
+import { onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import Controls from './Controls.vue';
 
@@ -15,9 +15,32 @@ const props = defineProps<PropsType>();
 const container = useTemplateRef('video-container');
 const player = ref<YT.Player>();
 const isPlaying = ref(false);
-const { isMuted, toggleFullscreen } = useVideoPlayer();
+const { isMuted, toggleFullscreen, isFullscreen } = useVideoPlayer();
+
+// Orientation: Landscape → Fullscreen, Portrait → Fullscreen beenden
+function handleOrientationChange() {
+  if (!props.active || !container.value) return;
+
+  const isLandscape = screen.orientation
+    ? screen.orientation.type.includes('landscape')
+    : window.matchMedia('(orientation: landscape)').matches;
+
+  if (isLandscape && !isFullscreen.value) {
+    container.value.requestFullscreen();
+  } else if (!isLandscape && isFullscreen.value) {
+    document.exitFullscreen();
+  }
+}
 
 onMounted(() => {
+  // Orientation Listener
+  if (screen.orientation) {
+    screen.orientation.addEventListener('change', handleOrientationChange);
+  } else {
+    window.addEventListener('orientationchange', handleOrientationChange);
+  }
+
+  // YouTube Player Init
   const init = () => {
     player.value = new window.YT.Player(`player-${props.videoId}`, {
       videoId: props.videoId,
@@ -35,6 +58,7 @@ onMounted(() => {
       },
     });
   };
+
   if (window.YT?.Player) {
     init();
   } else {
@@ -43,6 +67,14 @@ onMounted(() => {
       previous?.();
       init();
     };
+  }
+});
+
+onUnmounted(() => {
+  if (screen.orientation) {
+    screen.orientation.removeEventListener('change', handleOrientationChange);
+  } else {
+    window.removeEventListener('orientationchange', handleOrientationChange);
   }
 });
 
@@ -56,7 +88,7 @@ watch(
       player.value.pauseVideo();
     }
   },
-); //TODO: search for better solution
+);
 
 watch(isMuted, (muted) => {
   if (!player.value) return;
