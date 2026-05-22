@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
+import { Interval } from '@nestjs/schedule';
 
 @Injectable()
 export class AuthService {
@@ -220,5 +221,23 @@ export class AuthService {
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 * 15,
     });
+  }
+
+  @Interval(300000) // every 5 min
+  async sessionCleanUp() {
+    console.log('Run session clean up');
+    try {
+      await this.prisma.sessions.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
+        console.error(error);
+      }
+    }
   }
 }
