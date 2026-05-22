@@ -1,7 +1,7 @@
 # * @ausperg
 .github/CODEOWNERS @HelloX3030
-frontend/ @jofmann
-backend/ @HelloX3030
+frontend/ @ausperg @jofmann
+backend/ @ausperg @HelloX3030
 
 # Pipeline & code-quality tooling — requires HelloX3030 approval
 .github/workflows/  @HelloX3030
