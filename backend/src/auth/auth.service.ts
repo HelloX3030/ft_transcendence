@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -6,7 +11,8 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
-import type { Response as ExpressResponse } from 'express';
+import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
+import { Interval } from '@nestjs/schedule';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +21,7 @@ export class AuthService {
     private jwt: JwtService,
   ) {}
 
-  async register(dto: RegisterDto, res: ExpressResponse) {
+  async register(req: ExpressRequest, dto: RegisterDto, res: ExpressResponse) {
     const hash = await argon2.hash(dto.password);
 
     try {
@@ -28,7 +34,7 @@ export class AuthService {
           role: 'user',
         },
       });
-      const tokens = await this.createJwt(user.id, user.email);
+      const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res);
       return { mssage: 'User registered successfully' };
     } catch (error) {
@@ -37,14 +43,14 @@ export class AuthService {
           throw new ForbiddenException('Credentials taken');
         }
         if (error.code === 'P2000') {
-          throw new ForbiddenException('Provided value for the column is too long');
+          throw new BadRequestException('Provided value for the column is too long');
         }
       }
       throw error;
     }
   }
 
-  async login(dto: LoginDto, res: ExpressResponse) {
+  async login(req: ExpressRequest, dto: LoginDto, res: ExpressResponse) {
     const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
@@ -56,7 +62,7 @@ export class AuthService {
       throw new ForbiddenException('Invalid credentials');
     }
 
-    const tokens = await this.createJwt(user.id, user.email);
+    const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
     return { message: 'Login successful' };
   }
@@ -112,10 +118,10 @@ export class AuthService {
     return { message: 'Logged out' };
   }
 
-  async createJwt(userId: number, email: string): Promise<JwtTokens> {
+  async createJwt(userId: number, email: string, req: ExpressRequest): Promise<JwtTokens> {
     return {
       access_token: (await this.createAccessJwt(userId, email)).access_token,
-      refresh_token: (await this.createRefreshJwt(userId)).refresh_token,
+      refresh_token: (await this.createRefreshJwt(userId, req)).refresh_token,
     };
   }
 
@@ -135,16 +141,22 @@ export class AuthService {
     };
   }
 
-  async createRefreshJwt(userId: number): Promise<{ refresh_token: string }> {
+  async createRefreshJwt(userId: number, req: ExpressRequest): Promise<{ refresh_token: string }> {
     const sessionKey = randomBytes(32).toString('hex');
     const sessionHash = await argon2.hash(sessionKey);
+
+    let ip = req.ip?.toString();
+    if (ip === undefined) throw new BadRequestException();
+    if (ip.startsWith('::ffff:')) {
+      ip = ip.replace('::ffff:', '');
+    }
 
     const session = await this.prisma.sessions.create({
       data: {
         userId: userId,
         sessionHash: sessionHash,
-        ipAddress: '1.1.1.1',
-        userAgent: 'Android',
+        ipAddress: ip,
+        userAgent: req.headers['user-agent'] || 'unknown',
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
       },
     });
@@ -209,5 +221,23 @@ export class AuthService {
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 * 15,
     });
+  }
+
+  @Interval(300000) // every 5 min
+  async sessionCleanUp() {
+    console.log('Run session clean up');
+    try {
+      await this.prisma.sessions.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
+        console.error(error);
+      }
+    }
   }
 }
