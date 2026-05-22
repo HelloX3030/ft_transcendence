@@ -48,7 +48,7 @@ model sessions {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   sessionHash String   @map("session_hash") @db.VarChar(512)
-  ipAddress   String   @map("ip_address") @db.VarChar(16)
+  ipAddress   String   @map("ip_address") @db.VarChar(128)
   userAgent   String   @map("user_agent") @db.VarChar(255)
   expiresAt   DateTime @map("expires_at")
   createdAt   DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
