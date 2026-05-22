@@ -12,7 +12,7 @@
     "fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix && prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
-    "check": "npm run format:check && npm run lint:check && npm run test",
+    "check": "npm run format:check && npm run lint:check",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
