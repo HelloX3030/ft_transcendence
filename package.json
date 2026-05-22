@@ -4,8 +4,9 @@
   "scripts": {
     "prepare": "husky",
     "setup": "npm install && (cd frontend && npm install) && (cd backend && npm install)",
+    "test": "(cd backend && npm run test)",
     "fix": "(cd frontend && npm run fix) && (cd backend && npm run fix)",
-    "check": "(cd frontend && npm run check) && (cd backend && npm run check)"
+    "check": "(cd frontend && npm run check) && (cd backend && npm run check) && npm run test"
   },
   "devDependencies": {
     "husky": "^9.1.7"
