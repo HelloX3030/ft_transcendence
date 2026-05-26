@@ -33,34 +33,9 @@ src/
 
 ---
 
-## Endpoints
+## API Documentation (Swagger)
 
-All routes except auth are protected by the global `JwtAccessGuard` (requires valid `access_token` cookie).
-
-### App
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/health` | No | Returns `{ status: "ok" }` |
-| `GET` | `/api/ping` | No | Returns `{ message: "pong", db_time }` — verifies DB connectivity |
-
-### Auth
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/auth/register` | No | Create account, sets JWT cookies |
-| `POST` | `/auth/login` | No | Login, sets JWT cookies |
-| `GET` | `/auth/refresh` | Refresh token | Refresh access token |
-| `GET` | `/auth/logout` | Refresh token | Clear session and cookies |
-
-### Users
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/users/me` | Required | Authenticated user's full profile |
-| `PATCH` | `/users/me` | Required | Update own username, language, or image |
-| `DELETE` | `/users/me` | Required | Delete own account |
-| `GET` | `/users/:id` | Required | Any user's public profile `{ id, username, image }` |
+Interactive docs with all endpoints, inputs, and responses: `http://localhost:3000/api`
 
 ---
 
