@@ -23,14 +23,14 @@ const setApi = (val: CarouselApi) => {
   api.value = val;
 };
 
-// watchOnce(api, (api) => {
-//   if (!api) return;
+watchOnce(api, (api) => {
+  if (!api) return;
 
-//   currentIndex.value = api.selectedScrollSnap();
-//   api.on('select', () => {
-//     currentIndex.value = api.selectedScrollSnap();
-//   });
-// });
+  currentIndex.value = api.selectedScrollSnap();
+  api.on('select', () => {
+    currentIndex.value = api.selectedScrollSnap();
+  });
+});
 
 watch(isFullscreen, (fullscreen) => {
   if (fullscreen) {
