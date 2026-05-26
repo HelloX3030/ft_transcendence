@@ -32,6 +32,86 @@ function handleOrientationChange() {
   }
 }
 
+// function handleOrientationChange() {
+//   const isLandscape = screen.orientation
+//     ? screen.orientation.type.includes('landscape')
+//     : window.matchMedia('(orientation: landscape)').matches;
+
+//   console.log('orientation change', {
+//     active: props.active,
+//     container: !!container.value,
+//     isLandscape,
+//     isFullscreen: isFullscreen.value,
+//     documentFullscreen: !!document.fullscreenElement,
+//   });
+
+//   if (!props.active || !container.value) return;
+
+//   if (isLandscape && !isFullscreen.value) {
+//     container.value.requestFullscreen()
+//       .then(() => console.log('success'))
+//       .catch((e) => console.log('failed', e));
+//   } else if (!isLandscape && isFullscreen.value) {
+//     document.exitFullscreen();
+//   }
+// }
+
+// function handleOrientationChange() {
+//   if (!props.active || !container.value) return;
+
+//   const isLandscape = screen.orientation
+//     ? screen.orientation.type.includes('landscape')
+//     : window.matchMedia('(orientation: landscape)').matches;
+
+//   if (isLandscape && !document.fullscreenElement) {
+//     container.value.requestFullscreen()
+//       .catch((e) => console.log('failed', e));
+//   } else if (!isLandscape && document.fullscreenElement) {
+//     document.exitFullscreen();
+//   }
+// }
+
+// function handleOrientationChange() {
+//   if (!props.active || !container.value) return;
+
+//   const isLandscape = screen.orientation
+//     ? screen.orientation.type.includes('landscape')
+//     : window.matchMedia('(orientation: landscape)').matches;
+
+//   console.log('orientation change', {
+//     isLandscape,
+//     documentFullscreen: !!document.fullscreenElement,
+//   });
+
+//   if (isLandscape && !document.fullscreenElement) {
+//     console.log('→ requestFullscreen wird aufgerufen');
+//     container.value.requestFullscreen()
+//       .then(() => console.log('→ requestFullscreen SUCCESS'))
+//       .catch((e) => console.log('→ requestFullscreen FAILED', e.message));
+//   } else if (!isLandscape && document.fullscreenElement) {
+//     console.log('→ exitFullscreen wird aufgerufen');
+//     document.exitFullscreen()
+//       .then(() => console.log('→ exitFullscreen SUCCESS'))
+//       .catch((e) => console.log('→ exitFullscreen FAILED', e.message));
+//   } else {
+//     console.log('→ nichts passiert (Bedingung nicht erfüllt)');
+//   }
+// }
+
+// function handleOrientationChange() {
+//   if (!props.active || !container.value) return;
+
+//   const isLandscape = screen.orientation
+//     ? screen.orientation.type.includes('landscape')
+//     : window.matchMedia('(orientation: landscape)').matches;
+
+//   if (isLandscape && !document.fullscreenElement) {
+//     container.value.requestFullscreen()
+//       .catch((e) => console.log('failed', e.message));
+//   }
+//   // Portrait: kein exitFullscreen, Browser macht das selbst
+// }
+
 onMounted(() => {
   // Orientation Listener
   if (screen.orientation) {
