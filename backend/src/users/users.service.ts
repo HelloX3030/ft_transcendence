@@ -3,7 +3,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateUserDto } from './dto';
 
-const ME_SELECT = {
+export const ME_SELECT = {
   id: true,
   username: true,
   email: true,
@@ -12,7 +12,7 @@ const ME_SELECT = {
   role: true,
 } as const;
 
-const PUBLIC_SELECT = {
+export const PUBLIC_SELECT = {
   id: true,
   username: true,
   image: true,
