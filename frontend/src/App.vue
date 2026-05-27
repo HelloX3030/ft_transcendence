@@ -3,8 +3,8 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-import { useRoute } from 'vue-router';
-const route = useRoute();
+// import { useRoute } from 'vue-router';
+// const route = useRoute();
 </script>
 
 <template>
