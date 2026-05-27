@@ -12,9 +12,9 @@ import { useVideoPlayer } from '@/composables/useVideoPlayer';
 
 const { isFullscreen } = useVideoPlayer();
 const trailers = [
+  { key: 'MlsrbQaKXoY', name: 'Der Astronaut' },
   { key: 'BdJKm16Co6M', name: '#TBT Trailer' },
   { key: 'JE9z-gy4De4', name: 'Official New UK Trailer' },
-  { key: 'l0X5R1hRw8g', name: 'Cybord' },
 ];
 
 const currentIndex = ref(0); //TODO: check ob VideoPlayer component immer neu rendert wegen dem currentIndex ref
@@ -44,10 +44,10 @@ watch(isFullscreen, (fullscreen) => {
 <template>
   <Carousel
     orientation="vertical"
-    class="w-full mx-auto h-full border-0 outline-0"
+    class="w-full h-full border-0 outline-0 md:max-w-5/6 md:mx-auto"
     @init-api="setApi"
   >
-    <CarouselContent class="w-5/6 mx-auto h-full">
+    <CarouselContent class="h-full">
       <CarouselItem v-for="(trailer, index) in trailers" :key="trailer.key" class="h-full">
         <VideoPlayer
           :title="trailer.name"
