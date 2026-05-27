@@ -39,8 +39,6 @@ watch(isFullscreen, (fullscreen) => {
     api.value?.reInit({ watchDrag: true });
   }
 });
-
-
 </script>
 
 <template>
