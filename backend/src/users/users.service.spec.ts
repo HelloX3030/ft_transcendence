@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateUserDto } from './dto';
-import { UsersService } from './users.service';
+import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
 
 const mockUser = {
   id: 1,
@@ -52,7 +52,7 @@ describe('UsersService', () => {
 
       expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
-        select: { id: true, username: true, email: true, image: true, language: true, role: true },
+        select: ME_SELECT,
       });
       expect(result).toEqual(mockUser);
     });
@@ -77,7 +77,7 @@ describe('UsersService', () => {
       expect(mockPrisma.users.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: dto,
-        select: { id: true, username: true, email: true, image: true, language: true, role: true },
+        select: ME_SELECT,
       });
       expect(result).toEqual(updated);
     });
@@ -130,7 +130,7 @@ describe('UsersService', () => {
 
       expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
-        select: { id: true, username: true, image: true },
+        select: PUBLIC_SELECT,
       });
       expect(result).toEqual(mockPublicUser);
     });
