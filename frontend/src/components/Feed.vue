@@ -12,9 +12,9 @@ import { useVideoPlayer } from '@/composables/useVideoPlayer';
 
 const { isFullscreen } = useVideoPlayer();
 const trailers = [
+  { key: 'MlsrbQaKXoY', name: 'Der Astronaut' },
   { key: 'BdJKm16Co6M', name: '#TBT Trailer' },
   { key: 'JE9z-gy4De4', name: 'Official New UK Trailer' },
-  { key: 'l0X5R1hRw8g', name: 'Cybor  d' },
 ];
 
 const currentIndex = ref(0); //TODO: check ob VideoPlayer component immer neu rendert wegen dem currentIndex ref

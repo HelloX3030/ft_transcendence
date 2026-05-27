@@ -62,11 +62,11 @@ onMounted(() => {
 onUnmounted(() => {
   if (screen.orientation) {
     screen.orientation.removeEventListener('change', () =>
-      handleOrientationChange(container.value!, props.active),
+      handleOrientationChange(container.value, props.active),
     );
   } else {
     window.removeEventListener('orientationchange', () =>
-      handleOrientationChange(container.value!, props.active),
+      handleOrientationChange(container.value, props.active),
     );
   }
 });
@@ -93,7 +93,7 @@ function togglePlay() {
 <template>
   <div ref="video-container" class="h-full relative overflow-hidden">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
-    <Controls @fullscreen-event="toggleFullscreen(container!)" />
+    <Controls @fullscreen-event="toggleFullscreen(container)" />
     <div :id="`player-${videoId}`" class="w-full h-full lg:scale-y-125 scale-y-150" />
   </div>
 </template>

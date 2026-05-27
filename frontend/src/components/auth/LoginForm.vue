@@ -33,7 +33,7 @@ const onSubmit = form.handleSubmit((values) => {
 </script>
 
 <template>
-  <Card class="w-full max-w-sm md:max-w-lg lg:max-w-2xl mx-auto mt-12 h-3/4 justify-evenly lg:mx-8">
+  <Card class="w-full min-h-3/4 max-w-sm md:max-w-lg lg:max-w-2xl my-4 md:my-12 justify-evenly">
     <CardHeader class="text-center">
       <CardTitle class="text-3xl">Welcome Back</CardTitle>
       <CardDescription> Your next obsession is just a swipe away.</CardDescription>

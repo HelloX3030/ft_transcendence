@@ -50,16 +50,19 @@ async function createAccount({ username, email, password }: RegisterValueType) {
   }
 }
 
+const emit = defineEmits(['onboarding']);
+
 const onSubmit = form.handleSubmit((values) => {
   console.log('Form submitted!', values);
   createAccount(values);
+  emit('onboarding');
 });
 
 const isPwVisible = ref(false);
 </script>
 
 <template>
-  <Card class="w-full max-w-sm md:max-w-lg lg:max-w-2xl mx-auto mt-12 h-3/4 justify-evenly lg:mx-8">
+  <Card class="w-full min-h-3/4 max-w-sm md:max-w-lg lg:max-w-2xl my-4 md:my-12 justify-evenly">
     <CardHeader class="text-center">
       <CardTitle class="text-3xl">Create your Account</CardTitle>
       <CardDescription>Join the hunt for your next favorite movie.</CardDescription>

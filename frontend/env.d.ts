@@ -6,4 +6,14 @@ declare global {
   }
 }
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean;
+    guestOnly?: boolean;
+    hideLayout?: boolean;
+    requiresOnboarding?: boolean;
+    title?: string;
+  }
+}
+
 export {};
