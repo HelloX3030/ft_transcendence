@@ -15,29 +15,18 @@ const props = defineProps<PropsType>();
 const container = useTemplateRef('video-container');
 const player = ref<YT.Player>();
 const isPlaying = ref(false);
-const { isMuted, toggleFullscreen, isFullscreen } = useVideoPlayer();
-
-// Orientation: Landscape → Fullscreen, Portrait → Fullscreen beenden
-function handleOrientationChange() {
-  if (!props.active || !container.value) return;
-
-  const isLandscape = screen.orientation
-    ? screen.orientation.type.includes('landscape')
-    : window.matchMedia('(orientation: landscape)').matches;
-
-  if (isLandscape && !isFullscreen.value) {
-    container.value.requestFullscreen();
-  } else if (!isLandscape && isFullscreen.value) {
-    document.exitFullscreen();
-  }
-}
+const { isMuted, toggleFullscreen, handleOrientationChange } = useVideoPlayer();
 
 onMounted(() => {
   // Orientation Listener
   if (screen.orientation) {
-    screen.orientation.addEventListener('change', handleOrientationChange);
+    screen.orientation.addEventListener('change', () =>
+      handleOrientationChange(container.value, props.active),
+    );
   } else {
-    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('orientationchange', () =>
+      handleOrientationChange(container.value, props.active),
+    );
   }
 
   // YouTube Player Init
@@ -72,9 +61,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (screen.orientation) {
-    screen.orientation.removeEventListener('change', handleOrientationChange);
+    screen.orientation.removeEventListener('change', () =>
+      handleOrientationChange(container.value!, props.active),
+    );
   } else {
-    window.removeEventListener('orientationchange', handleOrientationChange);
+    window.removeEventListener('orientationchange', () =>
+      handleOrientationChange(container.value!, props.active),
+    );
   }
 });
 
@@ -82,11 +75,7 @@ watch(
   () => props.active,
   (isActive) => {
     if (!player.value) return;
-    if (isActive) {
-      player.value.playVideo();
-    } else {
-      player.value.pauseVideo();
-    }
+    isActive ? player.value.playVideo() : player.value.pauseVideo();
   },
 );
 

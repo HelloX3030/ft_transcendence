@@ -3,12 +3,6 @@ import { ref } from 'vue';
 const isMuted = ref(true);
 const isFullscreen = ref(false);
 
-function syncFullscreenState() {
-  isFullscreen.value = !!document.fullscreenElement; //wenn FullScreen (toggleFullscreen) dann isFullScreen.value == true
-}
-
-document.addEventListener('fullscreenchange', syncFullscreenState);
-
 export function useVideoPlayer() {
   function toggleVolume() {
     isMuted.value = !isMuted.value;
@@ -21,21 +15,23 @@ export function useVideoPlayer() {
     } else {
       container.requestFullscreen(); //if document.fullscreen == NULL
     }
+    isFullscreen.value = !isFullscreen.value;
   }
+  // Orientation: Landscape → Fullscreen, Portrait → Fullscreen beenden
+  function handleOrientationChange(container: HTMLDivElement | null, active: boolean) {
+    if (!active || !container) return;
 
-  function setFullScreen(state: boolean, container: HTMLDivElement) {
-    if (state) {
-      isFullscreen.value = true;
+    const isLandscape = screen.orientation
+      ? screen.orientation.type.includes('landscape')
+      : window.matchMedia('(orientation: landscape)').matches;
+
+    if (isLandscape && !isFullscreen.value) {
       container.requestFullscreen();
-    } else {
-      isFullscreen.value = false;
+      isFullscreen.value = true;
+    } else if (!isLandscape && isFullscreen.value) {
       document.exitFullscreen();
+      isFullscreen.value = false;
     }
   }
-
-  return { isMuted, toggleVolume, isFullscreen, toggleFullscreen, setFullScreen };
+  return { isMuted, toggleVolume, isFullscreen, toggleFullscreen, handleOrientationChange };
 }
-
-// ÄNDERUNG: fullscreenchange Listener von onMounted/onUnmounted auf Modul-Ebene verschoben.
-// Grund: Listener war an Component-Lifecycle gebunden und wurde beim reInit des Carousels
-// kurz entfernt, wodurch isFullscreen nicht mehr korrekt aktualisiert wurde.
