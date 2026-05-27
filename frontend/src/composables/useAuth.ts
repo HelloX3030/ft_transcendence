@@ -21,5 +21,5 @@ export function useAuth() {
   function logout() {
     isLoggedIn.value = false;
   }
-  return { register, completeOnboarding, isLoggedIn, requiresOnboarding, login, logout };
+  return { register, completeOnboarding, isLoggedIn, requiresOnboarding, login, logout, user };
 }
