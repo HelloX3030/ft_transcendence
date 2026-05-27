@@ -31,7 +31,7 @@ type RegisterValueType = z.infer<typeof registerSchema>;
 
 async function createAccount({ username, email, password }: RegisterValueType) {
   try {
-    const data = await fetch('http://localhost:3000/v1/auth/register', {
+    const data = await fetch('/v1/auth/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

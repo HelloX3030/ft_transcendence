@@ -17,7 +17,7 @@ export default defineConfig({
     port: 5173,
     watch: { usePolling: true },
     proxy: {
-      '/api': process.env.BACKEND_URL ?? 'http://localhost:3000',
+      '/v1': process.env.BACKEND_URL ?? 'http://localhost:3000',
     },
   },
 });
