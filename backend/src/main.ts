@@ -17,7 +17,10 @@ async function bootstrap() {
       // transform: true, todo: may be necessary later to convert the data types automatically
     }),
   );
-  app.enableCors(); // todo: The domain must be specified here later for better security
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+  });
   app.use(cookieParser());
   const config = new DocumentBuilder()
     .setTitle('Backend API Documentation')
