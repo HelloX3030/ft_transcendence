@@ -43,7 +43,10 @@ Unit tests mock `AppService` — no live DB required.
 E2e tests boot the full `AppModule` and need `DATABASE_URL` to be set.
 
 ```bash
-# Unit tests (no DB needed):
+# Unit tests (no DB needed) — from project root via Docker:
+npm run test
+
+# Unit tests — inside the running container:
 docker compose exec backend npm test
 
 # E2e tests (DB must be running):
