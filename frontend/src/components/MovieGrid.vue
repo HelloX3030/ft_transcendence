@@ -5,7 +5,6 @@ import MovieCard from './MovieCard.vue';
 
 interface Props {
   movies: typeof popular;
-  
 }
 
 defineProps<Props>();
