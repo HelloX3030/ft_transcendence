@@ -1,6 +1,5 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY, JwtAccessGuard } from './jwt.access.guard';
 
 const mockContext = {
@@ -41,7 +40,7 @@ describe('JwtAccessGuard', () => {
         .spyOn(Object.getPrototypeOf(JwtAccessGuard.prototype), 'canActivate')
         .mockReturnValue(true);
 
-      guard.canActivate(mockContext);
+      void guard.canActivate(mockContext);
 
       expect(superSpy).toHaveBeenCalledWith(mockContext);
     });
@@ -52,7 +51,7 @@ describe('JwtAccessGuard', () => {
         .spyOn(Object.getPrototypeOf(JwtAccessGuard.prototype), 'canActivate')
         .mockReturnValue(true);
 
-      guard.canActivate(mockContext);
+      void guard.canActivate(mockContext);
 
       expect(getAllAndOverrideSpy).toHaveBeenCalledWith(IS_PUBLIC_KEY, [
         mockContext.getHandler(),
