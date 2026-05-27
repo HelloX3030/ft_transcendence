@@ -20,9 +20,11 @@ NestJS + TypeScript API. Runs on port 3000 inside Docker.
 
 ```
 src/
-├── app.module.ts          Root module — imports PrismaModule, registers AppController + AppService
+├── app.module.ts          Root module — imports all feature modules
 ├── app.controller.ts      HTTP endpoints (see below)
 ├── app.service.ts         Business logic
+├── auth/                  Authentication (register, login, refresh, logout)
+├── users/                 User profile management
 ├── prisma/
 │   ├── prisma.module.ts   Global module — exports PrismaService to all modules
 │   └── prisma.service.ts  Extends PrismaClient, connects on ModuleInit
@@ -31,12 +33,9 @@ src/
 
 ---
 
-## Endpoints
+## API Documentation (Swagger)
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Returns `{ status: "ok" }` |
-| `GET` | `/api/ping` | Returns `{ message: "pong", db_time }` — verifies DB connectivity |
+Interactive docs with all endpoints, inputs, and responses: `http://localhost:3000/api`
 
 ---
 
