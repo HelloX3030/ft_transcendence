@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, useTemplateRef, watch } from 'vue';
+import { onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import Controls from './Controls.vue';
 
@@ -15,9 +15,21 @@ const props = defineProps<PropsType>();
 const container = useTemplateRef('video-container');
 const player = ref<YT.Player>();
 const isPlaying = ref(false);
-const { isMuted, toggleFullscreen } = useVideoPlayer();
+const { isMuted, toggleFullscreen, handleOrientationChange } = useVideoPlayer();
 
 onMounted(() => {
+  // Orientation Listener
+  if (screen.orientation) {
+    screen.orientation.addEventListener('change', () =>
+      handleOrientationChange(container.value, props.active),
+    );
+  } else {
+    window.addEventListener('orientationchange', () =>
+      handleOrientationChange(container.value, props.active),
+    );
+  }
+
+  // YouTube Player Init
   const init = () => {
     player.value = new window.YT.Player(`player-${props.videoId}`, {
       videoId: props.videoId,
@@ -35,6 +47,7 @@ onMounted(() => {
       },
     });
   };
+
   if (window.YT?.Player) {
     init();
   } else {
@@ -46,17 +59,25 @@ onMounted(() => {
   }
 });
 
+onUnmounted(() => {
+  if (screen.orientation) {
+    screen.orientation.removeEventListener('change', () =>
+      handleOrientationChange(container.value!, props.active),
+    );
+  } else {
+    window.removeEventListener('orientationchange', () =>
+      handleOrientationChange(container.value!, props.active),
+    );
+  }
+});
+
 watch(
   () => props.active,
   (isActive) => {
     if (!player.value) return;
-    if (isActive) {
-      player.value.playVideo();
-    } else {
-      player.value.pauseVideo();
-    }
+    isActive ? player.value.playVideo() : player.value.pauseVideo();
   },
-); //TODO: search for better solution
+);
 
 watch(isMuted, (muted) => {
   if (!player.value) return;
