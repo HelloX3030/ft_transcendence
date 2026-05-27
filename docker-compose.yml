@@ -16,7 +16,7 @@ services:
 
   backend:
     build: ./backend
-    command: sh -c "npm install && npx prisma generate && npm run dev"
+    command: sh -c "npm install && npx prisma migrate deploy && npm run dev"
     ports:
       - "3000:3000"
     volumes:
