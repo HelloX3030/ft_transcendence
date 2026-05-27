@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Request as ExpressRequest } from 'express';
-import { JwtAccessPayload } from 'src/types';
 import { UpdateUserDto } from './dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -13,7 +12,7 @@ const mockUsersService = {
 };
 
 function mockRequest(sub: number): ExpressRequest {
-  return { user: { sub, email: 'test@example.com' } as JwtAccessPayload } as ExpressRequest;
+  return { user: { sub, email: 'test@example.com' } } as ExpressRequest;
 }
 
 describe('UsersController', () => {
