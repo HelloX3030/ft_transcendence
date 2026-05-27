@@ -8,11 +8,30 @@ export function useVideoPlayer() {
     isMuted.value = !isMuted.value;
   }
 
-  function toggleFullscreen(container: HTMLDivElement) {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else container.requestFullscreen();
+  function toggleFullscreen(container: HTMLDivElement | null) {
+    if (!container) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      container.requestFullscreen();
+    }
     isFullscreen.value = !isFullscreen.value;
   }
+  // Orientation: Landscape → Fullscreen, Portrait → Fullscreen beenden
+  function handleOrientationChange(container: HTMLDivElement | null, active: boolean) {
+    if (!active || !container) return;
 
-  return { isMuted, toggleVolume, isFullscreen, toggleFullscreen };
+    const isLandscape = screen.orientation
+      ? screen.orientation.type.includes('landscape')
+      : window.matchMedia('(orientation: landscape)').matches;
+
+    if (isLandscape && !isFullscreen.value) {
+      container.requestFullscreen();
+      isFullscreen.value = true;
+    } else if (!isLandscape && isFullscreen.value) {
+      document.exitFullscreen();
+      isFullscreen.value = false;
+    }
+  }
+  return { isMuted, toggleVolume, isFullscreen, toggleFullscreen, handleOrientationChange };
 }

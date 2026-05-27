@@ -62,7 +62,7 @@ When a dev runs `npm install`, npm automatically runs `prepare`, husky runs, and
 
 Staged files are reformatted and re-staged automatically. The hook never blocks a commit — lint errors are only enforced by CI (Layer 3).
 
-**Why Docker?** School machines often run older system Node versions. Running the hook inside Docker guarantees a consistent Node 22 environment regardless of what's installed on the host — and keeps the hook self-contained without requiring a local `npm install` in each workspace first.
+**Why Docker?** School machines often run older system Node versions. Running the hook inside Docker guarantees a consistent Node 22 environment regardless of what's installed on the host. The hook also runs `npm install` in each workspace before lint-staged, so it self-heals after a `git pull` that adds new dependencies — no manual reinstall needed.
 
 **What happens if Docker is not running?** The hook prints a warning and exits 0 (commit proceeds). CI on Node 22 is the fallback enforcement gate.
 
@@ -90,14 +90,20 @@ The hook can be bypassed intentionally with `git commit --no-verify`, which is s
 
 **Frontend job** (`working-directory: frontend`):
 1. `npm ci` — clean install
-2. `npm run check` → `format:check` + `lint` (oxlint + ESLint) + `type-check`
+2. `npm run format:check` — Prettier format check
+3. `npm run lint:check` — oxlint + ESLint
+4. `npm run type-check` — TypeScript compiler check
 
 **Backend job** (`working-directory: backend`):
 1. `npm ci` — clean install
 2. `npx prisma generate` — generates the Prisma client (required before linting, which imports from `@prisma/client`)
-3. `npm run check` → `format:check` + `lint` (ESLint) + `test` (Jest)
+3. `npm run format:check` — Prettier format check
+4. `npm run lint:check` — ESLint
+5. `npm run test` — Jest unit tests
 
 If any step fails, the PR is blocked. E2e tests are excluded from CI because they need the full Docker stack.
+
+> **Note:** The root `npm run check` command is the local equivalent of both CI jobs combined — it runs frontend check + backend check + backend unit tests, all via Docker. Run it before pushing to catch everything CI will catch.
 
 **Config:** `.github/workflows/ci.yml`
 
@@ -141,24 +147,32 @@ ft_transcendence/
 
 ## Running manually
 
+Root-level commands run via Docker — no local Node version requirement:
+
 ```bash
-# Run the full check suite (format:check + lint + type-check/test) — identical to CI:
-npm run check                        # both layers via Docker
-cd frontend && npm run check         # frontend only (needs Node 22)
-cd backend  && npm run check         # backend only (needs Node 22)
+# Full check suite (format + lint + type-check + tests) — identical to CI:
+npm run check
 
-# Format all files (Prettier --write):
-npm run format                       # both layers via Docker
-cd frontend && npm run format        # frontend only (needs Node 22)
-cd backend  && npm run format        # backend only (needs Node 22)
+# Auto-fix formatting + lint issues:
+npm run fix
 
-# Check formatting without changing files:
-cd frontend && npm run format:check
-cd backend  && npm run format:check
+# Backend unit tests only:
+npm run test
+```
 
-# Lint + auto-fix only:
-cd frontend && npm run lint
-cd backend  && npm run lint
+Sub-directory commands run directly and require **Node >=22.12.0** on the host:
+
+```bash
+# Frontend only:
+cd frontend && npm run check         # format:check + lint:check (oxlint + ESLint) + type-check
+cd frontend && npm run fix           # auto-fix formatting + lint
+cd frontend && npm run format:check  # Prettier check only
+
+# Backend only:
+cd backend && npm run check          # format:check + lint:check (no tests)
+cd backend && npm run fix            # auto-fix formatting + lint
+cd backend && npm run format:check   # Prettier check only
+cd backend && npm run test           # Jest unit tests
 ```
 
 ---
@@ -167,9 +181,10 @@ cd backend  && npm run lint
 
 1. Clone the repo
 2. `npm install` in the repo root — activates git hooks
-3. `npm install` in `frontend/` — installs frontend deps
-4. `npm install` in `backend/` — installs backend deps
-5. Open the repo in VS Code — accept "Install recommended extensions" prompt
-6. Done. Format on save and pre-commit hooks are now active.
+3. `docker compose up --build` — starts the stack; node modules are installed automatically inside the containers on first start
+4. Open the repo in VS Code — accept "Install recommended extensions" prompt
+5. Done. Format on save and pre-commit hooks are now active.
 
-(Steps 3–4 are also handled implicitly by `docker compose up --build`, but the root `npm install` in step 2 must be done on the host machine for the git hook to work.)
+The root `npm install` in step 2 must be run on the host machine — that's what wires up the git hook. The containers manage their own `node_modules` inside Docker volumes; the host never needs them for the app to run.
+
+**Optional — editor IntelliSense:** Run `npm install` in `frontend/` and `backend/` on the host so VS Code can resolve types locally. Not required for the app to run.

@@ -47,14 +47,15 @@ docker compose up --build   # Start the full stack (frontend on port 5173)
 
 ## Standalone dev commands
 
+These run directly and require **Node >=22.12.0** on the host. Prefer the root-level `npm run fix` / `npm run check` if your local Node is older — those run via Docker automatically.
+
 ```bash
 npm install           # Install dependencies
 
-npm run dev           # Hot-reload dev server
-npm run build         # Type-check + production build
-npm run type-check    # Type-check only (vue-tsc)
-npm run lint          # oxlint + ESLint (both with --fix)
-npm run format        # Prettier
+npm run dev     # Hot-reload dev server
+npm run build   # Type-check + production build
+npm run fix     # Auto-fix formatting + lint issues
+npm run check   # Read-only validation (format + lint + type-check)
 ```
 
 ---
