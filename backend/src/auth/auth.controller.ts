@@ -1,13 +1,13 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
+  HttpException,
   Post,
   UseGuards,
   Request,
-  BadRequestException,
   Response,
-  ForbiddenException,
   InternalServerErrorException,
   HttpCode,
 } from '@nestjs/common';
@@ -26,12 +26,11 @@ export class AuthController {
     try {
       return await fn();
     } catch (error) {
-      if (error instanceof ForbiddenException) {
+      if (error instanceof HttpException) {
         throw error;
-      } else {
-        console.error(error);
-        throw new InternalServerErrorException();
       }
+      console.error(error);
+      throw new InternalServerErrorException();
     }
   }
 
