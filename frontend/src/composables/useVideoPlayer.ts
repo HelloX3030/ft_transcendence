@@ -8,12 +8,12 @@ export function useVideoPlayer() {
     isMuted.value = !isMuted.value;
   }
 
-  function toggleFullscreen(container: HTMLDivElement) {
+  function toggleFullscreen(container: HTMLDivElement | null) {
+    if (!container) return;
     if (document.fullscreenElement) {
-      //wenn document.fullscreen gesetzt
       document.exitFullscreen();
     } else {
-      container.requestFullscreen(); //if document.fullscreen == NULL
+      container.requestFullscreen();
     }
     isFullscreen.value = !isFullscreen.value;
   }
