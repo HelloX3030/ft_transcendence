@@ -52,7 +52,7 @@ describe('UsersService', () => {
 
       expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
-        select: expect.objectContaining({ id: true, username: true, email: true }),
+        select: { id: true, username: true, email: true, image: true, language: true, role: true },
       });
       expect(result).toEqual(mockUser);
     });
@@ -77,7 +77,7 @@ describe('UsersService', () => {
       expect(mockPrisma.users.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: dto,
-        select: expect.objectContaining({ id: true, username: true, email: true }),
+        select: { id: true, username: true, email: true, image: true, language: true, role: true },
       });
       expect(result).toEqual(updated);
     });
@@ -130,7 +130,7 @@ describe('UsersService', () => {
 
       expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
-        select: expect.objectContaining({ id: true, username: true, image: true }),
+        select: { id: true, username: true, image: true },
       });
       expect(result).toEqual(mockPublicUser);
     });
