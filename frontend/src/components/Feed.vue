@@ -9,6 +9,7 @@ import VideoPlayer from './videoplayer/VideoPlayer.vue';
 import { ref, watch } from 'vue';
 import { watchOnce } from '@vueuse/core';
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
+import { popular } from '@/lib/test.ts';
 
 const { isFullscreen } = useVideoPlayer();
 const trailers = [
@@ -48,11 +49,14 @@ watch(isFullscreen, (fullscreen) => {
     @init-api="setApi"
   >
     <CarouselContent class="h-full">
-      <CarouselItem v-for="(trailer, index) in trailers" :key="trailer.key" class="h-full">
+      <CarouselItem v-for="(trailer, index) in popular" :key="trailer.key" class="h-full">
         <VideoPlayer
-          :title="trailer.name"
+          :title="trailer.title"
           :video-id="trailer.key"
           :active="currentIndex === index"
+          :genreIds="trailer.genre_ids"
+          :release-date="trailer.release_date"
+          :providers="trailer.provider_name"
         />
       </CarouselItem>
     </CarouselContent>
