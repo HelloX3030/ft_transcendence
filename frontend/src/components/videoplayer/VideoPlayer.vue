@@ -118,11 +118,7 @@ function togglePlay() {
 </script>
 
 <template>
-  <div
-    ref="video-container"
-    class="h-full relative overflow-hidden"
-    @mousemove="onMouseMove"
-  >
+  <div ref="video-container" class="h-full relative overflow-hidden" @mousemove="onMouseMove">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
     <Controls :visible="showInfo" @fullscreen-event="toggleFullscreen(container)" />
     <VideoInfo

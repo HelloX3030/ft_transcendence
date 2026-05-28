@@ -24,7 +24,7 @@ export const popular = [
     vote_average: 6.5,
     vote_count: 1886,
     key: '3SgL3ygGm1s',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max']
+    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
   },
   {
     adult: false,
@@ -43,7 +43,7 @@ export const popular = [
     vote_average: 7.5,
     vote_count: 1456,
     key: 'f4LdtAazviE',
-    provider_name: []
+    provider_name: [],
   },
   {
     adult: false,
@@ -62,7 +62,7 @@ export const popular = [
     vote_average: 6.9,
     vote_count: 1231,
     key: 'BZuJorglKko',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max']
+    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
   },
   {
     adult: false,
@@ -81,5 +81,6 @@ export const popular = [
     vote_average: 7.7,
     vote_count: 7535,
     key: '8gSJ3td9OhM',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max']
-  }]
+    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
+  },
+];
