@@ -14,7 +14,12 @@ const releaseYear = computed(() => new Date(props.releaseDate).getFullYear());
 
 const props = defineProps<PropsType>();
 
-const genreNames = computed(() => props.genreIds.map((id) => MOVIE_GENRES[id]).filter(Boolean).slice(0,3));
+const genreNames = computed(() =>
+  props.genreIds
+    .map((id) => MOVIE_GENRES[id])
+    .filter(Boolean)
+    .slice(0, 3),
+);
 </script>
 
 <template>
@@ -47,6 +52,5 @@ const genreNames = computed(() => props.genreIds.map((id) => MOVIE_GENRES[id]).f
   </div>
 </template>
 
-//description, Genre, Streaming Anbieter, Erscheinungsjahr 
-//anzeigen wenn drueber hovern oder
+//description, Genre, Streaming Anbieter, Erscheinungsjahr //anzeigen wenn drueber hovern oder
 start/stopp //bei fullscreen ausblenden
