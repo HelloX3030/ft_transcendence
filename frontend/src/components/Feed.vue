@@ -12,11 +12,11 @@ import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import { popular } from '@/lib/test.ts';
 
 const { isFullscreen } = useVideoPlayer();
-const trailers = [
-  { key: 'MlsrbQaKXoY', name: 'Der Astronaut' },
-  { key: 'BdJKm16Co6M', name: '#TBT Trailer' },
-  { key: 'JE9z-gy4De4', name: 'Official New UK Trailer' },
-];
+// const trailers = [
+//   { key: 'MlsrbQaKXoY', name: 'Der Astronaut' },
+//   { key: 'BdJKm16Co6M', name: '#TBT Trailer' },
+//   { key: 'JE9z-gy4De4', name: 'Official New UK Trailer' },
+// ];
 
 const currentIndex = ref(0); //TODO: check ob VideoPlayer component immer neu rendert wegen dem currentIndex ref
 const api = ref<CarouselApi>();
