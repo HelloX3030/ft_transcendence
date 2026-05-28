@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-// import { useRoute } from 'vue-router';
-// const route = useRoute();
+import { useAuthStore } from '@/stores/auth';
+
+const route = useRoute();
+const auth = useAuthStore();
+onMounted(() => auth.init());
 </script>
 
 <template>
-  <template v-if="true">
+  <template v-if="!route.meta.hideLayout">
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
@@ -20,7 +24,7 @@ import AppSidebar from './components/appsidebar/AppSidebar.vue';
     </SidebarProvider>
   </template>
 
-  <!-- <main class="h-screen" v-else>
+  <main class="h-screen" v-else>
     <RouterView />
-  </main> -->
+  </main>
 </template>
