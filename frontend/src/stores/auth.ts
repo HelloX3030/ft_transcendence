@@ -20,13 +20,15 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = true;
   }
 
-  function logout() {
+  async function logout() {
+    await fetch('/v1/auth/logout', { credentials: 'same-origin' });
     isLoggedIn.value = false;
     requiresOnboarding.value = false;
     user.value = null;
   }
 
   function register() {
+    isLoggedIn.value = true;
     requiresOnboarding.value = true;
   }
 
