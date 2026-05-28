@@ -26,7 +26,7 @@
     "embla-carousel-vue": "^8.6.0",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
-    "reka-ui": "^2.9.7",
+    "reka-ui": "^2.9.8",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.4",
     "vee-validate": "^4.15.1",

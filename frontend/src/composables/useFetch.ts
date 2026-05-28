@@ -29,7 +29,7 @@ export function useFetch() {
   async function searchMovies(inputQuery: string) {
     try {
       isLoading.value = 'loading';
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // await new Promise((resolve) => setTimeout(resolve, 3000));
       console.log(inputQuery);
       const res = await fetch(
         `https://api.themoviedb.org/3/search/movie?query=${inputQuery}&include_adult=false&language=en-US&page=1`,
