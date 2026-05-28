@@ -13,7 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
 
   async function init() {
-    // TODO: call GET /v1/auth/me to restore session from cookie
+    try {
+      const res = await fetch('/v1/auth/me');
+      if (res.ok) {
+        isLoggedIn.value = true;
+      }
+    } catch {
+      // network error — stay logged out
+    }
   }
 
   function login() {
