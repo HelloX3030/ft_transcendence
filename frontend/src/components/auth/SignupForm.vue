@@ -19,43 +19,53 @@ import { RouterLink } from 'vue-router';
 import { registerSchema } from '@/lib/schemas';
 import { Eye, EyeOff } from 'lucide-vue-next';
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { z } from 'zod';
 import Separator from '@/components/ui/separator/Separator.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const form = useForm({
   validationSchema: toTypedSchema(registerSchema),
 });
 
+const router = useRouter();
+const auth = useAuthStore();
+const errorMessage = ref<string | null>(null);
+
 type RegisterValueType = z.infer<typeof registerSchema>;
 
-async function createAccount({ username, email, password }: RegisterValueType) {
+async function createAccount({
+  username,
+  email,
+  password,
+}: RegisterValueType): Promise<true | string> {
   try {
-    const data = await fetch('/v1/auth/register', {
+    const res = await fetch('/v1/auth/register', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        email,
-        password,
-        language: 'de', //TODO: dynamic
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password, language: 'de' }), //TODO: dynamic language
     });
-    const res = await data.json();
-    console.log(res);
-  } catch (error) {
-    console.log(error);
+    if (!res.ok) {
+      return res.status === 403
+        ? 'Email or username is already taken.'
+        : 'Something went wrong. Please try again.';
+    }
+    return true;
+  } catch {
+    return 'Could not reach the server.';
   }
 }
 
-const emit = defineEmits(['onboarding']);
-
-const onSubmit = form.handleSubmit((values) => {
-  console.log('Form submitted!', values);
-  createAccount(values);
-  emit('onboarding');
+const onSubmit = form.handleSubmit(async (values) => {
+  errorMessage.value = null;
+  const result = await createAccount(values);
+  if (result !== true) {
+    errorMessage.value = result;
+    return;
+  }
+  auth.register();
+  router.push('/onboarding');
 });
 
 const isPwVisible = ref(false);
@@ -122,6 +132,7 @@ const isPwVisible = ref(false);
         </FormField>
 
         <div class="mt-8 flex flex-col space-y-4">
+          <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
           <Button type="submit" class="w-full">Create Account</Button>
           <div class="w-full flex items-center gap-2">
             <Separator class="flex-1" />
