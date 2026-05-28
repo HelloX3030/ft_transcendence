@@ -7,7 +7,7 @@ import HomeView from '@/views/HomeView.vue';
 
 import ProfileView from '@/views/ProfileView.vue';
 
-import WatchlistView from '@/views/WatchlistView.vue';
+import WatchlistView from '@/views/watchlist/WatchlistView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
