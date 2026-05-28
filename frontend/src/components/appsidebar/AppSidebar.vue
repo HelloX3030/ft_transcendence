@@ -20,8 +20,8 @@ import AppSidebarItem from './AppSidebarItem.vue';
 const auth = useAuthStore();
 const router = useRouter();
 
-function handleLogout() {
-  auth.logout();
+async function handleLogout() {
+  await auth.logout();
   router.push('/login');
 }
 </script>
