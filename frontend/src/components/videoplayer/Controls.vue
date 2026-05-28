@@ -5,6 +5,8 @@ import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import { Button } from '../ui/button';
 import { ref } from 'vue';
 
+defineProps<{ visible: boolean }>();
+
 const { toggleVolume, isMuted, isFullscreen } = useVideoPlayer();
 const isLiked = ref(false);
 const isDisliked = ref(false);
@@ -33,7 +35,7 @@ function toggleSave() {
 
 <template>
   <!-- TOP RIGHT : SOUND -->
-  <div class="absolute top-6 short:top-5 md:top-10 right-6 z-30">
+  <div v-show="visible" class="absolute top-6 short:top-5 md:top-10 right-6 z-30">
     <Button
       @click="toggleVolume"
       variant="outline"
@@ -46,6 +48,7 @@ function toggleSave() {
 
   <!-- CENTER RIGHT : SOCIAL -->
   <div
+    v-show="visible"
     class="absolute top-1/2 right-6 -translate-y-1/2 z-30 flex flex-col gap-5 short:gap-3 md:gap-8"
   >
     <Button
@@ -74,7 +77,7 @@ function toggleSave() {
   </div>
 
   <!-- BOTTOM RIGHT : FULLSCREEN -->
-  <div class="absolute bottom-6 short:bottom-5 md:bottom-10 right-6 z-30">
+  <div v-show="visible" class="absolute bottom-6 short:bottom-5 md:bottom-10 right-6 z-30">
     <Button
       variant="outline"
       @click="$emit('fullscreen-event')"
