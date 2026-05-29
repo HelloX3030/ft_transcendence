@@ -49,9 +49,9 @@ watch(isFullscreen, (fullscreen) => {
           :title="trailer.title"
           :video-id="trailer.key"
           :active="currentIndex === index"
-          :genreIds="trailer.genre_ids"
+          :genre-ids="trailer.genre_ids"
           :release-date="trailer.release_date"
-          :providers="trailer.provider_name"
+          :providers="trailer.providers"
         />
       </CarouselItem>
     </CarouselContent>
