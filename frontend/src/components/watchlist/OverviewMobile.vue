@@ -8,7 +8,6 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -67,6 +66,5 @@ const slots = computed(() => {
         </div>
       </div>
     </CardContent>
-    <!-- <CardFooter> {{ size }} Films </CardFooter> -->
   </Card>
 </template>
