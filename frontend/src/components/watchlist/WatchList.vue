@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Settings } from '@lucide/vue';
+import { Pen } from '@lucide/vue';
 import MovieCard from '@/components/MovieCard.vue';
 import {
   Carousel,
@@ -20,31 +20,37 @@ defineProps<Props>();
 </script>
 
 <template>
-  <div class="space-y-2">
-    <div class="flex justify-between">
-      <h2 class="text-3xl">{{ title }}</h2>
-      <Button variant="ghost"><Settings /></Button>
+  <div class="group">
+    <div class="space-y-2">
+      <div class="flex justify-between">
+        <h2 class="text-xl group-hover:text-primary duration-300 transition-colors ease-in-out">
+          {{ title }}
+        </h2>
+        <div class="flex items-center gap-2">
+          <p class="text-muted-foreground">{{ movies.length }} Films</p>
+          <Button variant="ghost"><Pen /></Button>
+        </div>
+      </div>
     </div>
-    <p class="text-muted-foreground">You want to see {{ movies.length }} Films</p>
-  </div>
 
-  <Carousel
-    :opts="{
-      align: 'start',
-      slidesToScroll: 1,
-      duration: 40,
-    }"
-  >
-    <CarouselPrevious variant="default" class="absolute bg-black left-0 z-10 disabled:hidden" />
-    <CarouselContent>
-      <CarouselItem
-        v-for="movie in movies"
-        :key="movie.id"
-        class="sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/8"
-      >
-        <MovieCard :title="movie.title" :img="movie.poster_path" />
-      </CarouselItem>
-    </CarouselContent>
-    <CarouselNext variant="default" class="absolute right-0 bg-black z-10 disabled:hidden" />
-  </Carousel>
+    <Carousel
+      :opts="{
+        align: 'start',
+        slidesToScroll: 1,
+        duration: 40,
+      }"
+    >
+      <CarouselPrevious variant="default" class="absolute bg-black left-0 z-10 disabled:hidden" />
+      <CarouselContent>
+        <CarouselItem
+          v-for="movie in movies"
+          :key="movie.id"
+          class="sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6"
+        >
+          <MovieCard :title="movie.title" :img="movie.poster_path" />
+        </CarouselItem>
+      </CarouselContent>
+      <CarouselNext variant="default" class="absolute right-0 bg-black z-10 disabled:hidden" />
+    </Carousel>
+  </div>
 </template>
