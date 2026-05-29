@@ -43,6 +43,8 @@ export class UsersService {
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) ?? [];
+        if (target.includes('email')) throw new ForbiddenException('Email already taken');
         throw new ForbiddenException('Username already taken');
       }
       throw error;

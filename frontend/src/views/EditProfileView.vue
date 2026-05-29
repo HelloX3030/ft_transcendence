@@ -13,6 +13,7 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const username = ref(auth.user?.username ?? '');
+const email = ref(auth.user?.email ?? '');
 const language = ref<'de' | 'en' | 'es'>(auth.user?.language ?? 'en');
 
 const selectedFile = ref<File | null>(null);
@@ -24,6 +25,7 @@ const initials = computed(() => (auth.user ? auth.user.username.slice(0, 2).toUp
 
 const saving = ref(false);
 const usernameError = ref('');
+const emailError = ref('');
 const generalError = ref('');
 
 const languageOptions: { value: 'de' | 'en' | 'es'; label: string }[] = [
@@ -41,6 +43,7 @@ function onFileChange(e: Event) {
 
 async function save() {
   usernameError.value = '';
+  emailError.value = '';
   generalError.value = '';
   saving.value = true;
 
@@ -57,9 +60,14 @@ async function save() {
       await auth.fetchUser();
     }
 
-    const original = { username: auth.user?.username, language: auth.user?.language };
-    const payload: { username?: string; language?: 'de' | 'en' | 'es' } = {};
+    const original = {
+      username: auth.user?.username,
+      email: auth.user?.email,
+      language: auth.user?.language,
+    };
+    const payload: { username?: string; email?: string; language?: 'de' | 'en' | 'es' } = {};
     if (username.value !== original.username) payload.username = username.value;
+    if (email.value !== original.email) payload.email = email.value;
     if (language.value !== original.language) payload.language = language.value;
 
     if (Object.keys(payload).length > 0) {
@@ -70,7 +78,11 @@ async function save() {
   } catch (err: unknown) {
     const e = err as { status?: number; message?: string };
     if (e?.status === 403) {
-      usernameError.value = 'Username already taken';
+      if (e?.message?.toLowerCase().includes('email')) {
+        emailError.value = 'Email already taken';
+      } else {
+        usernameError.value = 'Username already taken';
+      }
     } else {
       generalError.value = 'Something went wrong. Please try again.';
     }
@@ -123,10 +135,11 @@ async function save() {
           <p v-if="usernameError" class="text-destructive text-sm">{{ usernameError }}</p>
         </div>
 
-        <!-- Email (read-only) -->
+        <!-- Email -->
         <div class="flex flex-col gap-1.5">
           <Label for="email">Email</Label>
-          <Input id="email" :value="auth.user?.email" disabled autocomplete="email" />
+          <Input id="email" v-model="email" type="email" autocomplete="email" />
+          <p v-if="emailError" class="text-destructive text-sm">{{ emailError }}</p>
         </div>
 
         <!-- Language -->
