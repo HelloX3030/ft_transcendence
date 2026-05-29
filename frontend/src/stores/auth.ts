@@ -50,9 +50,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
-  function register() {
+  async function register() {
     isLoggedIn.value = true;
     requiresOnboarding.value = true;
+    await fetchUser();
   }
 
   async function completeOnboarding() {
