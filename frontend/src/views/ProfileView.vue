@@ -24,7 +24,9 @@ const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-2xl flex flex-col gap-6 p-4 sm:p-6">
+  <div
+    class="mx-auto w-full max-w-2xl md:max-w-none md:w-5/6 flex flex-col gap-6 p-4 sm:p-6 md:p-8"
+  >
     <template v-if="profile">
       <Card>
         <CardHeader>

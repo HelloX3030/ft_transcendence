@@ -93,7 +93,9 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-2xl flex flex-col gap-6 p-4 sm:p-6">
+  <div
+    class="mx-auto w-full max-w-2xl md:max-w-none md:w-5/6 flex flex-col gap-6 p-4 sm:p-6 md:p-8"
+  >
     <Card>
       <CardHeader>
         <CardTitle class="text-lg font-semibold">Edit Profile</CardTitle>
@@ -129,21 +131,21 @@ async function save() {
         </div>
 
         <!-- Username -->
-        <div class="flex flex-col gap-1.5">
+        <div class="flex flex-col gap-2">
           <Label for="username">Username</Label>
           <Input id="username" v-model="username" autocomplete="username" />
           <p v-if="usernameError" class="text-destructive text-sm">{{ usernameError }}</p>
         </div>
 
         <!-- Email -->
-        <div class="flex flex-col gap-1.5">
+        <div class="flex flex-col gap-2">
           <Label for="email">Email</Label>
           <Input id="email" v-model="email" type="email" autocomplete="email" />
           <p v-if="emailError" class="text-destructive text-sm">{{ emailError }}</p>
         </div>
 
         <!-- Language -->
-        <div class="flex flex-col gap-1.5">
+        <div class="flex flex-col gap-2">
           <Label>Language</Label>
           <div class="flex gap-2">
             <button
