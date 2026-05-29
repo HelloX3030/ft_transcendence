@@ -72,13 +72,6 @@ export class StorageService implements OnModuleInit {
           Action: ['s3:GetObject'],
           Resource: [`arn:aws:s3:::${this.bucket}/*`],
         },
-        {
-          Effect: 'Deny',
-          Principal: { AWS: ['*'] },
-          Action: ['s3:PutObject', 's3:DeleteObject', 's3:DeleteBucket', 's3:PutBucketPolicy'],
-          Resource: [`arn:aws:s3:::${this.bucket}`, `arn:aws:s3:::${this.bucket}/*`],
-          Condition: { StringEquals: { 'aws:PrincipalType': 'Anonymous' } },
-        },
       ],
     });
 
