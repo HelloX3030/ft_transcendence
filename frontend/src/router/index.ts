@@ -6,8 +6,9 @@ import SignupView from '@/views/auth/SignupView.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
 import HomeView from '@/views/HomeView.vue';
 
+import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
-
+import UserProfileView from '@/views/UserProfileView.vue';
 import WatchlistView from '@/views/WatchlistView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
@@ -33,6 +34,16 @@ const router = createRouter({
       path: '/watchlist',
       component: WatchlistView,
       meta: { requiresAuth: true, title: 'Watchlist' },
+    },
+    {
+      path: '/friends',
+      component: FriendsView,
+      meta: { requiresAuth: true, title: 'Friends' },
+    },
+    {
+      path: '/users/:id',
+      component: UserProfileView,
+      meta: { requiresAuth: true, title: 'Profile' },
     },
     {
       path: '/login',

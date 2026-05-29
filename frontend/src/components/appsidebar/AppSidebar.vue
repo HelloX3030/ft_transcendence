@@ -11,7 +11,7 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { BookHeart, CircleQuestionMark, Clapperboard, LogOut } from 'lucide-vue-next';
+import { BookHeart, CircleQuestionMark, Clapperboard, LogOut, Users } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import AppSidebarHeader from './AppSidebarHeader.vue';
@@ -37,6 +37,8 @@ async function handleLogout() {
             <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
 
             <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
+
+            <AppSidebarItem titel="Friends" path="/friends" :icon="Users" />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
