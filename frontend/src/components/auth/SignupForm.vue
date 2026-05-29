@@ -87,7 +87,7 @@ const isPwVisible = ref(false);
               <Input
                 v-bind="componentField"
                 type="text"
-                autocomplete="username"
+                autocomplete="nickname"
                 placeholder="urbi420"
               />
             </FormControl>

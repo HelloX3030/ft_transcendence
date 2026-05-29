@@ -73,7 +73,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
               <Input
                 v-bind="componentField"
                 type="email"
-                autocomplete="email"
+                autocomplete="username"
                 placeholder="email@cinemates.de"
               />
             </FormControl>
