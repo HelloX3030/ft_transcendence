@@ -9,10 +9,9 @@ interface PropsType {
   providers: string[];
   releaseDate: string;
 }
+const props = defineProps<PropsType>();
 
 const releaseYear = computed(() => new Date(props.releaseDate).getFullYear());
-
-const props = defineProps<PropsType>();
 
 const genreNames = computed(() =>
   props.genreIds
@@ -51,6 +50,3 @@ const genreNames = computed(() =>
     </div>
   </div>
 </template>
-
-//description, Genre, Streaming Anbieter, Erscheinungsjahr //anzeigen wenn drueber hovern oder
-start/stopp //bei fullscreen ausblenden
