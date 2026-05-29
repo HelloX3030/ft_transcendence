@@ -52,16 +52,31 @@ export class UsersService {
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
+    const current = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: { image: true },
+    });
+    const oldKey = this.storage.extractKey(current?.image);
+
     const key = `${userId}-${Date.now()}${extname(file.originalname)}`;
     const imageUrl = await this.storage.upload(key, file.buffer, file.mimetype);
-    return this.prisma.users.update({
+    const updated = await this.prisma.users.update({
       where: { id: userId },
       data: { image: imageUrl },
       select: ME_SELECT,
     });
+
+    if (oldKey) await this.storage.delete(oldKey);
+    return updated;
   }
 
   async deleteMe(userId: number) {
+    const current = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: { image: true },
+    });
+    const oldKey = this.storage.extractKey(current?.image);
+
     try {
       await this.prisma.users.delete({ where: { id: userId } });
     } catch (error) {
@@ -69,6 +84,8 @@ export class UsersService {
         throw error;
       }
     }
+
+    if (oldKey) await this.storage.delete(oldKey);
     return { message: 'Account deleted' };
   }
 

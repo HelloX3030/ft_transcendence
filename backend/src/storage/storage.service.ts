@@ -1,5 +1,6 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
   PutBucketPolicyCommand,
   PutObjectCommand,
@@ -39,6 +40,21 @@ export class StorageService implements OnModuleInit {
     return `${this.publicUrl}/${this.bucket}/${key}`;
   }
 
+  extractKey(imageUrl: string | null | undefined): string | null {
+    if (!imageUrl) return null;
+    const prefix = `${this.publicUrl}/${this.bucket}/`;
+    if (!imageUrl.startsWith(prefix)) return null;
+    return imageUrl.slice(prefix.length) || null;
+  }
+
+  async delete(key: string): Promise<void> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (err) {
+      this.logger.warn(`Failed to delete object "${key}": ${(err as Error).message}`);
+    }
+  }
+
   private async ensureBucket() {
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
@@ -55,6 +71,13 @@ export class StorageService implements OnModuleInit {
           Principal: { AWS: ['*'] },
           Action: ['s3:GetObject'],
           Resource: [`arn:aws:s3:::${this.bucket}/*`],
+        },
+        {
+          Effect: 'Deny',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:PutObject', 's3:DeleteObject', 's3:DeleteBucket', 's3:PutBucketPolicy'],
+          Resource: [`arn:aws:s3:::${this.bucket}`, `arn:aws:s3:::${this.bucket}/*`],
+          Condition: { StringEquals: { 'aws:PrincipalType': 'Anonymous' } },
         },
       ],
     });
