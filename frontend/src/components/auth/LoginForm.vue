@@ -15,7 +15,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Button } from '@/components/ui/button';
-import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
@@ -43,10 +43,15 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
-      errorMessage.value =
-        res.status === 403
-          ? 'Invalid email or password.'
-          : 'Something went wrong. Please try again.';
+      if (res.status === 403) {
+        errorMessage.value = 'Invalid email or password.';
+      } else if (res.status === 400) {
+        const body = await res.json().catch(() => ({}));
+        const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+        errorMessage.value = typeof first === 'string' ? first : 'Please check your input.';
+      } else {
+        errorMessage.value = 'Something went wrong. Please try again.';
+      }
       return;
     }
     auth.login();
@@ -77,6 +82,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
                 placeholder="email@cinemates.de"
               />
             </FormControl>
+            <FormMessage />
           </FormItem>
         </FormField>
         <FormField v-slot="{ componentField }" name="password">
@@ -94,6 +100,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
                 placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
               />
             </FormControl>
+            <FormMessage />
           </FormItem>
         </FormField>
 
@@ -115,7 +122,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
 
     <CardFooter class="flex flex-col gap-2">
       <div class="flex items-center space-x-2 text-nowrap">
-        <p class="text-muted-foreground">Don't habe an account?</p>
+        <p class="text-muted-foreground">Don't have an account?</p>
         <RouterLink to="/signup" class="text-primary hover:underline">Sign Up</RouterLink>
       </div>
     </CardFooter>

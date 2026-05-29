@@ -47,9 +47,13 @@ async function createAccount({
       body: JSON.stringify({ username, email, password, language: 'de' }), //TODO: dynamic language
     });
     if (!res.ok) {
-      return res.status === 403
-        ? 'Email or username is already taken.'
-        : 'Something went wrong. Please try again.';
+      if (res.status === 403) return 'Email or username is already taken.';
+      if (res.status === 400) {
+        const body = await res.json().catch(() => ({}));
+        const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+        return typeof first === 'string' ? first : 'Please check your input.';
+      }
+      return 'Something went wrong. Please try again.';
     }
     return true;
   } catch {
