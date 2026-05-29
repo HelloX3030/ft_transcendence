@@ -60,7 +60,11 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchUser();
   }
 
-  async function updateUser(payload: { username?: string; language?: 'de' | 'en' | 'es' }) {
+  async function updateUser(payload: {
+    username?: string;
+    language?: 'de' | 'en' | 'es';
+    email?: string;
+  }) {
     const res = await fetch('/v1/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
