@@ -1,6 +1,20 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Request,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
+import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
@@ -26,6 +40,16 @@ export class UsersController {
   updateMe(@Request() req: ExpressRequest, @Body() dto: UpdateUserDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.updateMe(user.sub, dto);
+  }
+
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload avatar for authenticated user' })
+  @ApiResponse({ status: 201, description: 'Updated user profile' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  uploadAvatar(@Request() req: ExpressRequest, @UploadedFile() file: Express.Multer.File) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.uploadAvatar(user.sub, file);
   }
 
   @Delete('me')

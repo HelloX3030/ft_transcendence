@@ -60,6 +60,20 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchUser();
   }
 
+  async function updateUser(payload: { username?: string; language?: 'de' | 'en' | 'es' }) {
+    const res = await fetch('/v1/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(err?.message ?? 'Update failed'), { status: res.status });
+    }
+    user.value = await res.json();
+  }
+
   return {
     isLoggedIn,
     requiresOnboarding,
@@ -69,5 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     register,
     completeOnboarding,
+    fetchUser,
+    updateUser,
   };
 });

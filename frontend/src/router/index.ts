@@ -9,6 +9,7 @@ import HomeView from '@/views/HomeView.vue';
 import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import UserProfileView from '@/views/UserProfileView.vue';
+import EditProfileView from '@/views/EditProfileView.vue';
 import WatchlistView from '@/views/WatchlistView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
@@ -29,6 +30,11 @@ const router = createRouter({
       path: '/profile',
       component: ProfileView,
       meta: { requiresAuth: true, title: 'Profil' },
+    },
+    {
+      path: '/profile/edit',
+      component: EditProfileView,
+      meta: { requiresAuth: true, title: 'Edit Profile' },
     },
     {
       path: '/watchlist',
