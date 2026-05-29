@@ -33,12 +33,12 @@ const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es
               <AvatarImage v-if="profile.image" :src="profile.image" :alt="profile.username" />
               <AvatarFallback class="text-xl font-semibold">{{ initials }}</AvatarFallback>
             </Avatar>
-            <div class="min-w-0">
+            <div class="min-w-0 flex flex-col gap-1">
               <CardTitle class="break-words text-2xl">{{ profile.username }}</CardTitle>
               <CardDescription>{{ profile.email }}</CardDescription>
             </div>
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-2 mt-3">
             <span class="text-primary rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium">
               {{ languageLabel[profile.language] }}
             </span>
