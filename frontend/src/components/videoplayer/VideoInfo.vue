@@ -4,12 +4,7 @@ import { computed } from 'vue';
 import { MOVIE_GENRES } from '../../lib/genre';
 import type { Provider } from '@/lib/test.ts';
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PropsType {
   title: string;

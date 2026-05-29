@@ -37,7 +37,7 @@ export const popular = [
     vote_average: 6.5,
     vote_count: 1886,
     key: '3SgL3ygGm1s',
-    providers: [PROVIDERS.NETFLIX, PROVIDERS.DISNEY]
+    providers: [PROVIDERS.NETFLIX, PROVIDERS.DISNEY],
   },
   {
     adult: false,
@@ -94,6 +94,6 @@ export const popular = [
     vote_average: 7.7,
     vote_count: 7535,
     key: '8gSJ3td9OhM',
-    providers: [PROVIDERS.WOW ,PROVIDERS.HBO],
+    providers: [PROVIDERS.WOW, PROVIDERS.HBO],
   },
 ];
