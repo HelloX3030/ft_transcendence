@@ -11,12 +11,15 @@ import {
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
 import { z } from 'zod';
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -27,8 +30,30 @@ const form = useForm({
   validationSchema: toTypedSchema(formSchema),
 });
 
-const onSubmit = form.handleSubmit((values) => {
-  console.log('Form submitted!', values);
+const router = useRouter();
+const auth = useAuthStore();
+const errorMessage = ref<string | null>(null);
+
+const onSubmit = form.handleSubmit(async ({ email, password }) => {
+  errorMessage.value = null;
+  try {
+    const res = await fetch('/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      errorMessage.value =
+        res.status === 403
+          ? 'Invalid email or password.'
+          : 'Something went wrong. Please try again.';
+      return;
+    }
+    auth.login();
+    router.push('/');
+  } catch {
+    errorMessage.value = 'Could not reach the server.';
+  }
 });
 </script>
 
@@ -63,6 +88,7 @@ const onSubmit = form.handleSubmit((values) => {
         </FormField>
 
         <div class="mt-8 flex flex-col space-y-8">
+          <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
           <Button type="submit" class="w-full"> Login </Button>
           <div class="w-full flex items-center gap-2">
             <Separator class="flex-1" />

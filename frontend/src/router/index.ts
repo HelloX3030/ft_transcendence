@@ -1,4 +1,5 @@
-import { useAuth } from '@/composables/useAuth';
+import { useAuthStore } from '@/stores/auth';
+import { storeToRefs } from 'pinia';
 import LoginView from '@/views/auth/LoginView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
@@ -52,10 +53,14 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const { isLoggedIn, requiresOnboarding } = useAuth();
+  const { isLoggedIn, requiresOnboarding } = storeToRefs(useAuthStore());
 
   if (to.meta.requiresAuth && !isLoggedIn.value) {
     return { path: '/login' };
+  }
+
+  if (to.meta.requiresAuth && isLoggedIn.value && requiresOnboarding.value) {
+    return { path: '/onboarding' };
   }
 
   if (to.meta.guestOnly && isLoggedIn.value) {

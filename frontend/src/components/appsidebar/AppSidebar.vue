@@ -6,12 +6,24 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { BookHeart, CircleQuestionMark, Clapperboard, LogOut } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 import AppSidebarHeader from './AppSidebarHeader.vue';
 import AppSidebarItem from './AppSidebarItem.vue';
+
+const auth = useAuthStore();
+const router = useRouter();
+
+function handleLogout() {
+  auth.logout();
+  router.push('/login');
+}
 </script>
 
 <template>
@@ -33,7 +45,12 @@ import AppSidebarItem from './AppSidebarItem.vue';
     <SidebarFooter>
       <SidebarSeparator />
       <AppSidebarItem titel="Help" path="/help" :icon="CircleQuestionMark" />
-      <AppSidebarItem titel="Logout" path="/logout" :icon="LogOut" />
+      <SidebarMenuItem>
+        <SidebarMenuButton @click="handleLogout">
+          <LogOut />
+          Logout
+        </SidebarMenuButton>
+      </SidebarMenuItem>
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>

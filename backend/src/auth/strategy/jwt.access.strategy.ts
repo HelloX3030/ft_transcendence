@@ -4,16 +4,15 @@ import { Injectable } from '@nestjs/common';
 import { JwtAccessPayload } from 'src/types';
 import type { Request as ExpressRequest } from 'express';
 
+export function extractAccessToken(req: ExpressRequest): string | null {
+  return typeof req?.cookies?.access_token === 'string' ? req.cookies.access_token : null;
+}
+
 @Injectable()
 export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') {
   constructor() {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: ExpressRequest): string | null => {
-          if (typeof req?.cookies?.refresh_token !== 'string') return null;
-          else return req?.cookies?.refresh_token;
-        },
-      ]),
+      jwtFromRequest: ExtractJwt.fromExtractors([extractAccessToken]),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_ACCESS_SECRET as string,
     });
