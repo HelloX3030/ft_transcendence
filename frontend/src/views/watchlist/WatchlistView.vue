@@ -1,11 +1,9 @@
 <script lang="ts" setup>
 import { computed, onMounted } from 'vue';
 import { useFetch } from '@/composables/useFetch.ts';
-import WatchList from '@/components/watchlist/WatchList.vue';
-import Overview from '@/components/watchlist/Overview.vue';
-import { Separator } from '@/components/ui/separator';
+import OverviewMobile from '@/components/watchlist/OverviewMobile.vue';
+import OverviewDesktop from '@/components/watchlist/OverviewDesktop.vue';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 
 const { fetchPopular, popularMovies } = useFetch();
 
@@ -39,13 +37,13 @@ const posters = computed(() => {
         <Button variant="outline">+ New</Button>
       </div>
       <div class="hidden md:flex md:flex-col gap-4">
-        <WatchList title="Watch Later" :movies="popularMovies" />
-        <WatchList title="Likes" :movies="popularMovies" />
-        <WatchList title="Horror" :movies="popularMovies" />
+        <OverviewDesktop title="Watch Later" :movies="popularMovies" />
+        <OverviewDesktop title="Likes" :movies="popularMovies" />
+        <OverviewDesktop title="Horror" :movies="popularMovies" />
       </div>
 
       <div class="space-y-4 md:hidden">
-        <Overview title="Watch Later" :posters="posters" :size="popularMovies.length" />
+        <OverviewMobile title="Watch Later" :posters="posters" :size="popularMovies.length" />
         <Overview
           title="Favorites 2016"
           :posters="shuffle()"
@@ -53,9 +51,13 @@ const posters = computed(() => {
           description="Alles was ich 2016 geguckt habe"
         />
 
-        <Overview title="Kino Realeases 2026" :posters="shuffle()" :size="popularMovies.length" />
+        <OverviewMobile
+          title="Kino Realeases 2026"
+          :posters="shuffle()"
+          :size="popularMovies.length"
+        />
 
-        <Overview title="Feel Good" :posters="shuffle()" :size="popularMovies.length" />
+        <OverviewMobile title="Feel Good" :posters="shuffle()" :size="popularMovies.length" />
       </div>
     </div>
   </section>

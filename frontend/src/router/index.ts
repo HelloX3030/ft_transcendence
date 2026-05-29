@@ -6,6 +6,7 @@ import DiscoverView from '@/views/DiscoverView.vue';
 import HomeView from '@/views/HomeView.vue';
 
 import ProfileView from '@/views/ProfileView.vue';
+import ListView from '@/views/watchlist/ListView.vue';
 
 import WatchlistView from '@/views/watchlist/WatchlistView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -30,8 +31,11 @@ const router = createRouter({
     },
     {
       path: '/watchlist',
-      component: WatchlistView,
       meta: { requiresAuth: true, title: 'Watchlist' },
+      children: [
+        { path: '', component: WatchlistView },
+        { path: ':id', component: ListView },
+      ],
     },
     {
       path: '/login',
