@@ -70,7 +70,12 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="email@cinemates.de" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                autocomplete="email"
+                placeholder="email@cinemates.de"
+              />
             </FormControl>
           </FormItem>
         </FormField>
@@ -82,7 +87,12 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
               <Button type="button" variant="link" class="">Forgot password?</Button>
             </div>
             <FormControl>
-              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
+              <Input
+                v-bind="componentField"
+                type="password"
+                autocomplete="current-password"
+                placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
+              />
             </FormControl>
           </FormItem>
         </FormField>
