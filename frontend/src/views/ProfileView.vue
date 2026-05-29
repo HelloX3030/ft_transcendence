@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +51,9 @@ const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es
           </div>
         </CardHeader>
         <CardFooter class="justify-end">
-          <Button variant="outline" disabled>Edit Profile</Button>
+          <RouterLink to="/profile/edit">
+            <Button variant="outline">Edit Profile</Button>
+          </RouterLink>
         </CardFooter>
       </Card>
 

@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
 
 export const ME_SELECT = {
@@ -20,7 +22,10 @@ export const PUBLIC_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storage: StorageService,
+  ) {}
 
   async getMe(userId: number) {
     return this.prisma.users.findUnique({
@@ -42,6 +47,16 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async uploadAvatar(userId: number, file: Express.Multer.File) {
+    const key = `${userId}-${Date.now()}${extname(file.originalname)}`;
+    const imageUrl = await this.storage.upload(key, file.buffer, file.mimetype);
+    return this.prisma.users.update({
+      where: { id: userId },
+      data: { image: imageUrl },
+      select: ME_SELECT,
+    });
   }
 
   async deleteMe(userId: number) {
