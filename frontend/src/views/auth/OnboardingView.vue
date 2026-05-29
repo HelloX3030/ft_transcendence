@@ -5,8 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 import { useMovies } from '@/composables/useMovies';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
 
 const { selectedMovies } = useMovies();
+const auth = useAuthStore();
+const router = useRouter();
+
+function completeOnboarding() {
+  auth.completeOnboarding();
+  router.push('/');
+}
 </script>
 
 <template>
@@ -18,7 +27,7 @@ const { selectedMovies } = useMovies();
       </p>
     </div>
     <MovieSearch />
-    <Button :disabled="selectedMovies.length < 10">Next</Button>
+    <Button :disabled="selectedMovies.length < 10" @click="completeOnboarding">Next</Button>
     <div class="flex items-center justify-between">
       <span>Selected({{ selectedMovies.length }}/10)</span>
       <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />
