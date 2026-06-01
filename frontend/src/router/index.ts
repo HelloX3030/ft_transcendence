@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/auth';
+import { APP_NAME } from '@/lib/constants';
 import { storeToRefs } from 'pinia';
 import LoginView from '@/views/auth/LoginView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
@@ -90,7 +91,7 @@ router.beforeEach((to) => {
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} | CineMates` : 'CineMates'; //TODO: use env for name
+  document.title = to.meta.title ? `${to.meta.title} | ${APP_NAME}` : APP_NAME;
 });
 
 export default router;
