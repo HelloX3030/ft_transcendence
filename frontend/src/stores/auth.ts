@@ -5,6 +5,9 @@ interface AuthUser {
   id: number;
   username: string;
   email: string;
+  image: string | null;
+  language: 'de' | 'en' | 'es';
+  role: 'admin' | 'user';
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -12,12 +15,32 @@ export const useAuthStore = defineStore('auth', () => {
   const requiresOnboarding = ref(false);
   const user = ref<AuthUser | null>(null);
 
-  async function init() {
-    // TODO: call GET /v1/auth/me to restore session from cookie
+  async function fetchUser() {
+    try {
+      const res = await fetch('/v1/users/me', { credentials: 'same-origin' });
+      if (res.ok) {
+        user.value = await res.json();
+      }
+    } catch {
+      // network error — leave user as-is
+    }
   }
 
-  function login() {
+  async function init() {
+    try {
+      const res = await fetch('/v1/auth/me');
+      if (res.ok) {
+        isLoggedIn.value = true;
+        await fetchUser();
+      }
+    } catch {
+      // network error — stay logged out
+    }
+  }
+
+  async function login() {
     isLoggedIn.value = true;
+    await fetchUser();
   }
 
   async function logout() {
@@ -27,13 +50,33 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
-  function register() {
+  async function register() {
     isLoggedIn.value = true;
     requiresOnboarding.value = true;
+    await fetchUser();
   }
 
-  function completeOnboarding() {
+  async function completeOnboarding() {
     requiresOnboarding.value = false;
+    await fetchUser();
+  }
+
+  async function updateUser(payload: {
+    username?: string;
+    language?: 'de' | 'en' | 'es';
+    email?: string;
+  }) {
+    const res = await fetch('/v1/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw Object.assign(new Error(err?.message ?? 'Update failed'), { status: res.status });
+    }
+    user.value = await res.json();
   }
 
   return {
@@ -45,5 +88,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     register,
     completeOnboarding,
+    fetchUser,
+    updateUser,
   };
 });

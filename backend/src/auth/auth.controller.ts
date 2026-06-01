@@ -66,6 +66,14 @@ export class AuthController {
     return this.handleAuth(() => this.authService.login(req, dto, res));
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiResponse({ status: 200, description: 'Returns the authenticated user payload' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  me(@Request() req: ExpressRequest) {
+    return req.user;
+  }
+
   @Public()
   @UseGuards(JwtRefreshGuard)
   @Get('refresh')
