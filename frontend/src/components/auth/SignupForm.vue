@@ -47,9 +47,13 @@ async function createAccount({
       body: JSON.stringify({ username, email, password, language: 'de' }), //TODO: dynamic language
     });
     if (!res.ok) {
-      return res.status === 403
-        ? 'Email or username is already taken.'
-        : 'Something went wrong. Please try again.';
+      if (res.status === 403) return 'Email or username is already taken.';
+      if (res.status === 400) {
+        const body = await res.json().catch(() => ({}));
+        const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+        return typeof first === 'string' ? first : 'Please check your input.';
+      }
+      return 'Something went wrong. Please try again.';
     }
     return true;
   } catch {
@@ -84,7 +88,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Username</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="urbi420" type="text" />
+              <Input
+                v-bind="componentField"
+                type="text"
+                autocomplete="nickname"
+                placeholder="urbi420"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -93,7 +102,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="email@cinemates.de" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                autocomplete="email"
+                placeholder="email@cinemates.de"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -112,8 +126,9 @@ const isPwVisible = ref(false);
               <div class="flex items-center gap-2">
                 <Input
                   v-bind="componentField"
-                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                   :type="isPwVisible ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                 >
                 </Input>
               </div>
@@ -125,7 +140,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Confirm Password</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
+              <Input
+                v-bind="componentField"
+                type="password"
+                autocomplete="new-password"
+                placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
