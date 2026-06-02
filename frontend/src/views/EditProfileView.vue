@@ -49,15 +49,7 @@ async function save() {
 
   try {
     if (selectedFile.value) {
-      const formData = new FormData();
-      formData.append('file', selectedFile.value);
-      const res = await fetch('/v1/users/me/avatar', {
-        method: 'POST',
-        credentials: 'same-origin',
-        body: formData,
-      });
-      if (!res.ok) throw new Error('Avatar upload failed');
-      await auth.fetchUser();
+      await auth.uploadAvatar(selectedFile.value);
     }
 
     const original = {

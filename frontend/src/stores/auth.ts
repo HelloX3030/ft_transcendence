@@ -1,6 +1,13 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 
+async function throwApiError(res: Response): Promise<never> {
+  const body = await res.json().catch(() => ({}));
+  const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+  const message = typeof first === 'string' ? first : 'Something went wrong. Please try again.';
+  throw Object.assign(new Error(message), { status: res.status });
+}
+
 interface AuthUser {
   id: number;
   username: string;
@@ -58,12 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
-      const message = typeof first === 'string' ? first : 'Something went wrong. Please try again.';
-      throw Object.assign(new Error(message), { status: res.status });
-    }
+    if (!res.ok) await throwApiError(res);
     isLoggedIn.value = true;
     await fetchUser();
   }
@@ -85,12 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
-      const message = typeof first === 'string' ? first : 'Something went wrong. Please try again.';
-      throw Object.assign(new Error(message), { status: res.status });
-    }
+    if (!res.ok) await throwApiError(res);
     isLoggedIn.value = true;
     requiresOnboarding.value = true;
     await fetchUser();
@@ -98,6 +95,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function completeOnboarding() {
     requiresOnboarding.value = false;
+    await fetchUser();
+  }
+
+  async function uploadAvatar(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/v1/users/me/avatar', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Avatar upload failed');
     await fetchUser();
   }
 
@@ -126,5 +135,6 @@ export const useAuthStore = defineStore('auth', () => {
     completeOnboarding,
     fetchUser,
     updateUser,
+    uploadAvatar,
   };
 });
