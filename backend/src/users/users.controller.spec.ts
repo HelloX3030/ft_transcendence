@@ -9,7 +9,8 @@ const mockUsersService = {
   updateMe: jest.fn(),
   deleteMe: jest.fn(),
   getUser: jest.fn(),
-};
+  uploadAvatar: jest.fn(),
+} satisfies Partial<jest.Mocked<UsersService>>;
 
 function mockRequest(sub: number): ExpressRequest {
   return { user: { sub, email: 'test@example.com' } } as ExpressRequest;

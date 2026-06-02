@@ -17,19 +17,24 @@ const mockUser = {
 
 const mockPublicUser = { id: 1, username: 'testuser', image: null };
 
+// PrismaService inherits a large generated client; only type the slice this service uses.
 const mockPrisma = {
   users: {
     findUnique: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
-};
+} satisfies { users: Partial<jest.Mocked<PrismaService['users']>> };
 
 function prismaError(code: string): PrismaClientKnownRequestError {
   return new PrismaClientKnownRequestError('error', { code, clientVersion: '5.0.0' });
 }
 
-const mockStorage = { upload: jest.fn(), delete: jest.fn(), extractKey: jest.fn() };
+const mockStorage = {
+  upload: jest.fn(),
+  delete: jest.fn(),
+  extractKey: jest.fn(),
+} satisfies Partial<jest.Mocked<StorageService>>;
 
 describe('UsersService', () => {
   let service: UsersService;
