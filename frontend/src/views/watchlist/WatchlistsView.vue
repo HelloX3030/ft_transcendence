@@ -4,6 +4,7 @@ import { useFetch } from '@/composables/useFetch.ts';
 import OverviewMobile from '@/components/watchlist/OverviewMobile.vue';
 import OverviewDesktop from '@/components/watchlist/OverviewDesktop.vue';
 import { Button } from '@/components/ui/button';
+import NewListDialog from './NewListDialog.vue';
 
 const { fetchPopular, popularMovies } = useFetch();
 
@@ -34,7 +35,7 @@ const posters = computed(() => {
     <div class="max-w-5/6 mx-auto">
       <div class="flex justify-between items-center">
         <h1 class="text-3xl mb-6 font-bold">Your lists</h1>
-        <Button variant="outline">+ New</Button>
+        <NewListDialog />
       </div>
       <div class="hidden md:flex md:flex-col gap-4">
         <OverviewDesktop title="Watch Later" :movies="popularMovies" />
