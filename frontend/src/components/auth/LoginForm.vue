@@ -10,7 +10,6 @@ import {
 
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
-import { z } from 'zod';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -19,15 +18,11 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
+import { loginSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/stores/auth';
 
-const formSchema = z.object({
-  email: z.string().email(),
-  password: z.string().nonempty(),
-});
-
 const form = useForm({
-  validationSchema: toTypedSchema(formSchema),
+  validationSchema: toTypedSchema(loginSchema),
 });
 
 const router = useRouter();
