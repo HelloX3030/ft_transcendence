@@ -8,7 +8,7 @@ import HomeView from '@/views/HomeView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import ListView from '@/views/watchlist/ListView.vue';
 
-import WatchlistView from '@/views/watchlist/WatchlistView.vue';
+import WatchlistView from '@/views/watchlist/WatchlistsView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
