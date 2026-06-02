@@ -6,6 +6,19 @@ export const options = {
   },
 };
 
+export interface Provider {
+  name: string;
+  logoPath: string;
+}
+
+export const PROVIDERS = {
+  NETFLIX: { name: 'Netflix', logoPath: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg' },
+  AMAZON: { name: 'Amazon Prime Video', logoPath: '/emthp39XA2YScoYL1p0sdbAH2WA.jpg' },
+  HBO: { name: 'HBO Max', logoPath: '/jbe4gVSfRlbPTdESXhEKpornsfu.jpg' },
+  DISNEY: { name: 'Disney Plus', logoPath: '/97yvRBw1GzX7fXprcF80er19ot.jpg' },
+  WOW: { name: 'WOW', logoPath: '/9r5zFWuYnwjzO1JrNjSbLQwUc3P.jpg' },
+};
+
 export const popular = [
   {
     adult: false,
@@ -24,7 +37,7 @@ export const popular = [
     vote_average: 6.5,
     vote_count: 1886,
     key: '3SgL3ygGm1s',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
+    providers: [PROVIDERS.NETFLIX, PROVIDERS.DISNEY],
   },
   {
     adult: false,
@@ -43,7 +56,7 @@ export const popular = [
     vote_average: 7.5,
     vote_count: 1456,
     key: 'f4LdtAazviE',
-    provider_name: [],
+    providers: [],
   },
   {
     adult: false,
@@ -62,7 +75,7 @@ export const popular = [
     vote_average: 6.9,
     vote_count: 1231,
     key: 'BZuJorglKko',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
+    providers: [PROVIDERS.AMAZON, PROVIDERS.HBO],
   },
   {
     adult: false,
@@ -81,6 +94,6 @@ export const popular = [
     vote_average: 7.7,
     vote_count: 7535,
     key: '8gSJ3td9OhM',
-    provider_name: ['Disney Plus', 'Netflix', 'HBO Max'],
+    providers: [PROVIDERS.WOW, PROVIDERS.HBO],
   },
 ];

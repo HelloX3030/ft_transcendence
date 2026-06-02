@@ -3,13 +3,14 @@ import { useTemplateRef, toRef, watch } from 'vue';
 import { useGlobalVideoPlayer, useVideoPlayer } from '@/composables/useVideoPlayer';
 import VideoInfo from './VideoInfo.vue';
 import Controls from './Controls.vue';
+import type { Provider } from '@/lib/test.ts';
 
 const props = defineProps<{
   title: string;
   videoId: string;
   active: boolean;
   genreIds: number[];
-  providers: string[];
+  providers: Provider[];
   releaseDate: string;
 }>();
 
