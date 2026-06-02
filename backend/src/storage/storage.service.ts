@@ -12,16 +12,16 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private client: S3Client;
-  private readonly bucket = process.env.MINIO_BUCKET ?? 'avatars';
-  private readonly publicUrl = process.env.MINIO_PUBLIC_URL ?? 'http://localhost:9000';
+  private readonly bucket = process.env.MINIO_BUCKET!;
+  private readonly publicUrl = process.env.MINIO_PUBLIC_URL!;
 
   async onModuleInit() {
     this.client = new S3Client({
-      endpoint: process.env.MINIO_ENDPOINT ?? 'http://minio:9000',
+      endpoint: process.env.MINIO_ENDPOINT!,
       region: 'us-east-1',
       credentials: {
-        accessKeyId: process.env.MINIO_ACCESS_KEY ?? 'minioadmin',
-        secretAccessKey: process.env.MINIO_SECRET_KEY ?? 'minioadmin',
+        accessKeyId: process.env.MINIO_ACCESS_KEY!,
+        secretAccessKey: process.env.MINIO_SECRET_KEY!,
       },
       forcePathStyle: true,
     });
