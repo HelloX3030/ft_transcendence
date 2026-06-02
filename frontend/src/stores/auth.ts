@@ -10,6 +10,20 @@ interface AuthUser {
   role: 'admin' | 'user';
 }
 
+type UpdateUserPayload = Pick<AuthUser, 'username' | 'email' | 'language'>;
+
+interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+interface RegisterPayload {
+  username: string;
+  email: string;
+  password: string;
+  language: string;
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const requiresOnboarding = ref(false);
@@ -38,19 +52,45 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login() {
+  async function login(payload: LoginPayload) {
+    const res = await fetch('/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+      const message = typeof first === 'string' ? first : 'Something went wrong. Please try again.';
+      throw Object.assign(new Error(message), { status: res.status });
+    }
     isLoggedIn.value = true;
     await fetchUser();
   }
 
   async function logout() {
-    await fetch('/v1/auth/logout', { credentials: 'same-origin' });
+    try {
+      await fetch('/v1/auth/logout', { credentials: 'same-origin' });
+    } catch {
+      // best-effort — clear local state regardless
+    }
     isLoggedIn.value = false;
     requiresOnboarding.value = false;
     user.value = null;
   }
 
-  async function register() {
+  async function register(payload: RegisterPayload) {
+    const res = await fetch('/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
+      const message = typeof first === 'string' ? first : 'Something went wrong. Please try again.';
+      throw Object.assign(new Error(message), { status: res.status });
+    }
     isLoggedIn.value = true;
     requiresOnboarding.value = true;
     await fetchUser();
@@ -61,11 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchUser();
   }
 
-  async function updateUser(payload: {
-    username?: string;
-    language?: 'de' | 'en' | 'es';
-    email?: string;
-  }) {
+  async function updateUser(payload: Partial<UpdateUserPayload>) {
     const res = await fetch('/v1/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

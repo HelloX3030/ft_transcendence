@@ -37,27 +37,17 @@ const errorMessage = ref<string | null>(null);
 const onSubmit = form.handleSubmit(async ({ email, password }) => {
   errorMessage.value = null;
   try {
-    const res = await fetch('/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      if (res.status === 403) {
-        errorMessage.value = 'Invalid email or password.';
-      } else if (res.status === 400) {
-        const body = await res.json().catch(() => ({}));
-        const first = Array.isArray(body?.message) ? body.message[0] : body?.message;
-        errorMessage.value = typeof first === 'string' ? first : 'Please check your input.';
-      } else {
-        errorMessage.value = 'Something went wrong. Please try again.';
-      }
-      return;
-    }
-    auth.login();
+    await auth.login({ email, password });
     router.push('/');
-  } catch {
-    errorMessage.value = 'Could not reach the server.';
+  } catch (err: unknown) {
+    const e = err as { status?: number; message?: string };
+    if (e?.status === 403) {
+      errorMessage.value = 'Invalid email or password.';
+    } else if (e?.status) {
+      errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
+    } else {
+      errorMessage.value = 'Could not reach the server.';
+    }
   }
 });
 </script>
