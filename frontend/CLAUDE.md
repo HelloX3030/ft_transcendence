@@ -53,6 +53,8 @@ The frontend runs inside Docker — use the root `docker-compose.yml`:
 docker compose up --build   # Start everything (frontend on port 5173)
 ```
 
+Required env vars are checked at startup — `vite dev` and `vite build` both throw immediately with a clear error if one is missing. Register required vars in the `required` array in `vite.config.ts` and add types to `env.d.ts`. See the "Environment Variables" section of the root `CLAUDE.md` for the full checklist.
+
 **CI checks (format + lint + type-check, no stack required):**
 
 ```bash
