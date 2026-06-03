@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseFilePipe,
   ParseIntPipe,
   Patch,
   Post,
@@ -45,9 +46,19 @@ export class UsersController {
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar for authenticated user' })
   @ApiResponse({ status: 201, description: 'Updated user profile' })
+  @ApiResponse({ status: 400, description: 'No file or invalid file type' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  uploadAvatar(@Request() req: ExpressRequest, @UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+    }),
+  )
+  uploadAvatar(
+    @Request() req: ExpressRequest,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: 400 })) file: Express.Multer.File,
+  ) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.uploadAvatar(user.sub, file);
   }
