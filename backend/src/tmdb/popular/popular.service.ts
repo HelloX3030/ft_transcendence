@@ -11,9 +11,11 @@ export class PopularService {
   };
 
   async fetchPopular(): Promise<TmdbMovie[]> {
+    if (!process.env.TMDB_API_KEY) return [];
     const res = await fetch(`${TMDB_BASE}/movie/popular?language=en-US&page=1`, {
       headers: this.headers,
     });
+    if (!res.ok) return [];
     const data = (await res.json()) as TmdbListResponse;
     return data.results;
   }
