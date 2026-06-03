@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Camera } from 'lucide-vue-next';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,9 +37,14 @@ const languageOptions: { value: 'de' | 'en' | 'es'; label: string }[] = [
 function onFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
   selectedFile.value = file;
   previewUrl.value = URL.createObjectURL(file);
 }
+
+onUnmounted(() => {
+  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+});
 
 async function save() {
   usernameError.value = '';
