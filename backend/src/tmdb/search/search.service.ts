@@ -11,6 +11,7 @@ export class SearchService {
   };
 
   async searchMovies(query: string): Promise<TmdbMovie[]> {
+    if (!process.env.TMDB_API_KEY) return [];
     const params = new URLSearchParams({
       query,
       include_adult: 'false',
@@ -20,6 +21,7 @@ export class SearchService {
     const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`, {
       headers: this.headers,
     });
+    if (!res.ok) return [];
     const data = (await res.json()) as TmdbListResponse;
     return data.results;
   }
