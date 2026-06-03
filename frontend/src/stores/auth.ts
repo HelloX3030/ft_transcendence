@@ -106,7 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
       credentials: 'same-origin',
       body: formData,
     });
-    if (!res.ok) throw new Error('Avatar upload failed');
+    if (!res.ok) await throwApiError(res);
     await fetchUser();
   }
 
@@ -117,10 +117,7 @@ export const useAuthStore = defineStore('auth', () => {
       credentials: 'same-origin',
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw Object.assign(new Error(err?.message ?? 'Update failed'), { status: res.status });
-    }
+    if (!res.ok) await throwApiError(res);
     user.value = await res.json();
   }
 
