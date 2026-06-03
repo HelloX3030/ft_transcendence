@@ -61,20 +61,19 @@ export class StorageService implements OnModuleInit {
     } catch {
       await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
       this.logger.log(`Created bucket "${this.bucket}"`);
+
+      const policy = JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: { AWS: ['*'] },
+            Action: ['s3:GetObject'],
+            Resource: [`arn:aws:s3:::${this.bucket}/*`],
+          },
+        ],
+      });
+      await this.client.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
     }
-
-    const policy = JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: { AWS: ['*'] },
-          Action: ['s3:GetObject'],
-          Resource: [`arn:aws:s3:::${this.bucket}/*`],
-        },
-      ],
-    });
-
-    await this.client.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
   }
 }
