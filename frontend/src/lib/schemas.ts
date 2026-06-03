@@ -24,3 +24,12 @@ export const registerSchema = z
       });
     }
   });
+
+export const createListSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50),
+  image: z
+    .instanceof(File)
+    .refine((file) => file.size <= 1024 * 1024, 'Max 1MB')
+    .refine((file) => file.type === 'image/png', 'Only PNG allowed')
+    .optional(),
+});
