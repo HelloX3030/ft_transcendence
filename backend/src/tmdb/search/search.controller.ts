@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
 import { TmdbMovie } from '../tmdb.types';
+import { SearchQueryDto } from './dto/search-query.dto';
 import { SearchService } from './search.service';
 
 @ApiTags('tmdb')
@@ -10,7 +11,7 @@ export class SearchController {
 
   @Get()
   @ApiQuery({ name: 'query', required: true })
-  searchMovies(@Query('query') query: string): Promise<TmdbMovie[]> {
-    return this.searchService.searchMovies(query);
+  searchMovies(@Query() dto: SearchQueryDto): Promise<TmdbMovie[]> {
+    return this.searchService.searchMovies(dto.query);
   }
 }
