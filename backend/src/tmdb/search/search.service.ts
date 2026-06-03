@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TmdbListResponse, TmdbMovie } from '../tmdb.types';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
@@ -9,7 +10,7 @@ export class SearchService {
     Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
   };
 
-  async searchMovies(query: string): Promise<unknown> {
+  async searchMovies(query: string): Promise<TmdbMovie[]> {
     const params = new URLSearchParams({
       query,
       include_adult: 'false',
@@ -19,6 +20,7 @@ export class SearchService {
     const res = await fetch(`${TMDB_BASE}/search/movie?${params.toString()}`, {
       headers: this.headers,
     });
-    return res.json();
+    const data = (await res.json()) as TmdbListResponse;
+    return data.results;
   }
 }

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TmdbListResponse, TmdbMovie } from '../tmdb.types';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
@@ -9,10 +10,11 @@ export class PopularService {
     Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
   };
 
-  async fetchPopular(): Promise<unknown> {
+  async fetchPopular(): Promise<TmdbMovie[]> {
     const res = await fetch(`${TMDB_BASE}/movie/popular?language=en-US&page=1`, {
       headers: this.headers,
     });
-    return res.json();
+    const data = (await res.json()) as TmdbListResponse;
+    return data.results;
   }
 }
