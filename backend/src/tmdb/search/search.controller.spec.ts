@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TmdbMovie } from '../tmdb.types';
+import { SearchQueryDto } from './dto/search-query.dto';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 
@@ -43,18 +44,20 @@ describe('SearchController', () => {
   });
 
   describe('searchMovies', () => {
-    it('delegates to searchService.searchMovies with the query string', async () => {
+    it('delegates to searchService.searchMovies with dto.query', async () => {
       mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+      const dto: SearchQueryDto = { query: 'batman' };
 
-      await controller.searchMovies('batman');
+      await controller.searchMovies(dto);
 
       expect(mockSearchService.searchMovies).toHaveBeenCalledWith('batman');
     });
 
     it('returns the array that searchService.searchMovies resolves with', async () => {
       mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+      const dto: SearchQueryDto = { query: 'batman' };
 
-      const result = await controller.searchMovies('batman');
+      const result = await controller.searchMovies(dto);
 
       expect(result).toEqual(mockMovies);
     });
