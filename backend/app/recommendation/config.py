@@ -25,5 +25,14 @@ class RecommenderConfig:
     tmdb_pages: int = 3         # TMDB Discover pages fetched per feed request
     min_pool_ratio: int = 2     # trigger a refetch when pool size < limit * this
 
+    # --- Engagement signal deltas (additive on top of hybrid score) ---
+    signal_like: float = 0.20
+    signal_dislike: float = -0.40
+    signal_watchlist_add: float = 0.50
+    signal_skip_fast: float = -0.50
+    signal_watched_long: float = 0.30
+    signal_rewatch: float = 0.60
+    signal_share: float = 0.60
+
 
 DEFAULT_CONFIG = RecommenderConfig()
