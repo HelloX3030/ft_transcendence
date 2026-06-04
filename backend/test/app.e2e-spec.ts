@@ -3,11 +3,16 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    // process.env.DATABASE_URL = process.env.TEST_DATABASE_URL; //todo
+    // console.log(process.env.DATABASE_URL);
+    // execSync('npx prisma migrate reset --force && npx prisma migrate dev ');
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
