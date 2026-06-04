@@ -43,14 +43,14 @@ Unit tests mock `AppService` — no live DB required.
 E2e tests boot the full `AppModule` and need `DATABASE_URL` to be set.
 
 ```bash
-# Unit tests (no DB needed):
+# Unit tests (no DB needed) — from project root via Docker:
+npm run test
+
+# Unit tests — inside the running container:
 docker compose exec backend npm test
 
 # E2e tests (DB must be running):
 docker compose exec backend npm run test:e2e
-
-# Or locally against the port-forwarded DB (docker compose up db first):
-DATABASE_URL="postgresql://$(cat ../secrets/db_user.txt):$(cat ../secrets/db_password.txt)@localhost:5432/$(cat ../secrets/db_name.txt)" npm run test:e2e
 
 # Coverage:
 docker compose exec backend npm run test:cov
@@ -65,14 +65,15 @@ Test files: `src/**/*.spec.ts` (unit) · `test/**/*.e2e-spec.ts` (e2e)
 Backend uses `.prettierrc` and `eslint.config.mjs`.
 
 ```bash
-docker compose exec backend npm run format   # Prettier (auto-fix)
-docker compose exec backend npm run lint     # ESLint (auto-fix)
+cd backend && npm run fix      # ESLint auto-fix + Prettier format
+# or from root:
+npm run fix
 ```
 
 **CI checks (format + lint + test, no stack required):**
 
 ```bash
-docker compose run --rm --no-deps backend npm run check
+cd backend && npm run check
 ```
 
 ---
