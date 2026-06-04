@@ -55,8 +55,8 @@ The service is runnable. `/health` returns `{"status": "ok"}`. The other endpoin
 | `main.py` | Stubbed | Wire up engine once first modules are ready |
 | `content_based.py` | Done (stub) | UserProfile dataclass + interface complete; vector math TODOs pending TMDB data |
 | `collaborative.py` | Not started | SVD matrix factorization + predict |
-| `engagement.py` | Not started | Delta score table + apply_signals + record_action |
-| `diversifier.py` | Not started | Genre history tracking + freshness boost |
+| `engagement.py` | Done | Delta scores in config.py; in-RAM accumulation + apply |
+| `diversifier.py` | Done | Genre history window + freshness boost; movie_ages wired later |
 | `tmdb_bridge.py` | Not started | Profile → TMDB params + fetch_candidates (pending A/B decision) |
 | `retrain.py` | Not started | Nightly SVD batch job |
 
@@ -68,13 +68,7 @@ The service is runnable. `/health` returns `{"status": "ok"}`. The other endpoin
 Most central module — provides the concrete `UserProfile` dataclass (not just the Protocol) and content scoring. Everything else depends on having a working profile representation.
 Key pieces: feature vector as numpy array, weighted average with exponential time decay, cosine similarity against candidate feature vectors.
 
-**2. `engagement.py`**
-Relatively self-contained. Implements the delta score table from the architecture doc and `apply_signals` / `record_action`. No external dependencies.
-
-**3. `diversifier.py`**
-Also self-contained. Tracks recent genre history per user and applies the freshness boost formula.
-
-**4. Wire `main.py`**
+**2. Wire `main.py`**
 Once the above three are in place, connect the engine to the FastAPI endpoints. The feed won't be personalized yet (no TMDB candidates, no CF), but the full request/response cycle will work end-to-end with real scoring logic.
 
 **5. `collaborative.py`**
