@@ -116,7 +116,6 @@ model watchlists {
 enum friend_status {
   pending
   accepted
-  blocked
 }
 
 enum language_code {
