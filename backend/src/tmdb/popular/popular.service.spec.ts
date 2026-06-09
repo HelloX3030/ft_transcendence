@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { REDIS_CLIENT } from '../../redis/redis.constants';
 import { TmdbClient } from '../tmdb.client';
 import { TmdbMovie } from '../tmdb.types';
 import { PopularService } from './popular.service';
@@ -26,12 +27,21 @@ const mockTmdbClient = {
   get: jest.fn(),
 } satisfies Partial<jest.Mocked<TmdbClient>>;
 
+const mockRedisClient = {
+  get: jest.fn(),
+  set: jest.fn(),
+};
+
 describe('PopularService', () => {
   let service: PopularService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PopularService, { provide: TmdbClient, useValue: mockTmdbClient }],
+      providers: [
+        PopularService,
+        { provide: TmdbClient, useValue: mockTmdbClient },
+        { provide: REDIS_CLIENT, useValue: mockRedisClient },
+      ],
     }).compile();
     service = module.get<PopularService>(PopularService);
     jest.clearAllMocks();
@@ -41,7 +51,12 @@ describe('PopularService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('fetchPopular', () => {
+  describe('fetchPopular — cache miss', () => {
+    beforeEach(() => {
+      mockRedisClient.get.mockResolvedValue(null);
+      mockRedisClient.set.mockResolvedValue('OK');
+    });
+
     it('calls client.get with the popular endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue([]);
 
@@ -58,12 +73,35 @@ describe('PopularService', () => {
       expect(result).toEqual(mockMovies);
     });
 
+    it('stores the result in Redis with the correct key and TTL', async () => {
+      mockTmdbClient.get.mockResolvedValue(mockMovies);
+
+      await service.fetchPopular();
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:popular:page:1',
+        JSON.stringify(mockMovies),
+        { EX: 3600 },
+      );
+    });
+
     it('returns an empty array when client.get resolves with []', async () => {
       mockTmdbClient.get.mockResolvedValue([]);
 
       const result = await service.fetchPopular();
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('fetchPopular — cache hit', () => {
+    it('returns the cached value without calling client.get', async () => {
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(mockMovies));
+
+      const result = await service.fetchPopular();
+
+      expect(result).toEqual(mockMovies);
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
 });
