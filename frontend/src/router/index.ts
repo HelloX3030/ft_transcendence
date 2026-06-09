@@ -12,6 +12,7 @@ import ProfileView from '@/views/ProfileView.vue';
 import UserProfileView from '@/views/UserProfileView.vue';
 import EditProfileView from '@/views/EditProfileView.vue';
 import WatchlistView from '@/views/WatchlistView.vue';
+import SearchView from '@/views/SearchView.vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
@@ -26,6 +27,11 @@ const router = createRouter({
       path: '/discover',
       component: DiscoverView,
       meta: { requiresAuth: true, title: 'Discover' },
+    },
+    {
+      path: '/search',
+      component: SearchView,
+      meta: { requiresAuth: true, title: 'Search' },
     },
     {
       path: '/profile',
