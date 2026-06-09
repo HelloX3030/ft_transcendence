@@ -34,12 +34,22 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
       TMDB_API_KEY: ${TMDB_API_KEY}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - web
       - db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - web
 
   db:
     image: postgres:16-alpine

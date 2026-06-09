@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WatchlistsModule } from './watchlists/watchlists.module';
 import { TmdbModule } from './tmdb/tmdb.module';
+import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 
@@ -28,11 +29,13 @@ import { JwtAccessGuard } from './auth/guard';
         MINIO_SECRET_KEY: Joi.string().required(),
         MINIO_BUCKET: Joi.string().required(),
         TMDB_API_KEY: Joi.string().required(),
+        REDIS_URL: Joi.string().required(),
         PORT: Joi.number().default(3000),
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },
     }),
     PrismaModule,
+    RedisModule,
     FriendsModule,
     MoviesModule,
     AuthModule,
