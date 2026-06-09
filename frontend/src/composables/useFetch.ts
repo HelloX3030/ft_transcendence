@@ -1,25 +1,18 @@
-import { options, popular } from '@/lib/test';
 import { ref } from 'vue';
+import type { TmdbMovie } from '@/lib/tmdb.types';
 
-const popularMovies = ref<typeof popular>([]);
-const searchedMovies = ref<typeof popular>([]);
+const popularMovies = ref<TmdbMovie[]>([]);
+const searchedMovies = ref<TmdbMovie[]>([]);
 const isLoading = ref<'loading' | 'pending' | 'finish' | 'error'>('pending');
 
 export function useFetch() {
   async function fetchPopular() {
     try {
       isLoading.value = 'loading';
-      // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      const res = await fetch(
-        'https://api.themoviedb.org/3/movie/popular?language=en-US&page=1',
-        options,
-      );
-
-      const data = await res.json();
+      const res = await fetch('/v1/tmdb/popular');
+      const data: TmdbMovie[] = await res.json();
       isLoading.value = 'finish';
-      console.log(data.results);
-      popularMovies.value = data.results;
+      popularMovies.value = data;
     } catch (error) {
       console.error(error);
       isLoading.value = 'error';
@@ -29,16 +22,10 @@ export function useFetch() {
   async function searchMovies(inputQuery: string) {
     try {
       isLoading.value = 'loading';
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      console.log(inputQuery);
-      const res = await fetch(
-        `https://api.themoviedb.org/3/search/movie?query=${inputQuery}&include_adult=false&language=en-US&page=1`,
-        options,
-      );
-      const data = await res.json();
+      const res = await fetch(`/v1/tmdb/search?query=${encodeURIComponent(inputQuery)}`);
+      const data: TmdbMovie[] = await res.json();
       isLoading.value = 'finish';
-      console.log(data.results);
-      searchedMovies.value = data.results;
+      searchedMovies.value = data;
     } catch (error) {
       console.error(error);
       isLoading.value = 'error';
