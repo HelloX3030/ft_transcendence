@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { popular } from '@/lib/test';
+import type { TmdbMovie } from '@/lib/tmdb.types';
 
 import MovieCard from './MovieCard.vue';
 
 interface Props {
-  movies: typeof popular;
+  movies: TmdbMovie[];
 }
 
 defineProps<Props>();
@@ -16,7 +16,7 @@ defineProps<Props>();
       v-for="movie in movies"
       :key="movie.id"
       :title="movie.title"
-      :img="movie.poster_path"
+      :img="movie.poster_path ?? ''"
       :selected="false"
       :loading="false"
     />
