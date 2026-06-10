@@ -20,6 +20,10 @@ const mockLoginDto: LoginDto = {
   password: 'Test123!',
 };
 
+interface ApiResponse {
+  message: string;
+}
+
 describe('Auth (e2e)', () => {
   let app: INestApplication<App>;
 
@@ -57,7 +61,8 @@ describe('Auth (e2e)', () => {
       .expect('Content-Type', /json/)
       .expect(201);
 
-    expect(response.body.message).toBe('User registered successfully');
+    const body = response.body as ApiResponse;
+    expect(body.message).toBe('User registered successfully');
     checkCookies(response);
   });
 
@@ -69,7 +74,8 @@ describe('Auth (e2e)', () => {
       .expect('Content-Type', /json/)
       .expect(403);
 
-    expect(response.body.message).toBe('Credentials taken');
+    const body = response.body as ApiResponse;
+    expect(body.message).toBe('Credentials taken');
     const cookies = response.headers['set-cookie'];
     expect(cookies).toBeUndefined();
   });
@@ -97,7 +103,8 @@ describe('Auth (e2e)', () => {
       .expect(200);
 
     checkCookies(response);
-    expect(response.body.message).toBe('Login successful');
+    const body = response.body as ApiResponse;
+    expect(body.message).toBe('Login successful');
     return agent;
   }
 
