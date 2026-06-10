@@ -39,17 +39,17 @@ recommendation/
 | `UserProfile` type | Concrete dataclass in `content_based.py` | Engine Protocol only requires `user_id` + `interaction_count`; modules own the rest |
 | Engagement deltas | Fields on `RecommenderConfig` | Consistent with all other hyperparameters; tunable without code changes |
 | Diversification constants | Module-level in `diversifier.py` | Not in the architecture spec — promote to `config.py` if tuning is needed |
+| TMDB call location | **Option A: Python calls TMDB directly** | NestJS has no Discover integration; keeping the full pipeline in one service is cleaner |
 
 ---
 
 ## Open Decisions
 
-| Decision | Options | Status |
-|---|---|---|
-| TMDB call location | **A**: Python calls TMDB directly · **B**: NestJS calls TMDB, passes candidates | Leaning A — decide before implementing `tmdb_bridge.py` |
-| DB schema gaps | `user_profiles`, `user_preferences` tables missing; `ratings` has no `watch_time` | Communicate to backend team (see Notes below) |
-| Docker integration | Python service not yet in `docker-compose.yml` | Communicate run command to infra team when ready |
-| `user_id` type | DB uses `Int`; Python uses `str` | Align when wiring DB — convert at the boundary in `main.py` |
+| Decision | Status |
+|---|---|
+| DB schema additions | Request sent to backend team (`DB_REQUEST.md`). Blocking DB persistence and cold-start. |
+| Docker integration | Pending infra team. Requirements in `DB_REQUEST.md` notes and `PROGRESS.md` Notes section. |
+| `user_id` type at API boundary | DB uses `Int`, Python uses `str`. Resolve at the `main.py` boundary when DB is wired — low priority. |
 
 ---
 
@@ -125,21 +125,22 @@ The endpoint accepts a `secret` query param but does not verify it and does noth
 
 ## Next Steps
 
-**1. `collaborative.py`**
-SVD-based CF. Implement the full structure (load/save model, `predict`) with a graceful fallback
-that returns zeros until a trained checkpoint exists. This unblocks replacing `_CollabStub`.
+**1. `tmdb_bridge.py`** ← unblocked
+TMDB call location decided (Option A). Translate the user profile vector into TMDB Discover
+parameters (`profile_to_params`) and fetch + deduplicate candidates (`fetch_candidates`).
+This unblocks real candidate pools, freshness boosts, and genre history for diversification.
 
-**2. `tmdb_bridge.py`**
-Implement after the A/B call location decision. Profile → TMDB Discover params translation +
-candidate fetching. This unblocks freshness, genre history, and real candidate pools.
+**2. `content_based.py` — vector math**
+Implement `content_score` and `update_profile` once TMDB data flows through `tmdb_bridge.py`.
+Cosine similarity on feature vectors + TF-IDF on candidate overviews.
 
-**3. `content_based.py` — vector math**
-Implement `content_score` and `update_profile` once TMDB data flows through.
-Cosine similarity on feature vectors + TF-IDF on overviews.
+**3. `collaborative.py`**
+SVD matrix factorization. Implement full structure (load/save checkpoint, `predict`) with a
+graceful zero fallback until a trained model exists. Unblocks replacing `_CollabStub`.
 
 **4. DB integration**
 Wire `ContentBasedFilter.load()`, persist profile vectors, fetch `seen_ids` on feed requests.
-Depends on the backend team adding `user_profiles` and `user_preferences` to Prisma.
+Depends on backend team applying the schema additions from `DB_REQUEST.md`.
 
 **5. `retrain.py`**
 Nightly SVD retrain job. Last — depends on `collaborative.py` being stable.
