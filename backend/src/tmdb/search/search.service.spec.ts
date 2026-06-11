@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { REDIS_CLIENT } from '../../redis/redis.constants';
+import { RedisService } from '../../redis/redis.service';
 import { TmdbClient } from '../tmdb.client';
 import { PaginatedMovies, TmdbListResponse, TmdbMovie } from '../tmdb.types';
 import { SearchService } from './search.service';
@@ -56,7 +56,7 @@ describe('SearchService', () => {
       providers: [
         SearchService,
         { provide: TmdbClient, useValue: mockTmdbClient },
-        { provide: REDIS_CLIENT, useValue: mockRedisClient },
+        { provide: RedisService, useValue: mockRedisClient },
       ],
     }).compile();
     service = module.get<SearchService>(SearchService);
@@ -123,7 +123,7 @@ describe('SearchService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:search:batman:page:1',
         JSON.stringify(expectedLastPage),
-        { EX: 3600 },
+        3600,
       );
     });
 
@@ -136,7 +136,7 @@ describe('SearchService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:search:batman:page:3',
         JSON.stringify(expectedLastPage),
-        { EX: 3600 },
+        3600,
       );
     });
 

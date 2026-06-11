@@ -1,6 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { RedisClient } from '../../redis/redis.constants';
-import { REDIS_CLIENT } from '../../redis/redis.constants';
+import { Injectable } from '@nestjs/common';
+import { RedisService } from '../../redis/redis.service';
 import { filterMovies } from '../movie-filter';
 import { TmdbClient } from '../tmdb.client';
 import { PaginatedMovies } from '../tmdb.types';
@@ -11,7 +10,7 @@ const CACHE_TTL_SECONDS = 3600;
 export class PopularService {
   constructor(
     private readonly client: TmdbClient,
-    @Inject(REDIS_CLIENT) private readonly redis: RedisClient,
+    private readonly redis: RedisService,
   ) {}
 
   async fetchPopular(page = 1): Promise<PaginatedMovies> {
@@ -25,7 +24,7 @@ export class PopularService {
       results: filterMovies(response.results),
       hasMore: response.page < response.total_pages,
     };
-    await this.redis.set(key, JSON.stringify(result), { EX: CACHE_TTL_SECONDS });
+    await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
     return result;
   }
 }
