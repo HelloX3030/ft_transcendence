@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { REDIS_CLIENT } from '../../redis/redis.constants';
+import { RedisService } from '../../redis/redis.service';
 import { TmdbClient } from '../tmdb.client';
 import { PaginatedMovies, TmdbListResponse, TmdbMovie } from '../tmdb.types';
 import { PopularService } from './popular.service';
@@ -56,7 +56,7 @@ describe('PopularService', () => {
       providers: [
         PopularService,
         { provide: TmdbClient, useValue: mockTmdbClient },
-        { provide: REDIS_CLIENT, useValue: mockRedisClient },
+        { provide: RedisService, useValue: mockRedisClient },
       ],
     }).compile();
     service = module.get<PopularService>(PopularService);
@@ -97,7 +97,7 @@ describe('PopularService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:popular:page:1',
         JSON.stringify(expectedPopular),
-        { EX: 3600 },
+        3600,
       );
     });
 
@@ -118,7 +118,7 @@ describe('PopularService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:popular:page:4',
         JSON.stringify(expectedPopular),
-        { EX: 3600 },
+        3600,
       );
     });
 
