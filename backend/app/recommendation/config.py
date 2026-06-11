@@ -25,6 +25,15 @@ class RecommenderConfig:
     tmdb_pages: int = 3         # TMDB Discover pages fetched per feed request
     min_pool_ratio: int = 2     # trigger a refetch when pool size < limit * this
 
+    # --- TMDB parameter translation (profile -> Discover query) ---
+    tmdb_top_genres: int = 3            # genres sent as with_genres (AND-joined)
+    tmdb_top_keywords: int = 5          # keywords sent as with_keywords (OR-joined)
+    tmdb_top_cast: int = 2              # actors sent as with_cast (OR-joined)
+    tmdb_top_crew: int = 1              # directors sent as with_crew
+    tmdb_min_person_weight: float = 0.5 # cast/crew below this weight are omitted (weak signal)
+    tmdb_min_vote_count: int = 100      # vote_count.gte floor on Discover results
+    tmdb_page_window: int = 5           # daily page rotation: base page in [1, window]
+
     # --- Engagement signal deltas (additive on top of hybrid score) ---
     signal_like: float = 0.20
     signal_dislike: float = -0.40

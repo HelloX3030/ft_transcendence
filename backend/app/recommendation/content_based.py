@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -19,11 +19,12 @@ class UserProfile:
     genre_weights: dict[int, float] = field(default_factory=dict)
     actor_weights: dict[int, float] = field(default_factory=dict)
     director_weights: dict[int, float] = field(default_factory=dict)
+    keyword_weights: dict[int, float] = field(default_factory=dict)
 
     # Average vote_average of liked films — used as lower bound in TMDB Discover filter.
     avg_vote: float = 0.0
 
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class ContentBasedFilter:
@@ -60,7 +61,7 @@ class ContentBasedFilter:
         """Incrementally update the profile vector after an interaction (exponential time decay)."""
         profile = self.get_profile(user_id)
         profile.interaction_count += 1
-        profile.last_updated = datetime.utcnow()
+        profile.last_updated = datetime.now(UTC)
 
         # TODO: fetch feature vector for movie_id from TMDB
         # TODO: recompute profile.feature_vector as decay-weighted average over all liked films
