@@ -1,52 +1,28 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request, { Response } from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
-import cookieParser from 'cookie-parser';
-import TestAgent from 'supertest/lib/agent';
+import { createTestApp } from './utils/create-test-app';
+import { ApiMsgResponse } from './types';
+import { checkCookies, login, logout, register } from './utils';
 
-const mockRegisterDto: RegisterDto = {
+const mockUserRegister: RegisterDto = {
   username: 'testuser',
   email: 'test@example.com',
   password: 'Test123!',
   language: 'en',
 };
 
-const mockLoginDto: LoginDto = {
+const mockUser: LoginDto = {
   email: 'test@example.com',
   password: 'Test123!',
 };
 
-interface ApiResponse {
-  message: string;
-}
-
 describe('Auth (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        // transform: true, todo: may be necessary later to convert the data types automatically
-      }),
-    );
-    app.enableCors({
-      origin: process.env.CORS_ORIGIN,
-      credentials: true,
-    });
-    app.use(cookieParser());
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
@@ -54,27 +30,19 @@ describe('Auth (e2e)', () => {
   });
 
   it('register a new user', async () => {
-    const response = await request(app.getHttpServer())
-      .post('/auth/register')
-      .set('Accept', 'application/json')
-      .send(mockRegisterDto)
-      .expect('Content-Type', /json/)
-      .expect(201);
-
-    const body = response.body as ApiResponse;
-    expect(body.message).toBe('User registered successfully');
-    checkCookies(response);
+    const agent = request.agent(app.getHttpServer());
+    await register(agent, mockUserRegister);
   });
 
   it('Trying to register a user who is already registered', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/register')
       .set('Accept', 'application/json')
-      .send(mockRegisterDto)
+      .send(mockUserRegister)
       .expect('Content-Type', /json/)
       .expect(403);
 
-    const body = response.body as ApiResponse;
+    const body = response.body as ApiMsgResponse;
     expect(body.message).toBe('Credentials taken');
     const cookies = response.headers['set-cookie'];
     expect(cookies).toBeUndefined();
@@ -82,7 +50,7 @@ describe('Auth (e2e)', () => {
 
   it('refresh the token', async () => {
     const agent = request.agent(app.getHttpServer());
-    await login(agent);
+    await login(agent, mockUser);
 
     const response = await agent.get('/auth/refresh').expect(200);
     checkCookies(response);
@@ -90,34 +58,7 @@ describe('Auth (e2e)', () => {
 
   it('login and logout', async () => {
     const agent = request.agent(app.getHttpServer());
-    await login(agent);
+    await login(agent, mockUser);
     await logout(agent);
   });
-
-  async function login(agent: TestAgent) {
-    const response = await agent
-      .post('/auth/login')
-      .set('Accept', 'application/json')
-      .send(mockLoginDto)
-      .expect('Content-Type', /json/)
-      .expect(200);
-
-    checkCookies(response);
-    const body = response.body as ApiResponse;
-    expect(body.message).toBe('Login successful');
-    return agent;
-  }
-
-  async function logout(agent: TestAgent) {
-    const responsLogout = await agent.get('/auth/logout').expect(200);
-    const cookies = responsLogout.headers['set-cookie'];
-    expect(cookies[0]).toBe('access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
-    expect(cookies[1]).toBe('refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
-  }
 });
-
-function checkCookies(response: Response) {
-  const cookies = response.headers['set-cookie'];
-  expect(cookies[0]).toContain('access_token=');
-  expect(cookies[1]).toContain('refresh_token=');
-}
