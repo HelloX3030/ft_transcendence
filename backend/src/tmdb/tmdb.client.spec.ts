@@ -1,3 +1,4 @@
+import { BadGatewayException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TmdbMovie } from './tmdb.types';
 import { TmdbClient } from './tmdb.client';
@@ -80,23 +81,23 @@ describe('TmdbClient', () => {
       });
     });
 
-    it('returns an empty list response and logs a warning when the response is not ok', async () => {
+    it('throws BadGatewayException and logs a warning when the response is not ok', async () => {
       mockFetchWith({}, false);
       const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
 
-      const result = await client.get('/movie/popular?language=en-US&page=1');
-
-      expect(result).toEqual({ page: 0, total_pages: 0, total_results: 0, results: [] });
+      await expect(client.get('/movie/popular?language=en-US&page=1')).rejects.toThrow(
+        BadGatewayException,
+      );
       expect(warnSpy).toHaveBeenCalled();
     });
 
-    it('returns an empty list response and logs a warning when fetch throws a network error', async () => {
+    it('throws BadGatewayException and logs a warning when fetch throws a network error', async () => {
       jest.spyOn(global, 'fetch').mockRejectedValue(new Error('Network failure'));
       const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
 
-      const result = await client.get('/movie/popular?language=en-US&page=1');
-
-      expect(result).toEqual({ page: 0, total_pages: 0, total_results: 0, results: [] });
+      await expect(client.get('/movie/popular?language=en-US&page=1')).rejects.toThrow(
+        BadGatewayException,
+      );
       expect(warnSpy).toHaveBeenCalled();
     });
   });

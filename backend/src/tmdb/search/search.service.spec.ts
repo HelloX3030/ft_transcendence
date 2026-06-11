@@ -148,6 +148,13 @@ describe('SearchService', () => {
       expect(result).toEqual({ results: [], hasMore: false });
     });
 
+    it('propagates a TMDB failure without caching anything', async () => {
+      mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
+
+      await expect(service.searchMovies('batman')).rejects.toThrow('TMDB request failed');
+      expect(mockRedisClient.set).not.toHaveBeenCalled();
+    });
+
     it('filters out movies without a poster or below the popularity threshold', async () => {
       const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
       mockTmdbClient.get.mockResolvedValue({
