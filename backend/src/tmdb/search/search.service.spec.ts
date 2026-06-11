@@ -147,6 +147,20 @@ describe('SearchService', () => {
 
       expect(result).toEqual({ results: [], hasMore: false });
     });
+
+    it('filters out movies without a poster or below the popularity threshold', async () => {
+      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
+      mockTmdbClient.get.mockResolvedValue({
+        results: [...mockMovies, junk],
+        page: 1,
+        total_pages: 1,
+        total_results: 2,
+      });
+
+      const result = await service.searchMovies('batman');
+
+      expect(result.results).toEqual(mockMovies);
+    });
   });
 
   describe('searchMovies — cache hit', () => {

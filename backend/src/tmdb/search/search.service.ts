@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClient } from '../../redis/redis.constants';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
+import { filterMovies } from '../movie-filter';
 import { TmdbClient } from '../tmdb.client';
 import { PaginatedMovies } from '../tmdb.types';
 
@@ -27,7 +28,7 @@ export class SearchService {
     });
     const response = await this.client.get(`/search/movie?${params.toString()}`);
     const result: PaginatedMovies = {
-      results: response.results,
+      results: filterMovies(response.results),
       hasMore: response.page < response.total_pages,
     };
     await this.redis.set(key, JSON.stringify(result), { EX: CACHE_TTL_SECONDS });

@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../dto/pagination-query.dto';
 import { PaginatedMovies } from '../tmdb.types';
 import { PopularService } from './popular.service';
 
@@ -9,7 +10,8 @@ export class PopularController {
   constructor(private readonly popularService: PopularService) {}
 
   @Get()
-  fetchPopular(): Promise<PaginatedMovies> {
-    return this.popularService.fetchPopular();
+  @ApiQuery({ name: 'page', required: false })
+  fetchPopular(@Query() dto: PaginationQueryDto): Promise<PaginatedMovies> {
+    return this.popularService.fetchPopular(dto.page);
   }
 }
