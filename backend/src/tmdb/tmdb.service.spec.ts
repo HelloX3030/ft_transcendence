@@ -1,27 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
+import { makeMovie } from './tmdb.fixtures';
 import { PaginatedMovies, TmdbListResponse, TmdbMovie } from './tmdb.types';
 import { TmdbService } from './tmdb.service';
 
-const mockMovies: TmdbMovie[] = [
-  {
-    id: 1,
-    title: 'Batman Begins',
-    original_title: 'Batman Begins',
-    overview: 'A superhero film',
-    poster_path: '/poster.jpg',
-    backdrop_path: '/backdrop.jpg',
-    release_date: '2005-06-15',
-    vote_average: 8.2,
-    vote_count: 12000,
-    popularity: 50.5,
-    genre_ids: [28, 18],
-    original_language: 'en',
-    adult: false,
-    video: false,
-  },
-];
+const mockMovies: TmdbMovie[] = [makeMovie()];
 
 // page 1 of 5 — more pages available, so hasMore is true.
 const multiPageResponse: TmdbListResponse = {
@@ -189,6 +173,19 @@ describe('TmdbService', () => {
       await service.searchMovies('star wars');
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('star+wars'));
+    });
+
+    it('normalizes the query for both the cache key and the TMDB request', async () => {
+      mockTmdbClient.get.mockResolvedValue(lastPageResponse);
+
+      await service.searchMovies('  Batman ');
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('query=batman'));
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:search:batman:page:1',
+        JSON.stringify(expectedLastPage),
+        3600,
+      );
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {

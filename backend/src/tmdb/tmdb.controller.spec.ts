@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
+import { makeMovie } from './tmdb.fixtures';
 import { PaginatedMovies, TmdbMovie } from './tmdb.types';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
@@ -9,24 +10,7 @@ const mockTmdbService = {
   searchMovies: jest.fn(),
 } satisfies Partial<jest.Mocked<TmdbService>>;
 
-const mockMovies: TmdbMovie[] = [
-  {
-    id: 1,
-    title: 'Batman Begins',
-    original_title: 'Batman Begins',
-    overview: 'A superhero film',
-    poster_path: '/poster.jpg',
-    backdrop_path: '/backdrop.jpg',
-    release_date: '2005-06-15',
-    vote_average: 8.2,
-    vote_count: 12000,
-    popularity: 50.5,
-    genre_ids: [28, 18],
-    original_language: 'en',
-    adult: false,
-    video: false,
-  },
-];
+const mockMovies: TmdbMovie[] = [makeMovie()];
 
 const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false };
 

@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-const selectedMovies = ref<{ title: string; img: string; id: number }[]>([]);
+const selectedMovies = ref<{ title: string; img: string | null; id: number }[]>([]);
 
 export function useMovies() {
   function addMovie({
@@ -9,7 +9,7 @@ export function useMovies() {
     id,
   }: {
     title: string;
-    poster_path: string;
+    poster_path: string | null;
     id: number;
   }) {
     const idx = selectedMovies.value.findIndex((item) => item.id === id);
