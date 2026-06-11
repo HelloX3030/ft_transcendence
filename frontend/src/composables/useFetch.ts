@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { TmdbMovie } from '@/lib/tmdb.types';
+import type { PaginatedMovies, TmdbMovie } from '@/lib/tmdb.types';
 
 const popularMovies = ref<TmdbMovie[]>([]);
 const searchedMovies = ref<TmdbMovie[]>([]);
@@ -10,9 +10,9 @@ export function useFetch() {
     try {
       isLoading.value = 'loading';
       const res = await fetch('/v1/tmdb/popular');
-      const data: TmdbMovie[] = await res.json();
+      const data: PaginatedMovies = await res.json();
       isLoading.value = 'finish';
-      popularMovies.value = data;
+      popularMovies.value = data.results;
     } catch (error) {
       console.error(error);
       isLoading.value = 'error';
@@ -23,9 +23,9 @@ export function useFetch() {
     try {
       isLoading.value = 'loading';
       const res = await fetch(`/v1/tmdb/search?query=${encodeURIComponent(inputQuery)}`);
-      const data: TmdbMovie[] = await res.json();
+      const data: PaginatedMovies = await res.json();
       isLoading.value = 'finish';
-      searchedMovies.value = data;
+      searchedMovies.value = data.results;
     } catch (error) {
       console.error(error);
       isLoading.value = 'error';

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { RedisClient } from '../../redis/redis.constants';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
 import { TmdbClient } from '../tmdb.client';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies } from '../tmdb.types';
 
 const CACHE_TTL_SECONDS = 3600;
 
@@ -13,11 +13,11 @@ export class SearchService {
     @Inject(REDIS_CLIENT) private readonly redis: RedisClient,
   ) {}
 
-  async searchMovies(query: string, page = 1): Promise<TmdbMovie[]> {
+  async searchMovies(query: string, page = 1): Promise<PaginatedMovies> {
     const key = `tmdb:search:${query}:page:${page}`;
 
     const cached = await this.redis.get(key);
-    if (cached) return JSON.parse(cached) as TmdbMovie[];
+    if (cached) return JSON.parse(cached) as PaginatedMovies;
 
     const params = new URLSearchParams({
       query,
@@ -25,8 +25,12 @@ export class SearchService {
       language: 'en-US',
       page: String(page),
     });
-    const results = await this.client.get(`/search/movie?${params.toString()}`);
-    await this.redis.set(key, JSON.stringify(results), { EX: CACHE_TTL_SECONDS });
-    return results;
+    const response = await this.client.get(`/search/movie?${params.toString()}`);
+    const result: PaginatedMovies = {
+      results: response.results,
+      hasMore: response.page < response.total_pages,
+    };
+    await this.redis.set(key, JSON.stringify(result), { EX: CACHE_TTL_SECONDS });
+    return result;
   }
 }

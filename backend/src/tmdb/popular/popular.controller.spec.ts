@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies, TmdbMovie } from '../tmdb.types';
 import { PopularController } from './popular.controller';
 import { PopularService } from './popular.service';
 
@@ -26,6 +26,8 @@ const mockMovies: TmdbMovie[] = [
   },
 ];
 
+const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false };
+
 describe('PopularController', () => {
   let controller: PopularController;
 
@@ -44,19 +46,19 @@ describe('PopularController', () => {
 
   describe('fetchPopular', () => {
     it('delegates to popularService.fetchPopular with no arguments', async () => {
-      mockPopularService.fetchPopular.mockResolvedValue(mockMovies);
+      mockPopularService.fetchPopular.mockResolvedValue(mockPage);
 
       await controller.fetchPopular();
 
       expect(mockPopularService.fetchPopular).toHaveBeenCalledWith();
     });
 
-    it('returns the array that popularService.fetchPopular resolves with', async () => {
-      mockPopularService.fetchPopular.mockResolvedValue(mockMovies);
+    it('returns the paginated result that popularService.fetchPopular resolves with', async () => {
+      mockPopularService.fetchPopular.mockResolvedValue(mockPage);
 
       const result = await controller.fetchPopular();
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(mockPage);
     });
   });
 });

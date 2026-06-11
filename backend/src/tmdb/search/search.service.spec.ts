@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
 import { TmdbClient } from '../tmdb.client';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies, TmdbListResponse, TmdbMovie } from '../tmdb.types';
 import { SearchService } from './search.service';
 
 const mockMovies: TmdbMovie[] = [
@@ -22,6 +22,22 @@ const mockMovies: TmdbMovie[] = [
     video: false,
   },
 ];
+
+// Single page of results — page 1 of 1, so hasMore is false.
+const lastPageResponse: TmdbListResponse = {
+  results: mockMovies,
+  page: 1,
+  total_pages: 1,
+  total_results: 1,
+};
+const expectedLastPage: PaginatedMovies = { results: mockMovies, hasMore: false };
+
+const emptyResponse: TmdbListResponse = {
+  results: [],
+  page: 0,
+  total_pages: 0,
+  total_results: 0,
+};
 
 const mockTmdbClient = {
   get: jest.fn(),
@@ -58,7 +74,7 @@ describe('SearchService', () => {
     });
 
     it('calls client.get with a path containing the encoded query params', async () => {
-      mockTmdbClient.get.mockResolvedValue([]);
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       await service.searchMovies('batman');
 
@@ -71,62 +87,75 @@ describe('SearchService', () => {
     });
 
     it('URL-encodes special characters in the query', async () => {
-      mockTmdbClient.get.mockResolvedValue([]);
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       await service.searchMovies('star wars');
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('star+wars'));
     });
 
-    it('returns the array resolved by client.get', async () => {
-      mockTmdbClient.get.mockResolvedValue(mockMovies);
+    it('returns the results with hasMore derived from the TMDB pagination', async () => {
+      mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(expectedLastPage);
+    });
+
+    it('sets hasMore to true when more pages are available', async () => {
+      mockTmdbClient.get.mockResolvedValue({
+        results: mockMovies,
+        page: 1,
+        total_pages: 5,
+        total_results: 100,
+      });
+
+      const result = await service.searchMovies('batman');
+
+      expect(result).toEqual({ results: mockMovies, hasMore: true });
     });
 
     it('stores the result in Redis with the correct key and TTL', async () => {
-      mockTmdbClient.get.mockResolvedValue(mockMovies);
+      mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
       await service.searchMovies('batman');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:search:batman:page:1',
-        JSON.stringify(mockMovies),
+        JSON.stringify(expectedLastPage),
         { EX: 3600 },
       );
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
-      mockTmdbClient.get.mockResolvedValue(mockMovies);
+      mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
       await service.searchMovies('batman', 3);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:search:batman:page:3',
-        JSON.stringify(mockMovies),
+        JSON.stringify(expectedLastPage),
         { EX: 3600 },
       );
     });
 
-    it('returns an empty array when client.get resolves with []', async () => {
-      mockTmdbClient.get.mockResolvedValue([]);
+    it('returns an empty result set when client.get resolves with no results', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       const result = await service.searchMovies('unknownquery');
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ results: [], hasMore: false });
     });
   });
 
   describe('searchMovies — cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
-      mockRedisClient.get.mockResolvedValue(JSON.stringify(mockMovies));
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedLastPage));
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(expectedLastPage);
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });

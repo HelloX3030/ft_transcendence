@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { REDIS_CLIENT } from '../../redis/redis.constants';
 import { TmdbClient } from '../tmdb.client';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies, TmdbListResponse, TmdbMovie } from '../tmdb.types';
 import { PopularService } from './popular.service';
 
 const mockMovies: TmdbMovie[] = [
@@ -22,6 +22,22 @@ const mockMovies: TmdbMovie[] = [
     video: false,
   },
 ];
+
+// page 1 of 5 — more pages available, so hasMore is true.
+const popularResponse: TmdbListResponse = {
+  results: mockMovies,
+  page: 1,
+  total_pages: 5,
+  total_results: 100,
+};
+const expectedPopular: PaginatedMovies = { results: mockMovies, hasMore: true };
+
+const emptyResponse: TmdbListResponse = {
+  results: [],
+  page: 0,
+  total_pages: 0,
+  total_results: 0,
+};
 
 const mockTmdbClient = {
   get: jest.fn(),
@@ -58,49 +74,49 @@ describe('PopularService', () => {
     });
 
     it('calls client.get with the popular endpoint path', async () => {
-      mockTmdbClient.get.mockResolvedValue([]);
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       await service.fetchPopular();
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=1');
     });
 
-    it('returns the array resolved by client.get', async () => {
-      mockTmdbClient.get.mockResolvedValue(mockMovies);
+    it('returns the results with hasMore derived from the TMDB pagination', async () => {
+      mockTmdbClient.get.mockResolvedValue(popularResponse);
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(expectedPopular);
     });
 
     it('stores the result in Redis with the correct key and TTL', async () => {
-      mockTmdbClient.get.mockResolvedValue(mockMovies);
+      mockTmdbClient.get.mockResolvedValue(popularResponse);
 
       await service.fetchPopular();
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:popular:page:1',
-        JSON.stringify(mockMovies),
+        JSON.stringify(expectedPopular),
         { EX: 3600 },
       );
     });
 
-    it('returns an empty array when client.get resolves with []', async () => {
-      mockTmdbClient.get.mockResolvedValue([]);
+    it('returns an empty result set when client.get resolves with no results', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ results: [], hasMore: false });
     });
   });
 
   describe('fetchPopular — cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
-      mockRedisClient.get.mockResolvedValue(JSON.stringify(mockMovies));
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedPopular));
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(expectedPopular);
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });

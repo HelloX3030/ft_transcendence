@@ -1,6 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies } from '../tmdb.types';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { SearchService } from './search.service';
 
@@ -12,7 +12,7 @@ export class SearchController {
   @Get()
   @ApiQuery({ name: 'query', required: true })
   @ApiQuery({ name: 'page', required: false })
-  searchMovies(@Query() dto: SearchQueryDto): Promise<TmdbMovie[]> {
+  searchMovies(@Query() dto: SearchQueryDto): Promise<PaginatedMovies> {
     return this.searchService.searchMovies(dto.query, dto.page);
   }
 }

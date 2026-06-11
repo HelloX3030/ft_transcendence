@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies, TmdbMovie } from '../tmdb.types';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
@@ -27,6 +27,8 @@ const mockMovies: TmdbMovie[] = [
   },
 ];
 
+const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false };
+
 describe('SearchController', () => {
   let controller: SearchController;
 
@@ -45,7 +47,7 @@ describe('SearchController', () => {
 
   describe('searchMovies', () => {
     it('delegates to searchService.searchMovies with dto.query and dto.page', async () => {
-      mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+      mockSearchService.searchMovies.mockResolvedValue(mockPage);
       const dto: SearchQueryDto = { query: 'batman', page: 1 };
 
       await controller.searchMovies(dto);
@@ -54,7 +56,7 @@ describe('SearchController', () => {
     });
 
     it('forwards the requested page to searchService.searchMovies', async () => {
-      mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+      mockSearchService.searchMovies.mockResolvedValue(mockPage);
       const dto: SearchQueryDto = { query: 'batman', page: 3 };
 
       await controller.searchMovies(dto);
@@ -62,13 +64,13 @@ describe('SearchController', () => {
       expect(mockSearchService.searchMovies).toHaveBeenCalledWith('batman', 3);
     });
 
-    it('returns the array that searchService.searchMovies resolves with', async () => {
-      mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+    it('returns the paginated result that searchService.searchMovies resolves with', async () => {
+      mockSearchService.searchMovies.mockResolvedValue(mockPage);
       const dto: SearchQueryDto = { query: 'batman', page: 1 };
 
       const result = await controller.searchMovies(dto);
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(mockPage);
     });
   });
 });
