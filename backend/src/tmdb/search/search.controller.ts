@@ -11,7 +11,8 @@ export class SearchController {
 
   @Get()
   @ApiQuery({ name: 'query', required: true })
+  @ApiQuery({ name: 'page', required: false })
   searchMovies(@Query() dto: SearchQueryDto): Promise<TmdbMovie[]> {
-    return this.searchService.searchMovies(dto.query);
+    return this.searchService.searchMovies(dto.query, dto.page);
   }
 }

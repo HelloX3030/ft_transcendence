@@ -13,8 +13,8 @@ export class SearchService {
     @Inject(REDIS_CLIENT) private readonly redis: RedisClient,
   ) {}
 
-  async searchMovies(query: string): Promise<TmdbMovie[]> {
-    const key = `tmdb:search:${query}:page:1`;
+  async searchMovies(query: string, page = 1): Promise<TmdbMovie[]> {
+    const key = `tmdb:search:${query}:page:${page}`;
 
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as TmdbMovie[];
@@ -23,7 +23,7 @@ export class SearchService {
       query,
       include_adult: 'false',
       language: 'en-US',
-      page: '1',
+      page: String(page),
     });
     const results = await this.client.get(`/search/movie?${params.toString()}`);
     await this.redis.set(key, JSON.stringify(results), { EX: CACHE_TTL_SECONDS });

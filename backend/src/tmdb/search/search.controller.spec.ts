@@ -44,18 +44,27 @@ describe('SearchController', () => {
   });
 
   describe('searchMovies', () => {
-    it('delegates to searchService.searchMovies with dto.query', async () => {
+    it('delegates to searchService.searchMovies with dto.query and dto.page', async () => {
       mockSearchService.searchMovies.mockResolvedValue(mockMovies);
-      const dto: SearchQueryDto = { query: 'batman' };
+      const dto: SearchQueryDto = { query: 'batman', page: 1 };
 
       await controller.searchMovies(dto);
 
-      expect(mockSearchService.searchMovies).toHaveBeenCalledWith('batman');
+      expect(mockSearchService.searchMovies).toHaveBeenCalledWith('batman', 1);
+    });
+
+    it('forwards the requested page to searchService.searchMovies', async () => {
+      mockSearchService.searchMovies.mockResolvedValue(mockMovies);
+      const dto: SearchQueryDto = { query: 'batman', page: 3 };
+
+      await controller.searchMovies(dto);
+
+      expect(mockSearchService.searchMovies).toHaveBeenCalledWith('batman', 3);
     });
 
     it('returns the array that searchService.searchMovies resolves with', async () => {
       mockSearchService.searchMovies.mockResolvedValue(mockMovies);
-      const dto: SearchQueryDto = { query: 'batman' };
+      const dto: SearchQueryDto = { query: 'batman', page: 1 };
 
       const result = await controller.searchMovies(dto);
 
