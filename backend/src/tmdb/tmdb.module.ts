@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { PopularModule } from './popular/popular.module';
-import { SearchModule } from './search/search.module';
+import { TmdbClient } from './tmdb.client';
+import { TmdbController } from './tmdb.controller';
+import { TmdbService } from './tmdb.service';
 
 @Module({
-  imports: [PopularModule, SearchModule],
+  controllers: [TmdbController],
+  providers: [TmdbClient, TmdbService],
 })
 export class TmdbModule {}

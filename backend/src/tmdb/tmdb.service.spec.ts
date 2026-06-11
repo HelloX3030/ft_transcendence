@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RedisService } from '../../redis/redis.service';
-import { TmdbClient } from '../tmdb.client';
-import { PaginatedMovies, TmdbListResponse, TmdbMovie } from '../tmdb.types';
-import { SearchService } from './search.service';
+import { RedisService } from '../redis/redis.service';
+import { TmdbClient } from './tmdb.client';
+import { PaginatedMovies, TmdbListResponse, TmdbMovie } from './tmdb.types';
+import { TmdbService } from './tmdb.service';
 
 const mockMovies: TmdbMovie[] = [
   {
@@ -23,7 +23,16 @@ const mockMovies: TmdbMovie[] = [
   },
 ];
 
-// Single page of results — page 1 of 1, so hasMore is false.
+// page 1 of 5 — more pages available, so hasMore is true.
+const multiPageResponse: TmdbListResponse = {
+  results: mockMovies,
+  page: 1,
+  total_pages: 5,
+  total_results: 100,
+};
+const expectedMultiPage: PaginatedMovies = { results: mockMovies, hasMore: true };
+
+// page 1 of 1 — no more pages, so hasMore is false.
 const lastPageResponse: TmdbListResponse = {
   results: mockMovies,
   page: 1,
@@ -48,18 +57,18 @@ const mockRedisClient = {
   set: jest.fn(),
 };
 
-describe('SearchService', () => {
-  let service: SearchService;
+describe('TmdbService', () => {
+  let service: TmdbService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        SearchService,
+        TmdbService,
         { provide: TmdbClient, useValue: mockTmdbClient },
         { provide: RedisService, useValue: mockRedisClient },
       ],
     }).compile();
-    service = module.get<SearchService>(SearchService);
+    service = module.get<TmdbService>(TmdbService);
     jest.clearAllMocks();
   });
 
@@ -67,10 +76,98 @@ describe('SearchService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('fetchPopular — cache miss', () => {
+    beforeEach(() => {
+      mockRedisClient.get.mockResolvedValue(null);
+      mockRedisClient.set.mockResolvedValue(undefined);
+    });
+
+    it('calls client.get with the popular endpoint path', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.fetchPopular();
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=1');
+    });
+
+    it('returns the results with hasMore derived from the TMDB pagination', async () => {
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
+
+      const result = await service.fetchPopular();
+
+      expect(result).toEqual(expectedMultiPage);
+    });
+
+    it('stores the result in Redis with the correct key and TTL', async () => {
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
+
+      await service.fetchPopular();
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:popular:page:1',
+        JSON.stringify(expectedMultiPage),
+        3600,
+      );
+    });
+
+    it('returns an empty result set when client.get resolves with no results', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      const result = await service.fetchPopular();
+
+      expect(result).toEqual({ results: [], hasMore: false });
+    });
+
+    it('uses the requested page in the TMDB path and cache key', async () => {
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
+
+      await service.fetchPopular(4);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:popular:page:4',
+        JSON.stringify(expectedMultiPage),
+        3600,
+      );
+    });
+
+    it('propagates a TMDB failure without caching anything', async () => {
+      mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
+
+      await expect(service.fetchPopular()).rejects.toThrow('TMDB request failed');
+      expect(mockRedisClient.set).not.toHaveBeenCalled();
+    });
+
+    it('filters out movies without a poster or below the popularity threshold', async () => {
+      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
+      mockTmdbClient.get.mockResolvedValue({
+        results: [...mockMovies, junk],
+        page: 1,
+        total_pages: 5,
+        total_results: 100,
+      });
+
+      const result = await service.fetchPopular();
+
+      expect(result.results).toEqual(mockMovies);
+    });
+  });
+
+  describe('fetchPopular — cache hit', () => {
+    it('returns the cached value without calling client.get', async () => {
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedMultiPage));
+
+      const result = await service.fetchPopular();
+
+      expect(result).toEqual(expectedMultiPage);
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
   describe('searchMovies — cache miss', () => {
     beforeEach(() => {
       mockRedisClient.get.mockResolvedValue(null);
-      mockRedisClient.set.mockResolvedValue('OK');
+      mockRedisClient.set.mockResolvedValue(undefined);
     });
 
     it('calls client.get with a path containing the encoded query params', async () => {
@@ -103,16 +200,11 @@ describe('SearchService', () => {
     });
 
     it('sets hasMore to true when more pages are available', async () => {
-      mockTmdbClient.get.mockResolvedValue({
-        results: mockMovies,
-        page: 1,
-        total_pages: 5,
-        total_results: 100,
-      });
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual({ results: mockMovies, hasMore: true });
+      expect(result).toEqual(expectedMultiPage);
     });
 
     it('stores the result in Redis with the correct key and TTL', async () => {
