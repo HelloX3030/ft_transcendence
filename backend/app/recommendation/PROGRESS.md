@@ -6,13 +6,14 @@
 
 ## Current State
 
-Core modules are in place. The engine can run a full request/response cycle end-to-end.
-TMDB and collaborative filtering are stubbed out; real algorithm logic in `content_based.py` is pending TMDB data.
+Core modules are in place. The engine runs a full request/response cycle end-to-end, and the
+profile→TMDB-Discover parameter translation is real and unit-tested. Candidate fetching and
+collaborative filtering are still stubbed; vector math in `content_based.py` is pending TMDB data.
 
 ```
 recommendation/
 ├── __init__.py          package marker
-├── requirements.txt     dependencies (FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib)
+├── requirements.txt     dependencies (FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest)
 ├── config.py            all hyperparameters + engagement signal deltas in one frozen dataclass
 ├── schemas.py           Pydantic API contracts (request/response models)
 ├── engine.py            orchestration + Protocol interfaces for all modules
@@ -21,7 +22,8 @@ recommendation/
 ├── engagement.py        delta accumulation + apply_signals — fully implemented
 ├── diversifier.py       genre history + freshness boost — fully implemented
 ├── collaborative.py     not started
-├── tmdb_bridge.py       not started
+├── tmdb_bridge.py       profile→Discover-params translation done; fetch_candidates pending
+├── tests/               pytest unit tests (run: `python -m pytest recommendation/tests` from backend/app)
 ├── retrain.py           not started
 └── architecture.md      full algorithm spec (reference, do not edit here)
 ```
@@ -40,6 +42,10 @@ recommendation/
 | Engagement deltas | Fields on `RecommenderConfig` | Consistent with all other hyperparameters; tunable without code changes |
 | Diversification constants | Module-level in `diversifier.py` | Not in the architecture spec — promote to `config.py` if tuning is needed |
 | TMDB call location | **Option A: Python calls TMDB directly** | NestJS has no Discover integration; keeping the full pipeline in one service is cleaner |
+| Keyword/cast Discover params | OR-joined (`\|`), genres AND-joined (`,`) | Spec example AND-joins everything, but ANDing 5 keywords or 2 actors over-constrains Discover to a near-empty pool; genres stay AND per spec |
+| Page rotation hash | `zlib.crc32`, not `hash()` | `hash()` is salted per process — rotation would change on every restart |
+| `keyword_weights` on `UserProfile` | New dict field, in-RAM only | Needed for `with_keywords`; recoverable from `feature_vector`, no DB change |
+| Python tests | pytest in `recommendation/tests/` | Pure-logic modules get unit tests; first consumer is `tmdb_bridge` |
 
 ---
 
@@ -65,7 +71,7 @@ recommendation/
 | `engagement.py` | Done | |
 | `diversifier.py` | Done | `movie_ages` and `record_served` not yet wired (see Gaps) |
 | `collaborative.py` | Not started | SVD matrix factorization + predict |
-| `tmdb_bridge.py` | Not started | Profile → TMDB params + fetch_candidates (pending A/B decision) |
+| `tmdb_bridge.py` | Partial | `profile_to_params` done + tested; `fetch_candidates` pending (needs `TMDB_API_KEY` + Docker wiring) |
 | `retrain.py` | Not started | Nightly SVD batch job |
 
 ---
@@ -79,7 +85,7 @@ Everything here is intentional and tracked — none of it is forgotten tech debt
 | Stub | What it does | Replaces when |
 |---|---|---|
 | `_CollabStub` | Returns `np.zeros` for all candidates | `collaborative.py` is implemented |
-| `_TMDBStub` | Returns a fixed list of 10 TMDB IDs; ignores profile params | `tmdb_bridge.py` is implemented |
+| `_TMDBStub` | Runs the real `profile_to_params` translation, then ignores the result and returns a fixed list of 10 TMDB IDs | `fetch_candidates` (bridge part 2) is implemented |
 
 ### `content_based.py` — vector math not implemented
 
@@ -125,9 +131,10 @@ The endpoint accepts a `secret` query param but does not verify it and does noth
 
 ## Next Steps
 
-**1. `tmdb_bridge.py`** ← unblocked
-TMDB call location decided (Option A). Translate the user profile vector into TMDB Discover
-parameters (`profile_to_params`) and fetch + deduplicate candidates (`fetch_candidates`).
+**1. `tmdb_bridge.py` part 2: `fetch_candidates`** ← unblocked
+`profile_to_params` is done (pure logic + unit tests; wired into the live path via `_TMDBStub`).
+Remaining: httpx call to TMDB Discover, 3-page parallel fetch, dedup against `exclude`,
+page refill when the pool is too small. Needs `TMDB_API_KEY` (infra/Docker wiring).
 This unblocks real candidate pools, freshness boosts, and genre history for diversification.
 
 **2. `content_based.py` — vector math**
@@ -144,6 +151,21 @@ Depends on backend team applying the schema additions from `DB_REQUEST.md`.
 
 **5. `retrain.py`**
 Nightly SVD retrain job. Last — depends on `collaborative.py` being stable.
+
+---
+
+## Worklog
+
+> One entry per working session — what landed, in one or two lines. Details live in the sections above.
+
+**2026-06-11** — `tmdb_bridge.py` part 1: `profile_to_params` implemented as a pure function
+(genres/keywords/cast/crew/vote thresholds/daily page rotation, diversify support, cold-start
+falls through the same path). First pytest suite added (`tests/`, 8 tests). `_TMDBStub` now runs
+the real translation in the live `/feed` path. `keyword_weights` added to `UserProfile` (in-RAM,
+no DB change). Translation hyperparameters promoted to `config.py`.
+
+**2026-06-10** — Team meeting: TMDB call location decided (Option A — Python calls TMDB).
+Schema additions written up in `DB_REQUEST.md` and handed to the backend team.
 
 ---
 
