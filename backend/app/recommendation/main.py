@@ -9,6 +9,7 @@ from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, ScoredMovie
+from .tmdb_bridge import profile_to_params
 
 # ---------------------------------------------------------------------------
 # Inline stubs — replaced module by module as real implementations land.
@@ -24,8 +25,9 @@ class _CollabStub:
 
 class _TMDBStub:
     """
-    Returns a fixed pool of 10 real TMDB IDs regardless of profile params.
-    Replaced by tmdb_bridge.py once the A/B call-location decision is made.
+    Real parameter translation (tmdb_bridge.profile_to_params), but candidates
+    come from a fixed pool of 10 real TMDB IDs — the params are computed and
+    then ignored. Replaced once fetch_candidates() (bridge part 2) lands.
 
     IDs: Dark Knight, Inception, Fight Club, Forrest Gump, The Avengers,
          Infinity War, Avatar, Interstellar, Star Wars IV, The Matrix.
@@ -34,7 +36,7 @@ class _TMDBStub:
     _POOL: list[int] = [155, 27205, 550, 13, 24428, 299536, 19995, 157336, 11, 603]
 
     def profile_to_params(self, profile, diversify: bool) -> dict:  # type: ignore[override]
-        return {}
+        return profile_to_params(profile, diversify=diversify)
 
     def fetch_candidates(self, params: dict, exclude: list[int]) -> list[int]:
         return [mid for mid in self._POOL if mid not in exclude]
