@@ -14,3 +14,8 @@ export interface TmdbMovie {
   adult: boolean;
   video: boolean;
 }
+
+export interface PaginatedMovies {
+  results: TmdbMovie[];
+  hasMore: boolean;
+}

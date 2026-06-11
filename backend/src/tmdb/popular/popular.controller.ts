@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { TmdbMovie } from '../tmdb.types';
+import { PaginatedMovies } from '../tmdb.types';
 import { PopularService } from './popular.service';
 
 @ApiTags('tmdb')
@@ -9,7 +9,7 @@ export class PopularController {
   constructor(private readonly popularService: PopularService) {}
 
   @Get()
-  fetchPopular(): Promise<TmdbMovie[]> {
+  fetchPopular(): Promise<PaginatedMovies> {
     return this.popularService.fetchPopular();
   }
 }

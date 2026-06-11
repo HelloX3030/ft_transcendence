@@ -50,12 +50,13 @@ describe('TmdbClient', () => {
   });
 
   describe('get', () => {
-    it('returns the results array on a successful response', async () => {
-      mockFetchWith({ results: mockMovies, page: 1, total_pages: 1, total_results: 1 });
+    it('returns the full list response on a successful response', async () => {
+      const body = { results: mockMovies, page: 1, total_pages: 1, total_results: 1 };
+      mockFetchWith(body);
 
       const result = await client.get('/movie/popular?language=en-US&page=1');
 
-      expect(result).toEqual(mockMovies);
+      expect(result).toEqual(body);
     });
 
     it('calls fetch with the correct full URL', async () => {
@@ -79,23 +80,23 @@ describe('TmdbClient', () => {
       });
     });
 
-    it('returns [] and logs a warning when the response is not ok', async () => {
+    it('returns an empty list response and logs a warning when the response is not ok', async () => {
       mockFetchWith({}, false);
       const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
 
       const result = await client.get('/movie/popular?language=en-US&page=1');
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ page: 0, total_pages: 0, total_results: 0, results: [] });
       expect(warnSpy).toHaveBeenCalled();
     });
 
-    it('returns [] and logs a warning when fetch throws a network error', async () => {
+    it('returns an empty list response and logs a warning when fetch throws a network error', async () => {
       jest.spyOn(global, 'fetch').mockRejectedValue(new Error('Network failure'));
       const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
 
       const result = await client.get('/movie/popular?language=en-US&page=1');
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ page: 0, total_pages: 0, total_results: 0, results: [] });
       expect(warnSpy).toHaveBeenCalled();
     });
   });

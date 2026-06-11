@@ -21,3 +21,8 @@ export interface TmdbListResponse {
   total_results: number;
   results: TmdbMovie[];
 }
+
+export interface PaginatedMovies {
+  results: TmdbMovie[];
+  hasMore: boolean;
+}
