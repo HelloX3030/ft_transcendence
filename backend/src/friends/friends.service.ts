@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { FriendKey, JwtAccessPayload } from 'src/types';
+import { Friend, FriendKey, JwtAccessPayload } from 'src/types';
 
 export const FRIENDS_SELECT = {
   friendsA: true,
@@ -17,8 +23,26 @@ export class FriendsService {
       where: { id: payload.sub },
       select: FRIENDS_SELECT,
     });
+
     if (user === null) throw new InternalServerErrorException();
-    const friends = user.friendsA.concat(user.friendsB);
+
+    var friends: Friend[] = [];
+
+    user.friendsA.forEach((friend) => {
+      friends.push({
+        friendId: friend.userBId,
+        status: friend.status,
+        createdAt: friend.createdAt,
+      });
+    });
+
+    user.friendsB.forEach((friend) => {
+      friends.push({
+        friendId: friend.userBId,
+        status: friend.status,
+        createdAt: friend.createdAt,
+      });
+    });
     return { friends: friends };
   }
 
@@ -37,7 +61,7 @@ export class FriendsService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new BadRequestException('This friendship already exists.');
+          throw new ConflictException('This friendship already exists.');
         }
         if (error.code === 'P2003') {
           throw new BadRequestException('The user ID is invalid.');
@@ -80,7 +104,7 @@ export class FriendsService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2003') {
-          throw new BadRequestException('This friendship does not exist.');
+          throw new NotFoundException('This friendship does not exist.');
         }
         console.error(error);
         throw new InternalServerErrorException();
@@ -101,7 +125,7 @@ export class FriendsService {
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new BadRequestException('This friendship does not exist.');
+        throw new NotFoundException('This friendship does not exist.');
       }
     }
     return { message: 'friendship deleted' };
