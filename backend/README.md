@@ -25,6 +25,10 @@ src/
 ├── app.service.ts         Business logic
 ├── auth/                  Authentication (register, login, refresh, logout)
 ├── users/                 User profile management
+├── tmdb/                  TMDB proxy (GET /tmdb/popular, GET /tmdb/search) — Redis-cached, results filtered via movie-filter.ts
+├── redis/
+│   ├── redis.module.ts    Global module — connects in the background, exports RedisService
+│   └── redis.service.ts   Cache get/set that degrades to cache misses when Redis is down
 ├── prisma/
 │   ├── prisma.module.ts   Global module — exports PrismaService to all modules
 │   └── prisma.service.ts  Extends PrismaClient, connects on ModuleInit
