@@ -1,6 +1,21 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseFilePipe,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Request,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
+import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
@@ -26,6 +41,26 @@ export class UsersController {
   updateMe(@Request() req: ExpressRequest, @Body() dto: UpdateUserDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.updateMe(user.sub, dto);
+  }
+
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload avatar for authenticated user' })
+  @ApiResponse({ status: 201, description: 'Updated user profile' })
+  @ApiResponse({ status: 400, description: 'No file or invalid file type' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+    }),
+  )
+  uploadAvatar(
+    @Request() req: ExpressRequest,
+    @UploadedFile(new ParseFilePipe({ errorHttpStatusCode: 400 })) file: Express.Multer.File,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.uploadAvatar(user.sub, file);
   }
 
   @Delete('me')

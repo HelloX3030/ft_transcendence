@@ -68,10 +68,17 @@ All config and credentials live in `.env` (gitignored). `.env.example` is the co
 
 No values are hardcoded in `docker-compose.yml` — all are interpolated as `${VAR}` from `.env`.
 
-When adding a new config value:
+**Backend var:**
 1. Add `VAR_NAME=example_value` to `.env.example` and `.env` (with the real value)
-2. Add `VAR_NAME: ${VAR_NAME}` to the relevant service's `environment:` block in `docker-compose.yml`
-3. Consume via `process.env.VAR_NAME` in NestJS
+2. Add `VAR_NAME: ${VAR_NAME}` to the backend service's `environment:` block in `docker-compose.yml`
+3. Add it to the Joi schema in `backend/src/app.module.ts` (`Joi.string().required()` or with `.default(...)`)
+4. Consume via `process.env.VAR_NAME` in NestJS
+
+**Frontend var (`VITE_` prefix):**
+1. Add `VITE_VAR=example_value` to `.env.example` and `frontend/.env` (with the real value)
+2. Add `VITE_VAR: ${VITE_VAR}` to the frontend service's `environment:` block in `docker-compose.yml`
+3. Add the type to the `ImportMetaEnv` interface in `frontend/env.d.ts`
+4. If required at runtime: add the key to the `required` array in `frontend/vite.config.ts`
 
 Never hardcode values directly in `docker-compose.yml`.
 
