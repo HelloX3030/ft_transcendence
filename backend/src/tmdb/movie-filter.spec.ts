@@ -1,25 +1,5 @@
 import { MIN_POPULARITY, filterMovies } from './movie-filter';
-import { TmdbMovie } from './tmdb.types';
-
-function makeMovie(overrides: Partial<TmdbMovie>): TmdbMovie {
-  return {
-    id: 1,
-    title: 'A Movie',
-    original_title: 'A Movie',
-    overview: 'An overview',
-    poster_path: '/poster.jpg',
-    backdrop_path: '/backdrop.jpg',
-    release_date: '2020-01-01',
-    vote_average: 7,
-    vote_count: 100,
-    popularity: MIN_POPULARITY + 10,
-    genre_ids: [],
-    original_language: 'en',
-    adult: false,
-    video: false,
-    ...overrides,
-  };
-}
+import { makeMovie } from './tmdb.fixtures';
 
 describe('filterMovies', () => {
   it('keeps movies with a poster and popularity at or above the threshold', () => {

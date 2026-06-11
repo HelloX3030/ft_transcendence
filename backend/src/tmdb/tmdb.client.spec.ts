@@ -1,28 +1,12 @@
 import { BadGatewayException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { makeMovie } from './tmdb.fixtures';
 import { TmdbMovie } from './tmdb.types';
 import { TmdbClient } from './tmdb.client';
 
 process.env.TMDB_API_KEY = 'test-api-key';
 
-const mockMovies: TmdbMovie[] = [
-  {
-    id: 1,
-    title: 'Batman Begins',
-    original_title: 'Batman Begins',
-    overview: 'A superhero film',
-    poster_path: '/poster.jpg',
-    backdrop_path: '/backdrop.jpg',
-    release_date: '2005-06-15',
-    vote_average: 8.2,
-    vote_count: 12000,
-    popularity: 50.5,
-    genre_ids: [28, 18],
-    original_language: 'en',
-    adult: false,
-    video: false,
-  },
-];
+const mockMovies: TmdbMovie[] = [makeMovie()];
 
 function mockFetchWith(body: unknown, ok = true): void {
   jest.spyOn(global, 'fetch').mockResolvedValue({
@@ -76,9 +60,23 @@ describe('TmdbClient', () => {
 
       await client.get('/movie/popular?language=en-US&page=1');
 
-      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(expect.anything(), {
-        headers: { accept: 'application/json', Authorization: 'Bearer test-api-key' },
-      });
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          headers: { accept: 'application/json', Authorization: 'Bearer test-api-key' },
+        }),
+      );
+    });
+
+    it('calls fetch with a timeout signal so hung connections abort', async () => {
+      mockFetchWith({ results: [], page: 1, total_pages: 0, total_results: 0 });
+
+      await client.get('/movie/popular?language=en-US&page=1');
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal }),
+      );
     });
 
     it('throws BadGatewayException and logs a warning when the response is not ok', async () => {

@@ -2,6 +2,7 @@ import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
 import { TmdbListResponse } from './tmdb.types';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TIMEOUT_MS = 5000;
 
 @Injectable()
 export class TmdbClient {
@@ -15,7 +16,10 @@ export class TmdbClient {
 
     let res: Response;
     try {
-      res = await fetch(`${TMDB_BASE}${path}`, { headers });
+      res = await fetch(`${TMDB_BASE}${path}`, {
+        headers,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
     } catch (err) {
       this.logger.warn(`TMDB network error for ${path}: ${(err as Error).message}`);
       throw new BadGatewayException('TMDB is unreachable');

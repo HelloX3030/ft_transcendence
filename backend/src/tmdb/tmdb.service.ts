@@ -21,13 +21,19 @@ export class TmdbService {
   }
 
   searchMovies(query: string, page = 1): Promise<PaginatedMovies> {
+    // Normalized so 'Batman', 'batman' and ' batman ' share one cache entry —
+    // TMDB search is case-insensitive, so the results are identical anyway.
+    const normalized = query.trim().toLowerCase();
     const params = new URLSearchParams({
-      query,
+      query: normalized,
       include_adult: 'false',
       language: 'en-US',
       page: String(page),
     });
-    return this.getCachedMovies(`tmdb:search:${query}:page:${page}`, `/search/movie?${params}`);
+    return this.getCachedMovies(
+      `tmdb:search:${normalized}:page:${page}`,
+      `/search/movie?${params}`,
+    );
   }
 
   // Cache-through fetch shared by every TMDB endpoint: serve the cached page

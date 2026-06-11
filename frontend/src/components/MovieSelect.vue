@@ -18,9 +18,9 @@ onMounted(fetchPopular);
       v-for="movie in movies"
       :key="movie.id"
       :title="movie.title"
-      :img="movie.poster_path ?? ''"
+      :img="movie.poster_path"
       :selected="selectedMovies.some((item) => item.id === movie.id)"
-      @select="addMovie({ ...movie, poster_path: movie.poster_path ?? '' })"
+      @select="addMovie({ ...movie })"
       :loading="isLoading === 'loading'"
     />
   </div>
