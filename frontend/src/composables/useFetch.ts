@@ -24,6 +24,15 @@ function fetchSearchPage(query: string, page: number): Promise<PaginatedMovies> 
   );
 }
 
+// Ends the active search session and clears its results — views fall back to
+// the popular list.
+function resetSearch() {
+  searchQuery.value = '';
+  searchPage.value = 1;
+  searchedMovies.value = [];
+  searchedHasMore.value = false;
+}
+
 export function useFetch() {
   async function fetchPopular() {
     try {
@@ -39,14 +48,11 @@ export function useFetch() {
 
   // Starts a fresh search: resets to page 1 and replaces the previous results.
   // An empty (or whitespace) query clears the search instead — the backend
-  // rejects empty queries, and the views fall back to the popular list.
+  // rejects empty queries.
   async function searchMovies(inputQuery: string) {
     const query = inputQuery.trim();
     if (!query) {
-      searchQuery.value = '';
-      searchPage.value = 1;
-      searchedMovies.value = [];
-      searchedHasMore.value = false;
+      resetSearch();
       return;
     }
     try {
@@ -83,6 +89,7 @@ export function useFetch() {
   return {
     fetchPopular,
     searchMovies,
+    resetSearch,
     loadMoreSearchedMovies,
     popularMovies,
     searchedMovies,

@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next';
 import { InputGroup, InputGroupInput } from './ui/input-group';
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { Spinner } from './ui/spinner';
 import { useFetch } from '@/composables/useFetch';
 
-const { searchMovies, searchedMovies, isLoading } = useFetch();
+const { searchMovies, resetSearch, searchedMovies, isLoading } = useFetch();
 
 const inputQuery = ref('');
+
+// A freshly mounted search box (empty input) starts a fresh session — results
+// from a previous view must not leak into this one.
+onMounted(resetSearch);
 </script>
 
 <template>
