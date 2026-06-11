@@ -108,6 +108,33 @@ describe('PopularService', () => {
 
       expect(result).toEqual({ results: [], hasMore: false });
     });
+
+    it('uses the requested page in the TMDB path and cache key', async () => {
+      mockTmdbClient.get.mockResolvedValue(popularResponse);
+
+      await service.fetchPopular(4);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:popular:page:4',
+        JSON.stringify(expectedPopular),
+        { EX: 3600 },
+      );
+    });
+
+    it('filters out movies without a poster or below the popularity threshold', async () => {
+      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
+      mockTmdbClient.get.mockResolvedValue({
+        results: [...mockMovies, junk],
+        page: 1,
+        total_pages: 5,
+        total_results: 100,
+      });
+
+      const result = await service.fetchPopular();
+
+      expect(result.results).toEqual(mockMovies);
+    });
   });
 
   describe('fetchPopular — cache hit', () => {

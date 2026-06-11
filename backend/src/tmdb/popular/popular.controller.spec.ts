@@ -45,18 +45,26 @@ describe('PopularController', () => {
   });
 
   describe('fetchPopular', () => {
-    it('delegates to popularService.fetchPopular with no arguments', async () => {
+    it('delegates to popularService.fetchPopular with dto.page', async () => {
       mockPopularService.fetchPopular.mockResolvedValue(mockPage);
 
-      await controller.fetchPopular();
+      await controller.fetchPopular({ page: 1 });
 
-      expect(mockPopularService.fetchPopular).toHaveBeenCalledWith();
+      expect(mockPopularService.fetchPopular).toHaveBeenCalledWith(1);
+    });
+
+    it('forwards the requested page to popularService.fetchPopular', async () => {
+      mockPopularService.fetchPopular.mockResolvedValue(mockPage);
+
+      await controller.fetchPopular({ page: 4 });
+
+      expect(mockPopularService.fetchPopular).toHaveBeenCalledWith(4);
     });
 
     it('returns the paginated result that popularService.fetchPopular resolves with', async () => {
       mockPopularService.fetchPopular.mockResolvedValue(mockPage);
 
-      const result = await controller.fetchPopular();
+      const result = await controller.fetchPopular({ page: 1 });
 
       expect(result).toEqual(mockPage);
     });
