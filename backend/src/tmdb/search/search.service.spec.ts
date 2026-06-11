@@ -98,6 +98,19 @@ describe('SearchService', () => {
       );
     });
 
+    it('uses the requested page in the TMDB path and cache key', async () => {
+      mockTmdbClient.get.mockResolvedValue(mockMovies);
+
+      await service.searchMovies('batman', 3);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:search:batman:page:3',
+        JSON.stringify(mockMovies),
+        { EX: 3600 },
+      );
+    });
+
     it('returns an empty array when client.get resolves with []', async () => {
       mockTmdbClient.get.mockResolvedValue([]);
 
