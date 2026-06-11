@@ -10,17 +10,25 @@ const searchQuery = ref('');
 const searchPage = ref(1);
 const searchedHasMore = ref(false);
 
-async function fetchSearchPage(query: string, page: number): Promise<PaginatedMovies> {
-  const res = await fetch(`/v1/tmdb/search?query=${encodeURIComponent(query)}&page=${page}`);
-  return (await res.json()) as PaginatedMovies;
+// Fetches JSON and throws on HTTP errors — otherwise an error body would be
+// parsed as PaginatedMovies and `results: undefined` would crash the views.
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Request to ${url} failed with status ${res.status}`);
+  return (await res.json()) as T;
+}
+
+function fetchSearchPage(query: string, page: number): Promise<PaginatedMovies> {
+  return fetchJson<PaginatedMovies>(
+    `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=${page}`,
+  );
 }
 
 export function useFetch() {
   async function fetchPopular() {
     try {
       isLoading.value = 'loading';
-      const res = await fetch('/v1/tmdb/popular');
-      const data: PaginatedMovies = await res.json();
+      const data = await fetchJson<PaginatedMovies>('/v1/tmdb/popular');
       isLoading.value = 'finish';
       popularMovies.value = data.results;
     } catch (error) {
@@ -30,12 +38,22 @@ export function useFetch() {
   }
 
   // Starts a fresh search: resets to page 1 and replaces the previous results.
+  // An empty (or whitespace) query clears the search instead — the backend
+  // rejects empty queries, and the views fall back to the popular list.
   async function searchMovies(inputQuery: string) {
+    const query = inputQuery.trim();
+    if (!query) {
+      searchQuery.value = '';
+      searchPage.value = 1;
+      searchedMovies.value = [];
+      searchedHasMore.value = false;
+      return;
+    }
     try {
       isLoading.value = 'loading';
-      searchQuery.value = inputQuery;
+      searchQuery.value = query;
       searchPage.value = 1;
-      const data = await fetchSearchPage(inputQuery, 1);
+      const data = await fetchSearchPage(query, 1);
       searchedMovies.value = data.results;
       searchedHasMore.value = data.hasMore;
       isLoading.value = 'finish';
