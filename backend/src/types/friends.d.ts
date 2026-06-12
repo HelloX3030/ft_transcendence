@@ -1,6 +1,6 @@
-import { friend_status } from '@prisma/client';
+import { friend_status, Prisma } from '@prisma/client';
 
-export type FriendKey = Prisma.FriendsUserAIdUserBIdCompoundUniqueInput;
+export type FriendKey = Prisma.friendsUserAIdUserBIdCompoundUniqueInput;
 
 export interface Friend {
   friendId: number;
