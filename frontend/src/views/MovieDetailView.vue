@@ -1,10 +1,10 @@
 <!-- src/views/MovieDetailView.vue -->
 <script setup lang="ts">
-import { computed } from 'vue';
-import { oneMovie } from '@/lib/test';
+import { computed, ref } from 'vue';
+import { oneMovie, similarMovies } from '@/lib/test';
 
 const movie = oneMovie;
-
+const showTrailer = ref(false);
 const topCast = computed(() => movie.credits.cast.slice(0, 3));
 const director = 'Aaron Horvath, Michael Jelenic';
 const releaseYear = computed(() => movie.release_date.slice(0, 4));
@@ -21,6 +21,7 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
 
 <template>
   <div class="min-h-screen bg-black text-white">
+
     <!-- Hero: Backdrop -->
     <div class="relative w-full h-80">
       <img :src="backdropUrl" :alt="movie.title" class="w-full h-full object-cover object-top" />
@@ -29,7 +30,7 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
 
     <!-- Content wrapper mit max-width -->
     <div class="max-w-2xl mx-auto">
-      <!-- Poster + Titel -->
+
       <!-- Poster + Titel -->
       <div class="flex gap-6 px-4 -mt-24 relative z-10">
         <img :src="posterUrl" :alt="movie.title" class="w-36 rounded-xl shadow-2xl flex-shrink-0" />
@@ -64,13 +65,13 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
       </div>
 
       <!-- Director -->
-      <div class="px-6 mt-6">
+      <div class="px-6 mt-8">
         <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Director</p>
         <p class="text-sm text-zinc-200">{{ director }}</p>
       </div>
 
       <!-- Cast -->
-      <div class="px-6 mt-6">
+      <div class="px-6 mt-8">
         <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Cast</p>
         <div class="flex gap-6">
           <div
@@ -83,9 +84,7 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
               :alt="actor.name"
               class="w-16 h-16 rounded-full object-cover ring-2 ring-zinc-700"
             />
-            <p
-              class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2"
-            >
+            <p class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2">
               {{ actor.name }}
             </p>
             <p class="text-xs text-center text-zinc-500 leading-tight w-full line-clamp-2">
@@ -96,7 +95,7 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
       </div>
 
       <!-- Watch Providers -->
-      <div class="px-6 mt-6 pb-12">
+      <div class="px-6 mt-8">
         <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Available on</p>
         <div class="flex gap-4">
           <div
@@ -113,6 +112,62 @@ const posterUrl = `https://image.tmdb.org/t/p/w342${movie.poster_path}`;
           </div>
         </div>
       </div>
+
+      <!-- More like this -->
+      <div class="mt-8 pb-24">
+        <p class="text-xs text-zinc-500 uppercase tracking-wider px-6 mb-3">More like this</p>
+        <div class="flex gap-3 overflow-x-auto px-6 pb-2 scrollbar-hide">
+          <div
+            v-for="film in similarMovies"
+            :key="film.id"
+            class="flex-shrink-0 w-28 cursor-pointer"
+            @click="$router.push(`/moviedetail/${film.id}`)"
+          >
+            <img
+              :src="`https://image.tmdb.org/t/p/w185${film.poster_path}`"
+              :alt="film.title"
+              class="w-28 h-40 object-cover rounded-xl"
+            />
+            <p class="text-xs text-zinc-300 mt-2 line-clamp-2 leading-tight">{{ film.title }}</p>
+            <p class="text-xs text-zinc-500 mt-1">⭐ {{ film.vote_average.toFixed(1) }}</p>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- end max-w-2xl -->
+
+    <!-- Floating Trailer Button -->
+    <button
+      class="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
+      @click="showTrailer = true"
+    >
+      ▶ Trailer
+    </button>
+
+    <!-- Trailer Modal -->
+    <div
+      v-if="showTrailer"
+      class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+      @click.self="showTrailer = false"
+    >
+      <div class="relative w-full max-w-3xl px-4">
+        <button
+          class="absolute -top-10 right-4 text-white text-2xl hover:text-zinc-400"
+          @click="showTrailer = false"
+        >
+          ✕
+        </button>
+        <div class="aspect-video w-full">
+          <iframe
+            :src="`https://www.youtube.com/embed/${movie.trailerKey}?autoplay=1`"
+            class="w-full h-full rounded-xl"
+            frameborder="0"
+            allow="autoplay; encrypted-media"
+            allowfullscreen
+          />
+        </div>
+      </div>
     </div>
+
   </div>
 </template>
