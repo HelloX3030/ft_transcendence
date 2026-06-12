@@ -26,7 +26,7 @@ export class FriendsService {
 
     if (user === null) throw new InternalServerErrorException();
 
-    var friends: Friend[] = [];
+    const friends: Friend[] = [];
 
     user.friendsA.forEach((friend) => {
       friends.push({

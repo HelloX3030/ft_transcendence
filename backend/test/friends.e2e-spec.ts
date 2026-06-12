@@ -5,6 +5,8 @@ import { createTestApp } from './utils/create-test-app';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { register } from './utils';
+import { FriendsResponse } from './types';
+import { getUserId } from './utils/user.utils';
 
 const bobRegister: RegisterDto = {
   username: 'bob',
@@ -34,8 +36,8 @@ describe('Friends (e2e)', () => {
   let aliceAgent: TestAgent;
   let malloryAgent: TestAgent;
 
-  let bobId: string;
-  let malloryId: string;
+  let bobId: number;
+  let malloryId: number;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -48,8 +50,8 @@ describe('Friends (e2e)', () => {
     await register(aliceAgent, aliceRegister);
     await register(malloryAgent, malloryRegister);
 
-    bobId = (await bobAgent.get('/users/me')).body.id;
-    malloryId = (await malloryAgent.get('/users/me')).body.id;
+    bobId = await getUserId(bobAgent);
+    malloryId = await getUserId(malloryAgent);
   });
 
   afterAll(async () => {
@@ -62,7 +64,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    expect(response.body.friends).toEqual(
+    const body = response.body as FriendsResponse;
+
+    expect(body.friends).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
@@ -77,7 +81,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    expect(response.body.friends).toEqual(
+    const body = response.body as FriendsResponse;
+
+    expect(body.friends).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
@@ -92,7 +98,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    expect(response.body.friends).not.toEqual(
+    const body = response.body as FriendsResponse;
+
+    expect(body.friends).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
