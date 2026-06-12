@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
-const auth = useAuthStore();
-onMounted(() => auth.init());
 </script>
 
 <template>
