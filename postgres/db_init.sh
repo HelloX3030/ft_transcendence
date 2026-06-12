@@ -1,10 +1,6 @@
-#!/bin/bash
+#!/bin/sh
+set -e
 
-# set -e
-
-for db in $DB_TEST_NAME $DB_NAME
-do
-  psql --username $DB_USER <<-EOSQL
-    CREATE DATABASE $db;
+psql --username "$POSTGRES_USER" <<-EOSQL
+CREATE DATABASE $DB_TEST_NAME;
 EOSQL
-done
