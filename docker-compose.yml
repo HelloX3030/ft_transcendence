@@ -10,6 +10,7 @@ services:
     environment:
       - BACKEND_URL=${BACKEND_URL}
       - VITE_APP_NAME=${VITE_APP_NAME}
+      - VITE_TMDB_API_KEY=${VITE_TMDB_API_KEY}
     depends_on:
       - backend
     networks:
