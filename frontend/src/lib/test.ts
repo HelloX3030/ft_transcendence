@@ -204,3 +204,42 @@ export const oneMovie = {
     },
   },
 };
+
+
+export const similarMovies = [
+  {
+    id: 354912,
+    title: 'Coco',
+    poster_path: '/gGEsBPAijhVUFoiNpgZXqRVWJt2.jpg',
+    release_date: '2017-10-27',
+    vote_average: 8.2,
+  },
+  {
+    id: 301528,
+    title: 'Toy Story 4',
+    poster_path: '/w9kR8qbmQ01HwnvK4alvnQ2ca0L.jpg',
+    release_date: '2019-06-19',
+    vote_average: 7.6,
+  },
+  {
+    id: 420818,
+    title: 'The Lion King',
+    poster_path: '/2bXbqYdUjHesyPeOcCTQTjSC4Og.jpg',
+    release_date: '2019-07-12',
+    vote_average: 7.1,
+  },
+  {
+    id: 508442,
+    title: 'Soul',
+    poster_path: '/hm58fzzOdbOx4diLeSmTuFH0v6U.jpg',
+    release_date: '2020-12-25',
+    vote_average: 8.0,
+  },
+  {
+    id: 400160,
+    title: 'The SpongeBob Movie: Sponge on the Run',
+    poster_path: '/jtnfNzqZwN4E32FGGxx1YZaBWWf.jpg',
+    release_date: '2020-08-14',
+    vote_average: 7.0,
+  },
+];
