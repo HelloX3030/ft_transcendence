@@ -35,7 +35,6 @@ describe('Friends (e2e)', () => {
   let malloryAgent: TestAgent;
 
   let bobId: string;
-  let aliceId: string;
   let malloryId: string;
 
   beforeAll(async () => {
@@ -50,7 +49,6 @@ describe('Friends (e2e)', () => {
     await register(malloryAgent, malloryRegister);
 
     bobId = (await bobAgent.get('/users/me')).body.id;
-    aliceId = (await aliceAgent.get('/users/me')).body.id;
     malloryId = (await malloryAgent.get('/users/me')).body.id;
   });
 
