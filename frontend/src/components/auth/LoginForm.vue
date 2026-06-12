@@ -10,24 +10,19 @@ import {
 
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
-import { z } from 'zod';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { Button } from '@/components/ui/button';
-import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
+import { loginSchema } from '@/lib/schemas';
 import { useAuthStore } from '@/stores/auth';
 
-const formSchema = z.object({
-  email: z.string().email(),
-  password: z.string().nonempty(),
-});
-
 const form = useForm({
-  validationSchema: toTypedSchema(formSchema),
+  validationSchema: toTypedSchema(loginSchema),
 });
 
 const router = useRouter();
@@ -37,22 +32,17 @@ const errorMessage = ref<string | null>(null);
 const onSubmit = form.handleSubmit(async ({ email, password }) => {
   errorMessage.value = null;
   try {
-    const res = await fetch('/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      errorMessage.value =
-        res.status === 403
-          ? 'Invalid email or password.'
-          : 'Something went wrong. Please try again.';
-      return;
-    }
-    auth.login();
+    await auth.login({ email, password });
     router.push('/');
-  } catch {
-    errorMessage.value = 'Could not reach the server.';
+  } catch (err: unknown) {
+    const e = err as { status?: number; message?: string };
+    if (e?.status === 403) {
+      errorMessage.value = 'Invalid email or password.';
+    } else if (e?.status) {
+      errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
+    } else {
+      errorMessage.value = 'Could not reach the server.';
+    }
   }
 });
 </script>
@@ -70,8 +60,14 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="email@cinemates.de" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                autocomplete="username"
+                placeholder="email@cinemates.de"
+              />
             </FormControl>
+            <FormMessage />
           </FormItem>
         </FormField>
         <FormField v-slot="{ componentField }" name="password">
@@ -82,8 +78,14 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
               <Button type="button" variant="link" class="">Forgot password?</Button>
             </div>
             <FormControl>
-              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
+              <Input
+                v-bind="componentField"
+                type="password"
+                autocomplete="current-password"
+                placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
+              />
             </FormControl>
+            <FormMessage />
           </FormItem>
         </FormField>
 
@@ -105,7 +107,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
 
     <CardFooter class="flex flex-col gap-2">
       <div class="flex items-center space-x-2 text-nowrap">
-        <p class="text-muted-foreground">Don't habe an account?</p>
+        <p class="text-muted-foreground">Don't have an account?</p>
         <RouterLink to="/signup" class="text-primary hover:underline">Sign Up</RouterLink>
       </div>
     </CardFooter>
