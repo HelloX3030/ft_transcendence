@@ -21,7 +21,6 @@ import { Eye, EyeOff } from 'lucide-vue-next';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { z } from 'zod';
 import Separator from '@/components/ui/separator/Separator.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -33,39 +32,21 @@ const router = useRouter();
 const auth = useAuthStore();
 const errorMessage = ref<string | null>(null);
 
-type RegisterValueType = z.infer<typeof registerSchema>;
-
-async function createAccount({
-  username,
-  email,
-  password,
-}: RegisterValueType): Promise<true | string> {
-  try {
-    const res = await fetch('/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password, language: 'de' }), //TODO: dynamic language
-    });
-    if (!res.ok) {
-      return res.status === 403
-        ? 'Email or username is already taken.'
-        : 'Something went wrong. Please try again.';
-    }
-    return true;
-  } catch {
-    return 'Could not reach the server.';
-  }
-}
-
-const onSubmit = form.handleSubmit(async (values) => {
+const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
   errorMessage.value = null;
-  const result = await createAccount(values);
-  if (result !== true) {
-    errorMessage.value = result;
-    return;
+  try {
+    await auth.register({ username, email, password, language: 'de' }); //TODO: dynamic language
+    router.push('/onboarding');
+  } catch (err: unknown) {
+    const e = err as { status?: number; message?: string };
+    if (e?.status === 403) {
+      errorMessage.value = 'Email or username is already taken.';
+    } else if (e?.status) {
+      errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
+    } else {
+      errorMessage.value = 'Could not reach the server.';
+    }
   }
-  auth.register();
-  router.push('/onboarding');
 });
 
 const isPwVisible = ref(false);
@@ -84,7 +65,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Username</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="urbi420" type="text" />
+              <Input
+                v-bind="componentField"
+                type="text"
+                autocomplete="nickname"
+                placeholder="urbi420"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -93,7 +79,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="email@cinemates.de" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                autocomplete="email"
+                placeholder="email@cinemates.de"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -112,8 +103,9 @@ const isPwVisible = ref(false);
               <div class="flex items-center gap-2">
                 <Input
                   v-bind="componentField"
-                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                   :type="isPwVisible ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                 >
                 </Input>
               </div>
@@ -125,7 +117,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Confirm Password</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
+              <Input
+                v-bind="componentField"
+                type="password"
+                autocomplete="new-password"
+                placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
