@@ -69,7 +69,7 @@ const router = createRouter({
       meta: { requiresOnboarding: true, hideLayout: true, title: 'Onboarding' },
     },
     {
-      path: '/moviedetail',
+      path: '/moviedetail/:id',
       component: MovieDetailView,
       meta: { requiresAuth: true, title: 'Movie Details' },
     },
