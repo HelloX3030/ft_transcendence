@@ -4,11 +4,12 @@ import MovieSelect from '@/components/MovieSelect.vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-import { useMovies } from '@/composables/useMovies';
+import { useSelectionStore } from '@/stores/selection';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
 
-const { selectedMovies } = useMovies();
+const { selectedMovies } = storeToRefs(useSelectionStore());
 const auth = useAuthStore();
 const router = useRouter();
 
