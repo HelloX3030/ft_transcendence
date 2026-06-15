@@ -34,23 +34,23 @@ describe('TmdbController', () => {
     it('delegates to tmdbService.fetchPopular with dto.page', async () => {
       mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
 
-      await controller.fetchPopular({ page: 1 });
+      await controller.fetchPopular({ page: 1, filtered: true });
 
-      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(1);
+      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(1, true);
     });
 
     it('forwards the requested page to tmdbService.fetchPopular', async () => {
       mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
 
-      await controller.fetchPopular({ page: 4 });
+      await controller.fetchPopular({ page: 4, filtered: true });
 
-      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(4);
+      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(4, true);
     });
 
     it('returns the paginated result that tmdbService.fetchPopular resolves with', async () => {
       mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
 
-      const result = await controller.fetchPopular({ page: 1 });
+      const result = await controller.fetchPopular({ page: 1, filtered: true });
 
       expect(result).toEqual(mockPage);
     });
@@ -59,25 +59,25 @@ describe('TmdbController', () => {
   describe('searchMovies', () => {
     it('delegates to tmdbService.searchMovies with dto.query and dto.page', async () => {
       mockTmdbService.searchMovies.mockResolvedValue(mockPage);
-      const dto: SearchQueryDto = { query: 'batman', page: 1 };
+      const dto: SearchQueryDto = { query: 'batman', page: 1, filtered: true };
 
       await controller.searchMovies(dto);
 
-      expect(mockTmdbService.searchMovies).toHaveBeenCalledWith('batman', 1);
+      expect(mockTmdbService.searchMovies).toHaveBeenCalledWith('batman', 1, true);
     });
 
     it('forwards the requested page to tmdbService.searchMovies', async () => {
       mockTmdbService.searchMovies.mockResolvedValue(mockPage);
-      const dto: SearchQueryDto = { query: 'batman', page: 3 };
+      const dto: SearchQueryDto = { query: 'batman', page: 3, filtered: true };
 
       await controller.searchMovies(dto);
 
-      expect(mockTmdbService.searchMovies).toHaveBeenCalledWith('batman', 3);
+      expect(mockTmdbService.searchMovies).toHaveBeenCalledWith('batman', 3, true);
     });
 
     it('returns the paginated result that tmdbService.searchMovies resolves with', async () => {
       mockTmdbService.searchMovies.mockResolvedValue(mockPage);
-      const dto: SearchQueryDto = { query: 'batman', page: 1 };
+      const dto: SearchQueryDto = { query: 'batman', page: 1, filtered: true };
 
       const result = await controller.searchMovies(dto);
 
