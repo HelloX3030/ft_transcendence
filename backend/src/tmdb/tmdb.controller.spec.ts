@@ -12,7 +12,7 @@ const mockTmdbService = {
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
 
-const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false };
+const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false, totalResults: 1 };
 
 describe('TmdbController', () => {
   let controller: TmdbController;

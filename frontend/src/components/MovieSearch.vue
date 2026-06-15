@@ -7,7 +7,7 @@ import { Spinner } from './ui/spinner';
 import { useMoviesStore } from '@/stores/movies';
 
 const store = useMoviesStore();
-const { searchStatus, resultCount } = storeToRefs(store);
+const { searchStatus, searchTotal } = storeToRefs(store);
 
 const inputQuery = ref('');
 
@@ -25,8 +25,8 @@ onMounted(store.resetSearch);
       <InputGroupInput placeholder="Search..." v-model="inputQuery" />
       <InputGroupAddon
         ><Spinner v-if="searchStatus === 'loading'" />
-        <span v-else-if="searchStatus === 'ready'" v-show="resultCount > 0"
-          >{{ resultCount }} Results
+        <span v-else-if="searchStatus === 'ready'" v-show="searchTotal > 0"
+          >{{ searchTotal.toLocaleString() }} results
         </span>
       </InputGroupAddon>
     </InputGroup>

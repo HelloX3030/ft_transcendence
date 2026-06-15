@@ -54,6 +54,7 @@ export class TmdbService {
     const result: PaginatedMovies = {
       results: filtered ? filterMovies(response.results) : response.results,
       hasMore: response.page < response.total_pages,
+      totalResults: response.total_results,
     };
     await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
     return result;
