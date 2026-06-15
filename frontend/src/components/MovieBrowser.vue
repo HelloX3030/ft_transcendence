@@ -87,6 +87,14 @@ watch([sentinelVisible, isSearching, searchHasMore, searchStatus], () => {
     void store.loadMore();
   }
 });
+
+// A failed page load keeps its loaded results, so retry the failed next page
+// (append) rather than reloading from page 1; a failed initial load has nothing
+// to preserve, so reload from scratch.
+function onRetry() {
+  if (isSearching.value && displayMovies.value.length > 0) void store.loadMore();
+  else store.refresh();
+}
 </script>
 
 <template>
@@ -125,7 +133,7 @@ watch([sentinelVisible, isSearching, searchHasMore, searchStatus], () => {
     <ErrorState
       v-if="displayStatus === 'error'"
       :message="displayMovies.length ? 'Couldn’t load more results.' : 'Something went wrong.'"
-      @retry="store.refresh()"
+      @retry="onRetry()"
     />
     <EmptyState v-else-if="noResults" message="No results found." />
     <p v-else-if="reachedEnd" class="text-center text-sm text-muted-foreground">No more results.</p>
