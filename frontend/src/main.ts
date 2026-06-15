@@ -25,3 +25,4 @@ const youtube = {
   app.use(youtube);
   app.mount('#app');
 })();
+  

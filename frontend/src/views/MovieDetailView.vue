@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { severalMovies } from '@/lib/test';
+import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
 
 const route = useRoute();
 
-// Film anhand der ID aus der URL finden
-const movie = computed(() =>
-  severalMovies.find((m) => m.id === Number(route.params.id))
-);
+const showTrailer = ref(false);
 
-const similarMovies = computed(() =>
-  severalMovies.filter((m) => m.id !== movie.value?.id)
-);
-
-const director = 'Unbekannt'; // später aus credits.crew
-
+const movie = computed(() => severalMovies.find((m) => m.id === Number(route.params.id)));
+const similarMovies = computed(() => severalMovies.filter((m) => m.id !== movie.value?.id));
+const director = 'Unbekannt';
 const topCast = computed(() => movie.value?.credits.cast.slice(0, 3) ?? []);
 const releaseYear = computed(() => movie.value?.release_date.slice(0, 4) ?? '');
 const formattedRuntime = computed(() => {
@@ -33,14 +28,12 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
 
 <template>
   <div class="min-h-screen bg-black text-white">
-
     <!-- Fallback wenn Film nicht gefunden -->
     <div v-if="!movie" class="flex items-center justify-center min-h-screen">
-      <p class="text-zinc-500">Film nicht gefunden.</p>
+      <p class="text-zinc-500">Film not found.</p>
     </div>
 
     <div v-else>
-
       <!-- Hero: Backdrop -->
       <div class="relative w-full h-80">
         <img :src="backdropUrl" :alt="movie.title" class="w-full h-full object-cover object-top" />
@@ -52,7 +45,11 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
 
         <!-- Poster + Titel -->
         <div class="flex gap-6 px-4 -mt-24 relative z-10">
-          <img :src="posterUrl" :alt="movie.title" class="w-36 rounded-xl shadow-2xl flex-shrink-0" />
+          <img
+            :src="posterUrl"
+            :alt="movie.title"
+            class="w-36 rounded-xl shadow-2xl flex-shrink-0"
+          />
           <div class="flex flex-col justify-end pb-2">
             <h1 class="text-2xl font-bold leading-tight">{{ movie.title }}</h1>
             <p class="text-sm text-zinc-400 mt-1 italic">{{ movie.tagline }}</p>
@@ -154,6 +151,39 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
         </div>
 
       </div> <!-- end max-w-2xl -->
+
+      <!-- Floating Trailer Button -->
+      <button
+        class="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
+        @click="showTrailer = true"
+      >
+        ▶ Trailer
+      </button>
+
+      <!-- Trailer Modal -->
+      <div
+        v-if="showTrailer && movie"
+        class="fixed inset-0 z-50 bg-black"
+      >
+        <!-- Schließen Button -->
+        <button
+          class="absolute top-4 left-4 z-50 text-white bg-black/50 rounded-full p-2"
+          @click="showTrailer = false"
+        >
+          ✕
+        </button>
+
+        <!-- VideoPlayer genau wie im Feed -->
+        <VideoPlayer
+          :title="movie.title"
+          :video-id="movie.trailerKey"
+          :active="showTrailer"
+          :genre-ids="movie.genres.map(g => g.id)"
+          :release-date="movie.release_date"
+          :providers="[]"
+          class="w-full h-full"
+        />
+      </div>
 
     </div> <!-- end v-else -->
 
