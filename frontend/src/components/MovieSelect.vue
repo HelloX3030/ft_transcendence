@@ -14,6 +14,7 @@ const movies = computed(() => [...searchResults.value, ...popular.value]);
 const isLoading = computed(
   () => popularStatus.value === 'loading' || searchStatus.value === 'loading',
 );
+const hasError = computed(() => popularStatus.value === 'error' || searchStatus.value === 'error');
 
 onMounted(store.loadPopular);
 </script>
@@ -30,4 +31,9 @@ onMounted(store.loadPopular);
       :loading="isLoading"
     />
   </div>
+
+  <p v-if="hasError" class="text-center text-sm text-destructive">
+    Something went wrong.
+    <button class="underline hover:cursor-pointer" @click="store.refresh()">Try again</button>
+  </p>
 </template>

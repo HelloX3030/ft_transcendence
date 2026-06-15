@@ -74,6 +74,13 @@ export const useMoviesStore = defineStore('movies', () => {
     }
   }
 
+  // Retries the current view after a failure: re-runs the active search (from
+  // page 1) when searching, otherwise reloads the popular list.
+  function refresh() {
+    if (isSearching.value) void search(searchQuery.value);
+    else void loadPopular();
+  }
+
   // Loads the next page of the current search and appends to the existing results.
   async function loadMore() {
     if (searchStatus.value === 'loading' || !searchQuery.value || !searchHasMore.value) return;
@@ -106,6 +113,7 @@ export const useMoviesStore = defineStore('movies', () => {
     loadPopular,
     search,
     loadMore,
+    refresh,
     resetSearch,
   };
 });
