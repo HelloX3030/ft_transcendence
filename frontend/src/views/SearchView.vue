@@ -67,7 +67,13 @@ onBeforeUnmount(() => {
 
       <MovieGrid :movies="displayMovies" />
 
-      <p v-if="noResults" class="text-center text-sm text-muted-foreground">No results found.</p>
+      <p v-if="displayStatus === 'error'" class="text-center text-sm text-destructive">
+        Something went wrong.
+        <button class="underline hover:cursor-pointer" @click="store.refresh()">Try again</button>
+      </p>
+      <p v-else-if="noResults" class="text-center text-sm text-muted-foreground">
+        No results found.
+      </p>
       <p v-else-if="reachedEnd" class="text-center text-sm text-muted-foreground">
         No more results.
       </p>
