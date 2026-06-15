@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import MovieCard from './MovieCard.vue';
 import ErrorState from './ErrorState.vue';
 import EmptyState from './EmptyState.vue';
-import { Spinner } from '@/components/ui/spinner';
 import { useMoviesStore } from '@/stores/movies';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
 import type { TmdbMovie } from '@/lib/tmdb.types';
@@ -53,23 +52,40 @@ const reachedEnd = computed(
 
 const SKELETON_COUNT = 12;
 
-// Infinite scroll: when the sentinel scrolls into view during an active search,
-// pull the next page.
+// Infinite scroll. The observer only tracks whether the sentinel is in view;
+// it does NOT call loadMore directly, because IntersectionObserver fires on
+// enter/leave only — a short result page that never pushes the sentinel out of
+// view would trigger just once. Instead a watcher pulls the next page whenever
+// the sentinel is visible and more exists, re-running as results arrive so it
+// keeps filling until the viewport is covered.
 const loadMoreTrigger = ref<HTMLElement | null>(null);
+const sentinelVisible = ref(false);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
   store.loadPopular();
-  observer = new IntersectionObserver((entries) => {
-    if (entries[0]?.isIntersecting && isSearching.value) {
-      void store.loadMore();
-    }
-  });
+  observer = new IntersectionObserver(
+    (entries) => {
+      sentinelVisible.value = entries[0]?.isIntersecting ?? false;
+    },
+    { rootMargin: '200px' },
+  );
   if (loadMoreTrigger.value) observer.observe(loadMoreTrigger.value);
 });
 
 onBeforeUnmount(() => {
   observer?.disconnect();
+});
+
+watch([sentinelVisible, isSearching, searchHasMore, searchStatus], () => {
+  if (
+    sentinelVisible.value &&
+    isSearching.value &&
+    searchHasMore.value &&
+    searchStatus.value === 'ready'
+  ) {
+    void store.loadMore();
+  }
 });
 </script>
 
@@ -93,11 +109,17 @@ onBeforeUnmount(() => {
         <template v-for="movie in displayMovies" :key="movie.id">
           <slot name="movie" :movie="movie" />
         </template>
+        <!-- Placeholder cards for the page being fetched (infinite scroll). -->
+        <template v-if="isPaginating">
+          <MovieCard
+            v-for="n in SKELETON_COUNT"
+            :key="`page-skeleton-${n}`"
+            title=""
+            :img="null"
+            :loading="true"
+          />
+        </template>
       </template>
-    </div>
-
-    <div v-if="isPaginating" class="flex justify-center">
-      <Spinner class="size-4" />
     </div>
 
     <ErrorState
