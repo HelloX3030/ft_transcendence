@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieGrid from '@/components/MovieGrid.vue';
+import ErrorState from '@/components/ErrorState.vue';
+import EmptyState from '@/components/EmptyState.vue';
 import { Spinner } from '@/components/ui/spinner';
 import { useMoviesStore } from '@/stores/movies';
 
@@ -76,13 +78,12 @@ onBeforeUnmount(() => {
         <Spinner class="size-4" />
       </div>
 
-      <p v-if="displayStatus === 'error'" class="text-center text-sm text-destructive">
-        Something went wrong.
-        <button class="underline hover:cursor-pointer" @click="store.refresh()">Try again</button>
-      </p>
-      <p v-else-if="noResults" class="text-center text-sm text-muted-foreground">
-        No results found.
-      </p>
+      <ErrorState
+        v-if="displayStatus === 'error'"
+        :message="displayMovies.length ? 'Couldn’t load more results.' : 'Something went wrong.'"
+        @retry="store.refresh()"
+      />
+      <EmptyState v-else-if="noResults" message="No results found." />
       <p v-else-if="reachedEnd" class="text-center text-sm text-muted-foreground">
         No more results.
       </p>

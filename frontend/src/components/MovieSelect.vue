@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import MovieCard from './MovieCard.vue';
+import ErrorState from './ErrorState.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { useSelectionStore } from '@/stores/selection';
 
@@ -32,8 +33,5 @@ onMounted(store.loadPopular);
     />
   </div>
 
-  <p v-if="hasError" class="text-center text-sm text-destructive">
-    Something went wrong.
-    <button class="underline hover:cursor-pointer" @click="store.refresh()">Try again</button>
-  </p>
+  <ErrorState v-if="hasError" @retry="store.refresh()" />
 </template>
