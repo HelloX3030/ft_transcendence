@@ -2,12 +2,13 @@
 import { computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import MovieCard from './MovieCard.vue';
-import { useMovies } from '@/composables/useMovies.ts';
 import { useMoviesStore } from '@/stores/movies';
+import { useSelectionStore } from '@/stores/selection';
 
 const store = useMoviesStore();
 const { popular, popularStatus, searchResults, searchStatus } = storeToRefs(store);
-const { selectedMovies, addMovie } = useMovies();
+
+const selection = useSelectionStore();
 
 const movies = computed(() => [...searchResults.value, ...popular.value]);
 const isLoading = computed(
@@ -24,8 +25,8 @@ onMounted(store.loadPopular);
       :key="movie.id"
       :title="movie.title"
       :img="movie.poster_path"
-      :selected="selectedMovies.some((item) => item.id === movie.id)"
-      @select="addMovie({ ...movie })"
+      :selected="selection.isSelected(movie.id)"
+      @select="selection.toggleMovie(movie)"
       :loading="isLoading"
     />
   </div>
