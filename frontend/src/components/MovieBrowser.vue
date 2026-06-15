@@ -6,6 +6,7 @@ import ErrorState from './ErrorState.vue';
 import EmptyState from './EmptyState.vue';
 import { Spinner } from '@/components/ui/spinner';
 import { useMoviesStore } from '@/stores/movies';
+import { useDelayedLoading } from '@/composables/useDelayedLoading';
 import type { TmdbMovie } from '@/lib/tmdb.types';
 
 withDefaults(defineProps<{ showLabel?: boolean }>(), { showLabel: true });
@@ -34,14 +35,15 @@ const sectionLabel = computed(() =>
   isSearching.value ? `${resultCount.value} Results` : 'Popular',
 );
 
+// Delay the loading indicator so fast (cached) responses don't flash a
+// skeleton, and hold it briefly once shown so it can't flicker.
+const isLoading = computed(() => displayStatus.value === 'loading');
+const showLoading = useDelayedLoading(isLoading);
+
 // Skeletons only when there is nothing to show yet; a spinner when extending
 // an existing list (pagination).
-const showSkeletons = computed(
-  () => displayStatus.value === 'loading' && displayMovies.value.length === 0,
-);
-const isPaginating = computed(
-  () => displayStatus.value === 'loading' && displayMovies.value.length > 0,
-);
+const showSkeletons = computed(() => showLoading.value && displayMovies.value.length === 0);
+const isPaginating = computed(() => showLoading.value && displayMovies.value.length > 0);
 const noResults = computed(
   () => isSearching.value && searchStatus.value === 'ready' && searchResults.value.length === 0,
 );
