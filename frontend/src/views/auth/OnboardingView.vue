@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieBrowser from '@/components/MovieBrowser.vue';
+import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import MovieCard from '@/components/MovieCard.vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -30,6 +31,7 @@ function completeOnboarding() {
       </p>
     </div>
     <MovieSearch />
+    <MovieFilterToggle />
     <Button :disabled="selectedMovies.length < 10" @click="completeOnboarding">Next</Button>
     <div class="flex items-center justify-between">
       <span>Selected({{ selectedMovies.length }}/10)</span>

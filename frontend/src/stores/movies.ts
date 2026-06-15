@@ -24,13 +24,16 @@ export const useMoviesStore = defineStore('movies', () => {
   const searchHasMore = ref(false);
   const searchStatus = ref<FetchStatus>('idle');
 
+  // Whether the popularity/poster quality filter is applied (user toggle).
+  const filtered = ref(true);
+
   const isSearching = computed(() => searchQuery.value !== '');
   const resultCount = computed(() => searchResults.value.length);
 
   async function loadPopular() {
     try {
       popularStatus.value = 'loading';
-      const data = await fetchJson<PaginatedMovies>('/v1/tmdb/popular');
+      const data = await fetchJson<PaginatedMovies>(`/v1/tmdb/popular?filtered=${filtered.value}`);
       popular.value = data.results;
       popularStatus.value = 'ready';
     } catch (error) {
@@ -67,7 +70,7 @@ export const useMoviesStore = defineStore('movies', () => {
       searchResults.value = [];
       searchHasMore.value = false;
       const data = await fetchJson<PaginatedMovies>(
-        `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=1`,
+        `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=1&filtered=${filtered.value}`,
       );
       searchResults.value = data.results;
       searchHasMore.value = data.hasMore;
@@ -85,6 +88,14 @@ export const useMoviesStore = defineStore('movies', () => {
     else void loadPopular();
   }
 
+  // Toggles the result filter and rebuilds the currently shown view (from page 1)
+  // so filtered and unfiltered pages never mix in one list.
+  function setFiltered(value: boolean) {
+    if (value === filtered.value) return;
+    filtered.value = value;
+    refresh();
+  }
+
   // Loads the next page of the current search and appends to the existing results.
   async function loadMore() {
     if (searchStatus.value === 'loading' || !searchQuery.value || !searchHasMore.value) return;
@@ -92,7 +103,7 @@ export const useMoviesStore = defineStore('movies', () => {
       searchStatus.value = 'loading';
       const nextPage = searchPage.value + 1;
       const data = await fetchJson<PaginatedMovies>(
-        `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${nextPage}`,
+        `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${nextPage}&filtered=${filtered.value}`,
       );
       searchPage.value = nextPage;
       searchResults.value = [...searchResults.value, ...data.results];
@@ -112,6 +123,7 @@ export const useMoviesStore = defineStore('movies', () => {
     searchPage,
     searchHasMore,
     searchStatus,
+    filtered,
     isSearching,
     resultCount,
     loadPopular,
@@ -119,5 +131,6 @@ export const useMoviesStore = defineStore('movies', () => {
     loadMore,
     refresh,
     resetSearch,
+    setFiltered,
   };
 });

@@ -88,7 +88,7 @@ describe('TmdbService', () => {
       await service.fetchPopular();
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:1',
+        'tmdb:popular:page:1:filtered',
         JSON.stringify(expectedMultiPage),
         3600,
       );
@@ -109,7 +109,7 @@ describe('TmdbService', () => {
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:4',
+        'tmdb:popular:page:4:filtered',
         JSON.stringify(expectedMultiPage),
         3600,
       );
@@ -182,7 +182,7 @@ describe('TmdbService', () => {
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('query=batman'));
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:1',
+        'tmdb:search:batman:page:1:filtered',
         JSON.stringify(expectedLastPage),
         3600,
       );
@@ -210,7 +210,7 @@ describe('TmdbService', () => {
       await service.searchMovies('batman');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:1',
+        'tmdb:search:batman:page:1:filtered',
         JSON.stringify(expectedLastPage),
         3600,
       );
@@ -223,7 +223,7 @@ describe('TmdbService', () => {
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:3',
+        'tmdb:search:batman:page:3:filtered',
         JSON.stringify(expectedLastPage),
         3600,
       );
@@ -267,6 +267,39 @@ describe('TmdbService', () => {
 
       expect(result).toEqual(expectedLastPage);
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('filtered = false', () => {
+    beforeEach(() => {
+      mockRedisClient.get.mockResolvedValue(null);
+      mockRedisClient.set.mockResolvedValue(undefined);
+    });
+
+    it('returns raw TMDB results without applying the filter', async () => {
+      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
+      mockTmdbClient.get.mockResolvedValue({
+        results: [...mockMovies, junk],
+        page: 1,
+        total_pages: 1,
+        total_results: 2,
+      });
+
+      const result = await service.searchMovies('batman', 1, false);
+
+      expect(result.results).toEqual([...mockMovies, junk]);
+    });
+
+    it('caches under a distinct ":raw" key so it never collides with filtered', async () => {
+      mockTmdbClient.get.mockResolvedValue(lastPageResponse);
+
+      await service.fetchPopular(1, false);
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:popular:page:1:raw',
+        expect.any(String),
+        3600,
+      );
     });
   });
 });

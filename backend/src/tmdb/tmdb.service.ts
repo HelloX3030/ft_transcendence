@@ -13,14 +13,15 @@ export class TmdbService {
     private readonly redis: RedisService,
   ) {}
 
-  fetchPopular(page = 1): Promise<PaginatedMovies> {
+  fetchPopular(page = 1, filtered = true): Promise<PaginatedMovies> {
     return this.getCachedMovies(
-      `tmdb:popular:page:${page}`,
+      `tmdb:popular:page:${page}:${filtered ? 'filtered' : 'raw'}`,
       `/movie/popular?language=en-US&page=${page}`,
+      filtered,
     );
   }
 
-  searchMovies(query: string, page = 1): Promise<PaginatedMovies> {
+  searchMovies(query: string, page = 1, filtered = true): Promise<PaginatedMovies> {
     // Normalized so 'Batman', 'batman' and ' batman ' share one cache entry —
     // TMDB search is case-insensitive, so the results are identical anyway.
     const normalized = query.trim().toLowerCase();
@@ -31,20 +32,27 @@ export class TmdbService {
       page: String(page),
     });
     return this.getCachedMovies(
-      `tmdb:search:${normalized}:page:${page}`,
+      `tmdb:search:${normalized}:page:${page}:${filtered ? 'filtered' : 'raw'}`,
       `/search/movie?${params}`,
+      filtered,
     );
   }
 
   // Cache-through fetch shared by every TMDB endpoint: serve the cached page
-  // if present, otherwise fetch from TMDB, filter, cache, and return.
-  private async getCachedMovies(key: string, path: string): Promise<PaginatedMovies> {
+  // if present, otherwise fetch from TMDB, optionally filter, cache, and return.
+  // `filtered` is part of the cache key (see callers) so the two variants never
+  // collide.
+  private async getCachedMovies(
+    key: string,
+    path: string,
+    filtered: boolean,
+  ): Promise<PaginatedMovies> {
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as PaginatedMovies;
 
     const response = await this.client.get(path);
     const result: PaginatedMovies = {
-      results: filterMovies(response.results),
+      results: filtered ? filterMovies(response.results) : response.results,
       hasMore: response.page < response.total_pages,
     };
     await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);

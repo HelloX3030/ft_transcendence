@@ -12,11 +12,11 @@ export class TmdbController {
 
   @Get('popular')
   fetchPopular(@Query() dto: PaginationQueryDto): Promise<PaginatedMovies> {
-    return this.tmdbService.fetchPopular(dto.page);
+    return this.tmdbService.fetchPopular(dto.page, dto.filtered);
   }
 
   @Get('search')
   searchMovies(@Query() dto: SearchQueryDto): Promise<PaginatedMovies> {
-    return this.tmdbService.searchMovies(dto.query, dto.page);
+    return this.tmdbService.searchMovies(dto.query, dto.page, dto.filtered);
   }
 }
