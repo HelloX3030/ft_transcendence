@@ -35,6 +35,12 @@ const reachedEnd = computed(
   () => isSearching.value && !searchHasMore.value && searchResults.value.length > 0,
 );
 
+// Loading while results are already on screen = fetching the next page; show a
+// bottom spinner rather than skeletons (the grid renders skeletons only when empty).
+const isPaginating = computed(
+  () => displayStatus.value === 'loading' && displayMovies.value.length > 0,
+);
+
 // Infinite scroll: when the sentinel at the bottom of the list scrolls into
 // view during an active search, pull the next page.
 const loadMoreTrigger = ref<HTMLElement | null>(null);
@@ -62,10 +68,13 @@ onBeforeUnmount(() => {
     <div class="flex flex-col gap-4">
       <div class="flex items-center gap-2">
         <span class="text-sm font-medium text-muted-foreground">{{ sectionLabel }}</span>
-        <Spinner v-if="displayStatus === 'loading'" class="size-4" />
       </div>
 
-      <MovieGrid :movies="displayMovies" />
+      <MovieGrid :movies="displayMovies" :loading="displayStatus === 'loading'" />
+
+      <div v-if="isPaginating" class="flex justify-center">
+        <Spinner class="size-4" />
+      </div>
 
       <p v-if="displayStatus === 'error'" class="text-center text-sm text-destructive">
         Something went wrong.
