@@ -30,8 +30,10 @@ const displayMovies = computed(() => (isSearching.value ? searchResults.value : 
 const displayStatus = computed(() =>
   isSearching.value ? searchStatus.value : popularStatus.value,
 );
+// Header shows how many results are currently loaded (the total lives in the
+// search box). Popular browsing has no count.
 const sectionLabel = computed(() =>
-  isSearching.value ? `${resultCount.value} Results` : 'Popular',
+  isSearching.value ? `Showing ${resultCount.value}` : 'Popular',
 );
 
 // Delay the loading indicator so fast (cached) responses don't flash a

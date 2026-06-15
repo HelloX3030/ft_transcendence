@@ -23,6 +23,8 @@ export const useMoviesStore = defineStore('movies', () => {
   const searchPage = ref(1);
   const searchHasMore = ref(false);
   const searchStatus = ref<FetchStatus>('idle');
+  // TMDB's total match count for the current query (see backend caveat: unfiltered).
+  const searchTotal = ref(0);
 
   // Whether the popularity/poster quality filter is applied (user toggle).
   const filtered = ref(true);
@@ -49,6 +51,7 @@ export const useMoviesStore = defineStore('movies', () => {
     searchPage.value = 1;
     searchResults.value = [];
     searchHasMore.value = false;
+    searchTotal.value = 0;
     searchStatus.value = 'idle';
   }
 
@@ -69,11 +72,13 @@ export const useMoviesStore = defineStore('movies', () => {
       // skeletons (not stale entries) while loading and stays empty on error.
       searchResults.value = [];
       searchHasMore.value = false;
+      searchTotal.value = 0;
       const data = await fetchJson<PaginatedMovies>(
         `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=1&filtered=${filtered.value}`,
       );
       searchResults.value = data.results;
       searchHasMore.value = data.hasMore;
+      searchTotal.value = data.totalResults;
       searchStatus.value = 'ready';
     } catch (error) {
       console.error(error);
@@ -123,6 +128,7 @@ export const useMoviesStore = defineStore('movies', () => {
     searchPage,
     searchHasMore,
     searchStatus,
+    searchTotal,
     filtered,
     isSearching,
     resultCount,

@@ -14,7 +14,11 @@ const multiPageResponse: TmdbListResponse = {
   total_pages: 5,
   total_results: 100,
 };
-const expectedMultiPage: PaginatedMovies = { results: mockMovies, hasMore: true };
+const expectedMultiPage: PaginatedMovies = {
+  results: mockMovies,
+  hasMore: true,
+  totalResults: 100,
+};
 
 // page 1 of 1 — no more pages, so hasMore is false.
 const lastPageResponse: TmdbListResponse = {
@@ -23,7 +27,7 @@ const lastPageResponse: TmdbListResponse = {
   total_pages: 1,
   total_results: 1,
 };
-const expectedLastPage: PaginatedMovies = { results: mockMovies, hasMore: false };
+const expectedLastPage: PaginatedMovies = { results: mockMovies, hasMore: false, totalResults: 1 };
 
 const emptyResponse: TmdbListResponse = {
   results: [],
@@ -99,7 +103,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual({ results: [], hasMore: false });
+      expect(result).toEqual({ results: [], hasMore: false, totalResults: 0 });
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -234,7 +238,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('unknownquery');
 
-      expect(result).toEqual({ results: [], hasMore: false });
+      expect(result).toEqual({ results: [], hasMore: false, totalResults: 0 });
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
