@@ -1,36 +1,38 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieGrid from '@/components/MovieGrid.vue';
 import { Spinner } from '@/components/ui/spinner';
-import { useFetch } from '@/composables/useFetch';
+import { useMoviesStore } from '@/stores/movies';
 
+const store = useMoviesStore();
 const {
-  fetchPopular,
-  popularMovies,
-  searchedMovies,
-  searchedHasMore,
-  searchQuery,
-  loadMoreSearchedMovies,
-  isLoading,
-} = useFetch();
+  popular,
+  popularStatus,
+  searchResults,
+  searchHasMore,
+  searchStatus,
+  isSearching,
+  resultCount,
+} = storeToRefs(store);
 
-const isSearching = computed(() => searchQuery.value !== '');
+const displayMovies = computed(() => (isSearching.value ? searchResults.value : popular.value));
 
-const displayMovies = computed(() =>
-  isSearching.value ? searchedMovies.value : popularMovies.value,
+const displayStatus = computed(() =>
+  isSearching.value ? searchStatus.value : popularStatus.value,
 );
 
 const sectionLabel = computed(() =>
-  isSearching.value ? `${searchedMovies.value.length} Results` : 'Popular',
+  isSearching.value ? `${resultCount.value} Results` : 'Popular',
 );
 
 const noResults = computed(
-  () => isSearching.value && isLoading.value === 'finish' && searchedMovies.value.length === 0,
+  () => isSearching.value && searchStatus.value === 'ready' && searchResults.value.length === 0,
 );
 
 const reachedEnd = computed(
-  () => isSearching.value && !searchedHasMore.value && searchedMovies.value.length > 0,
+  () => isSearching.value && !searchHasMore.value && searchResults.value.length > 0,
 );
 
 // Infinite scroll: when the sentinel at the bottom of the list scrolls into
@@ -39,10 +41,10 @@ const loadMoreTrigger = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
-  fetchPopular();
+  store.loadPopular();
   observer = new IntersectionObserver((entries) => {
     if (entries[0]?.isIntersecting && isSearching.value) {
-      void loadMoreSearchedMovies();
+      void store.loadMore();
     }
   });
   if (loadMoreTrigger.value) observer.observe(loadMoreTrigger.value);
@@ -60,7 +62,7 @@ onBeforeUnmount(() => {
     <div class="flex flex-col gap-4">
       <div class="flex items-center gap-2">
         <span class="text-sm font-medium text-muted-foreground">{{ sectionLabel }}</span>
-        <Spinner v-if="isLoading === 'loading'" class="size-4" />
+        <Spinner v-if="displayStatus === 'loading'" class="size-4" />
       </div>
 
       <MovieGrid :movies="displayMovies" />

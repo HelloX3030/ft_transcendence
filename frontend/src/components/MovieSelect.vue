@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import { useFetch } from '@/composables/useFetch.ts';
+import { storeToRefs } from 'pinia';
 import MovieCard from './MovieCard.vue';
 import { useMovies } from '@/composables/useMovies.ts';
+import { useMoviesStore } from '@/stores/movies';
 
-const { fetchPopular, popularMovies, searchedMovies, isLoading } = useFetch();
+const store = useMoviesStore();
+const { popular, popularStatus, searchResults, searchStatus } = storeToRefs(store);
 const { selectedMovies, addMovie } = useMovies();
 
-const movies = computed(() => [...searchedMovies.value, ...popularMovies.value]);
+const movies = computed(() => [...searchResults.value, ...popular.value]);
+const isLoading = computed(
+  () => popularStatus.value === 'loading' || searchStatus.value === 'loading',
+);
 
-onMounted(fetchPopular);
+onMounted(store.loadPopular);
 </script>
 
 <template>
@@ -21,7 +26,7 @@ onMounted(fetchPopular);
       :img="movie.poster_path"
       :selected="selectedMovies.some((item) => item.id === movie.id)"
       @select="addMovie({ ...movie })"
-      :loading="isLoading === 'loading'"
+      :loading="isLoading"
     />
   </div>
 </template>
