@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MovieSearch from '@/components/MovieSearch.vue';
-import MovieSelect from '@/components/MovieSelect.vue';
+import MovieBrowser from '@/components/MovieBrowser.vue';
+import MovieCard from '@/components/MovieCard.vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -9,7 +10,8 @@ import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 
-const { selectedMovies } = storeToRefs(useSelectionStore());
+const selection = useSelectionStore();
+const { selectedMovies } = storeToRefs(selection);
 const auth = useAuthStore();
 const router = useRouter();
 
@@ -34,6 +36,15 @@ function completeOnboarding() {
       <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />
     </div>
 
-    <MovieSelect />
+    <MovieBrowser :show-label="false">
+      <template #movie="{ movie }">
+        <MovieCard
+          :title="movie.title"
+          :img="movie.poster_path"
+          :selected="selection.isSelected(movie.id)"
+          @select="selection.toggleMovie(movie)"
+        />
+      </template>
+    </MovieBrowser>
   </div>
 </template>
