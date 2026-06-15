@@ -62,6 +62,10 @@ export const useMoviesStore = defineStore('movies', () => {
       searchStatus.value = 'loading';
       searchQuery.value = query;
       searchPage.value = 1;
+      // Replace the previous query's results immediately so the grid shows
+      // skeletons (not stale entries) while loading and stays empty on error.
+      searchResults.value = [];
+      searchHasMore.value = false;
       const data = await fetchJson<PaginatedMovies>(
         `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=1`,
       );
