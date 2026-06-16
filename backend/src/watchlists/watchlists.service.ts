@@ -6,11 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { watchlistCreateDto, watchlistDto, watchlistsDto, watchlistUpdateDto } from './dto';
+import { watchlistCreateDto, watchlistDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
 import { movieDto } from './dto/movie.dto';
-import { rmSync } from 'fs';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { successResponse } from 'src/helper';
 
 export const WATCHLIST_SELECT = {
   role: true,
@@ -21,7 +21,7 @@ export const WATCHLIST_SELECT = {
 export class WatchlistsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(userId: number): Promise<watchlistsDto> {
+  async findAll(userId: number) {
     const watchlists = (
       await this.prisma.watchlist_users.findMany({
         where: {
@@ -31,10 +31,10 @@ export class WatchlistsService {
       })
     ).map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist));
     if (watchlists === null) throw new InternalServerErrorException();
-    return { data: watchlists };
+    return successResponse(watchlists);
   }
 
-  async findOne(id: number, userId: number): Promise<{ data: watchlistDto }> {
+  async findOne(id: number, userId: number) {
     const userWatchlist = await this.prisma.watchlist_users.findUnique({
       where: {
         watchlistId_userId: { watchlistId: id, userId: userId },
@@ -43,10 +43,10 @@ export class WatchlistsService {
     });
     if (userWatchlist === null) throw new BadRequestException();
     const watchlist = this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
-    return { data: watchlist };
+    return successResponse(watchlist);
   }
 
-  async create(dto: watchlistCreateDto, userId: number): Promise<{ data: watchlistDto }> {
+  async create(dto: watchlistCreateDto, userId: number) {
     const watchlist = await this.prisma.watchlists.create({
       data: {
         name: dto.name,
@@ -62,14 +62,10 @@ export class WatchlistsService {
       },
     });
     if (userWatchlist === null) throw new InternalServerErrorException();
-    return { data: this.toWatchlistDto(userWatchlist.role, watchlist) };
+    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
   }
 
-  async update(
-    id: number,
-    dto: watchlistUpdateDto,
-    userId: number,
-  ): Promise<{ data: watchlistDto }> {
+  async update(id: number, dto: watchlistUpdateDto, userId: number) {
     const watchlistUser = await this.checkUserAccess(id, userId);
     if (watchlistUser.role === 'viewer') {
       throw new ForbiddenException('You have read-only access');
@@ -83,12 +79,10 @@ export class WatchlistsService {
         ...(dto.image !== undefined && { image: dto.image }),
       },
     });
-    return {
-      data: this.toWatchlistDto(watchlistUser.role, watchlist),
-    };
+    return successResponse(this.toWatchlistDto(watchlistUser.role, watchlist));
   }
 
-  async remove(id: number, userId: number): Promise<{ message: string }> {
+  async remove(id: number, userId: number) {
     const watchlistUser = await this.checkUserAccess(id, userId);
     if (watchlistUser.role === 'viewer') {
       throw new ForbiddenException('You have read-only access');
@@ -98,9 +92,7 @@ export class WatchlistsService {
         id,
       },
     });
-    return {
-      message: 'Deleted successfully',
-    };
+    return successResponse(null);
   }
 
   async getMovies(id: number, userId: number) {
@@ -114,7 +106,7 @@ export class WatchlistsService {
       },
     });
     if (movies === null) throw new InternalServerErrorException();
-    return { data: movies.map(({ movie }) => movie) };
+    return successResponse(movies.map(({ movie }) => movie));
   }
 
   async addMovie(id: number, dto: movieDto, userId: number) {
@@ -146,7 +138,7 @@ export class WatchlistsService {
         },
       });
       if (watchlistMovie === null) throw new InternalServerErrorException();
-      return { sucsess: true };
+      return successResponse(null);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -158,7 +150,7 @@ export class WatchlistsService {
     }
   }
 
-  async removeMovie(id: number, movieId: number, userId: number): Promise<{ sucsess: boolean }> {
+  async removeMovie(id: number, movieId: number, userId: number) {
     const watchlistUser = await this.checkUserAccess(id, userId);
     if (watchlistUser.role === 'viewer') {
       throw new ForbiddenException('You have read-only access');
@@ -181,9 +173,7 @@ export class WatchlistsService {
       console.error(error);
       throw new InternalServerErrorException();
     }
-    return {
-      sucsess: true,
-    };
+    return successResponse(null);
   }
 
   async checkUserAccess(watchlistId: number, userId: number) {
