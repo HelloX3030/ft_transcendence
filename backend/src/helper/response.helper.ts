@@ -1,4 +1,4 @@
-import { apiResponse } from 'src/types/helper';
+import { apiResponse } from '@trailertinder/shared';
 
 export function successResponse<T>(
   data: T | null,

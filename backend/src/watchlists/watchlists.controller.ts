@@ -19,9 +19,10 @@ import {
 } from '@nestjs/swagger';
 import { WatchlistsService } from './watchlists.service';
 import type { Request as ExpressRequest } from 'express';
-import { JwtAccessPayload } from 'src/types';
 import { watchlistCreateDto } from './dto';
 import { movieDto } from './dto/movie.dto';
+import { JwtAccessPayload } from 'src/types';
+
 @ApiTags('Watchlists')
 @ApiBearerAuth()
 @Controller('watchlists')
