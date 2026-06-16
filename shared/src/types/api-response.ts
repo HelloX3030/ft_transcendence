@@ -1,5 +1,5 @@
 export interface apiResponse<T> {
-  success: true;
+  success: boolean;
   message?: string;
   error?: string;
   statusCode?: number;
