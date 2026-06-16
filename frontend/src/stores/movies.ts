@@ -22,21 +22,36 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
   const hasMore = ref(false);
   const status = ref<FetchStatus>('idle');
 
+  // Bumped on every (re)load and reset. A slower in-flight request that resolves
+  // after the feed has moved on (filter toggled mid-scroll, search cleared/replaced)
+  // sees a stale token and drops its result instead of corrupting the list.
+  let generation = 0;
+
+  // Filtering can drop every movie on a page while TMDB still reports more pages.
+  // Without a bound, infinite scroll would walk those empty pages back-to-back.
+  // After this many empty pages in a row we treat the feed as exhausted.
+  const MAX_EMPTY_PAGES = 3;
+  let emptyPageStreak = 0;
+
   // (Re)loads page 1, replacing any existing results. Clears immediately so the
   // view shows skeletons (not stale entries) while loading and stays empty on
   // error. Returns the response so callers can read extra fields (e.g. total).
   async function load(): Promise<PaginatedMovies | undefined> {
+    const gen = ++generation;
+    status.value = 'loading';
+    page.value = 1;
+    items.value = [];
+    hasMore.value = false;
+    emptyPageStreak = 0;
     try {
-      status.value = 'loading';
-      page.value = 1;
-      items.value = [];
-      hasMore.value = false;
       const data = await fetchPage(1);
+      if (gen !== generation) return undefined;
       items.value = data.results;
       hasMore.value = data.hasMore;
       status.value = 'ready';
       return data;
     } catch (error) {
+      if (gen !== generation) return undefined;
       console.error(error);
       status.value = 'error';
       return undefined;
@@ -46,25 +61,32 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
   // Loads the next page and appends to the existing results (infinite scroll).
   async function loadMore(): Promise<void> {
     if (status.value === 'loading' || !hasMore.value) return;
+    const gen = generation;
+    status.value = 'loading';
+    const nextPage = page.value + 1;
     try {
-      status.value = 'loading';
-      const nextPage = page.value + 1;
       const data = await fetchPage(nextPage);
+      if (gen !== generation) return;
       page.value = nextPage;
       items.value = [...items.value, ...data.results];
-      hasMore.value = data.hasMore;
+      emptyPageStreak = data.results.length === 0 ? emptyPageStreak + 1 : 0;
+      // Stop once TMDB has no more pages, or after too many filtered-empty ones.
+      hasMore.value = data.hasMore && emptyPageStreak < MAX_EMPTY_PAGES;
       status.value = 'ready';
     } catch (error) {
+      if (gen !== generation) return;
       console.error(error);
       status.value = 'error';
     }
   }
 
   function reset(): void {
+    generation++;
     items.value = [];
     page.value = 1;
     hasMore.value = false;
     status.value = 'idle';
+    emptyPageStreak = 0;
   }
 
   return { items, page, hasMore, status, load, loadMore, reset };
