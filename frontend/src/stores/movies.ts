@@ -12,129 +12,150 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export const useMoviesStore = defineStore('movies', () => {
-  // Popular list — loaded once per visit, shown as the default browse state.
-  const popular = ref<TmdbMovie[]>([]);
-  const popularStatus = ref<FetchStatus>('idle');
+// A paginated, append-as-you-scroll movie collection. Popular and search are the
+// same machine — they differ only in which URL a page maps to — so both are built
+// from this one factory. `fetchPage` reads any live state (query, filter) at call
+// time, so callers just flip those refs and (re)load.
+function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) {
+  const items = ref<TmdbMovie[]>([]);
+  const page = ref(1);
+  const hasMore = ref(false);
+  const status = ref<FetchStatus>('idle');
 
-  // Active search session — drives pagination/infinite scroll of the results.
-  const searchQuery = ref('');
-  const searchResults = ref<TmdbMovie[]>([]);
-  const searchPage = ref(1);
-  const searchHasMore = ref(false);
-  const searchStatus = ref<FetchStatus>('idle');
-  // TMDB's total match count for the current query (see backend caveat: unfiltered).
-  const searchTotal = ref(0);
-
-  // Whether the popularity/poster quality filter is applied (user toggle).
-  const filtered = ref(true);
-
-  const isSearching = computed(() => searchQuery.value !== '');
-  const resultCount = computed(() => searchResults.value.length);
-
-  async function loadPopular() {
+  // (Re)loads page 1, replacing any existing results. Clears immediately so the
+  // view shows skeletons (not stale entries) while loading and stays empty on
+  // error. Returns the response so callers can read extra fields (e.g. total).
+  async function load(): Promise<PaginatedMovies | undefined> {
     try {
-      popularStatus.value = 'loading';
-      const data = await fetchJson<PaginatedMovies>(`/v1/tmdb/popular?filtered=${filtered.value}`);
-      popular.value = data.results;
-      popularStatus.value = 'ready';
+      status.value = 'loading';
+      page.value = 1;
+      items.value = [];
+      hasMore.value = false;
+      const data = await fetchPage(1);
+      items.value = data.results;
+      hasMore.value = data.hasMore;
+      status.value = 'ready';
+      return data;
     } catch (error) {
       console.error(error);
-      popularStatus.value = 'error';
+      status.value = 'error';
+      return undefined;
     }
+  }
+
+  // Loads the next page and appends to the existing results (infinite scroll).
+  async function loadMore(): Promise<void> {
+    if (status.value === 'loading' || !hasMore.value) return;
+    try {
+      status.value = 'loading';
+      const nextPage = page.value + 1;
+      const data = await fetchPage(nextPage);
+      page.value = nextPage;
+      items.value = [...items.value, ...data.results];
+      hasMore.value = data.hasMore;
+      status.value = 'ready';
+    } catch (error) {
+      console.error(error);
+      status.value = 'error';
+    }
+  }
+
+  function reset(): void {
+    items.value = [];
+    page.value = 1;
+    hasMore.value = false;
+    status.value = 'idle';
+  }
+
+  return { items, page, hasMore, status, load, loadMore, reset };
+}
+
+export const useMoviesStore = defineStore('movies', () => {
+  // Whether the quality filter (poster + vote count/average) is applied — shared
+  // by both feeds and part of each request URL (user toggle).
+  const filtered = ref(true);
+
+  // Popular list — the default browse state, paginated like search.
+  const popularFeed = createMovieFeed((page) =>
+    fetchJson<PaginatedMovies>(`/v1/tmdb/popular?page=${page}&filtered=${filtered.value}`),
+  );
+
+  // Active search session — the query drives which results the feed fetches.
+  const searchQuery = ref('');
+  // TMDB's total match count for the current query (see backend caveat: unfiltered).
+  const searchTotal = ref(0);
+  const searchFeed = createMovieFeed((page) =>
+    fetchJson<PaginatedMovies>(
+      `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${page}&filtered=${filtered.value}`,
+    ),
+  );
+
+  const isSearching = computed(() => searchQuery.value !== '');
+  const resultCount = computed(() => searchFeed.items.value.length);
+
+  function loadPopular(): Promise<unknown> {
+    return popularFeed.load();
   }
 
   // Ends the active search session and clears its results — views fall back to
   // the popular list.
-  function resetSearch() {
+  function resetSearch(): void {
     searchQuery.value = '';
-    searchPage.value = 1;
-    searchResults.value = [];
-    searchHasMore.value = false;
     searchTotal.value = 0;
-    searchStatus.value = 'idle';
+    searchFeed.reset();
   }
 
   // Starts a fresh search: resets to page 1 and replaces the previous results.
   // An empty (or whitespace) query clears the search instead — the backend
   // rejects empty queries.
-  async function search(input: string) {
+  async function search(input: string): Promise<void> {
     const query = input.trim();
     if (!query) {
       resetSearch();
       return;
     }
-    try {
-      searchStatus.value = 'loading';
-      searchQuery.value = query;
-      searchPage.value = 1;
-      // Replace the previous query's results immediately so the grid shows
-      // skeletons (not stale entries) while loading and stays empty on error.
-      searchResults.value = [];
-      searchHasMore.value = false;
-      searchTotal.value = 0;
-      const data = await fetchJson<PaginatedMovies>(
-        `/v1/tmdb/search?query=${encodeURIComponent(query)}&page=1&filtered=${filtered.value}`,
-      );
-      searchResults.value = data.results;
-      searchHasMore.value = data.hasMore;
-      searchTotal.value = data.totalResults;
-      searchStatus.value = 'ready';
-    } catch (error) {
-      console.error(error);
-      searchStatus.value = 'error';
-    }
+    searchQuery.value = query;
+    searchTotal.value = 0;
+    const data = await searchFeed.load();
+    if (data) searchTotal.value = data.totalResults;
   }
 
   // Retries the current view after a failure: re-runs the active search (from
   // page 1) when searching, otherwise reloads the popular list.
-  function refresh() {
+  function refresh(): void {
     if (isSearching.value) void search(searchQuery.value);
     else void loadPopular();
   }
 
   // Toggles the result filter and rebuilds the currently shown view (from page 1)
   // so filtered and unfiltered pages never mix in one list.
-  function setFiltered(value: boolean) {
+  function setFiltered(value: boolean): void {
     if (value === filtered.value) return;
     filtered.value = value;
     refresh();
   }
 
-  // Loads the next page of the current search and appends to the existing results.
-  async function loadMore() {
-    if (searchStatus.value === 'loading' || !searchQuery.value || !searchHasMore.value) return;
-    try {
-      searchStatus.value = 'loading';
-      const nextPage = searchPage.value + 1;
-      const data = await fetchJson<PaginatedMovies>(
-        `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${nextPage}&filtered=${filtered.value}`,
-      );
-      searchPage.value = nextPage;
-      searchResults.value = [...searchResults.value, ...data.results];
-      searchHasMore.value = data.hasMore;
-      searchStatus.value = 'ready';
-    } catch (error) {
-      console.error(error);
-      searchStatus.value = 'error';
-    }
-  }
-
   return {
-    popular,
-    popularStatus,
+    // Popular feed
+    popular: popularFeed.items,
+    popularStatus: popularFeed.status,
+    popularHasMore: popularFeed.hasMore,
+    loadPopular,
+    loadMorePopular: popularFeed.loadMore,
+    // Search feed
+    searchResults: searchFeed.items,
+    searchPage: searchFeed.page,
+    searchHasMore: searchFeed.hasMore,
+    searchStatus: searchFeed.status,
+    loadMore: searchFeed.loadMore,
+    // Search session meta
     searchQuery,
-    searchResults,
-    searchPage,
-    searchHasMore,
-    searchStatus,
     searchTotal,
-    filtered,
     isSearching,
     resultCount,
-    loadPopular,
+    // Shared
+    filtered,
     search,
-    loadMore,
     refresh,
     resetSearch,
     setFiltered,

@@ -18,6 +18,7 @@ const store = useMoviesStore();
 const {
   popular,
   popularStatus,
+  popularHasMore,
   searchResults,
   searchHasMore,
   searchStatus,
@@ -26,10 +27,17 @@ const {
 } = storeToRefs(store);
 
 // Show one collection at a time: search results when searching, else popular.
+// The view only ever talks to the "active" feed, so infinite scroll, the
+// end-of-list footer and retry all work the same regardless of which is shown.
 const displayMovies = computed(() => (isSearching.value ? searchResults.value : popular.value));
 const displayStatus = computed(() =>
   isSearching.value ? searchStatus.value : popularStatus.value,
 );
+const activeHasMore = computed(() =>
+  isSearching.value ? searchHasMore.value : popularHasMore.value,
+);
+const loadMoreActive = (): Promise<void> =>
+  isSearching.value ? store.loadMore() : store.loadMorePopular();
 // Header shows how many results are currently loaded (the total lives in the
 // search box). Popular browsing has no count.
 const sectionLabel = computed(() =>
@@ -48,9 +56,7 @@ const isPaginating = computed(() => showLoading.value && displayMovies.value.len
 const noResults = computed(
   () => isSearching.value && searchStatus.value === 'ready' && searchResults.value.length === 0,
 );
-const reachedEnd = computed(
-  () => isSearching.value && !searchHasMore.value && searchResults.value.length > 0,
-);
+const reachedEnd = computed(() => !activeHasMore.value && displayMovies.value.length > 0);
 
 const SKELETON_COUNT = 12;
 
@@ -79,14 +85,9 @@ onBeforeUnmount(() => {
   observer?.disconnect();
 });
 
-watch([sentinelVisible, isSearching, searchHasMore, searchStatus], () => {
-  if (
-    sentinelVisible.value &&
-    isSearching.value &&
-    searchHasMore.value &&
-    searchStatus.value === 'ready'
-  ) {
-    void store.loadMore();
+watch([sentinelVisible, isSearching, activeHasMore, displayStatus], () => {
+  if (sentinelVisible.value && activeHasMore.value && displayStatus.value === 'ready') {
+    void loadMoreActive();
   }
 });
 
@@ -94,7 +95,7 @@ watch([sentinelVisible, isSearching, searchHasMore, searchStatus], () => {
 // (append) rather than reloading from page 1; a failed initial load has nothing
 // to preserve, so reload from scratch.
 function onRetry() {
-  if (isSearching.value && displayMovies.value.length > 0) void store.loadMore();
+  if (displayMovies.value.length > 0) void loadMoreActive();
   else store.refresh();
 }
 </script>
