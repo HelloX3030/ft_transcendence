@@ -77,7 +77,10 @@ const sentinelVisible = ref(false);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
-  store.loadPopular();
+  // The popular feed lives in the store and survives navigation, so only fetch
+  // it the first time it's needed — remounting (e.g. returning to this view)
+  // keeps the already-loaded pages and scroll position instead of resetting.
+  if (popularStatus.value === 'idle') store.loadPopular();
   observer = new IntersectionObserver(
     (entries) => {
       sentinelVisible.value = entries[0]?.isIntersecting ?? false;
