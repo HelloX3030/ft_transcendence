@@ -3,10 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistDto, watchlistsDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
+import { movieDto } from './dto/movie.dto';
+import { rmSync } from 'fs';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 export const WATCHLIST_SELECT = {
   role: true,
@@ -27,10 +31,10 @@ export class WatchlistsService {
       })
     ).map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist));
     if (watchlists === null) throw new InternalServerErrorException();
-    return { watchlists: watchlists };
+    return { data: watchlists };
   }
 
-  async findOne(id: number, userId: number): Promise<{ watchlist: watchlistDto }> {
+  async findOne(id: number, userId: number): Promise<{ data: watchlistDto }> {
     const userWatchlist = await this.prisma.watchlist_users.findUnique({
       where: {
         watchlistId_userId: { watchlistId: id, userId: userId },
@@ -39,10 +43,10 @@ export class WatchlistsService {
     });
     if (userWatchlist === null) throw new BadRequestException();
     const watchlist = this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
-    return { watchlist: watchlist };
+    return { data: watchlist };
   }
 
-  async create(dto: watchlistCreateDto, userId: number): Promise<{ watchlist: watchlistDto }> {
+  async create(dto: watchlistCreateDto, userId: number): Promise<{ data: watchlistDto }> {
     const watchlist = await this.prisma.watchlists.create({
       data: {
         name: dto.name,
@@ -58,14 +62,14 @@ export class WatchlistsService {
       },
     });
     if (userWatchlist === null) throw new InternalServerErrorException();
-    return { watchlist: this.toWatchlistDto(userWatchlist.role, watchlist) };
+    return { data: this.toWatchlistDto(userWatchlist.role, watchlist) };
   }
 
   async update(
     id: number,
     dto: watchlistUpdateDto,
     userId: number,
-  ): Promise<{ watchlist: watchlistDto }> {
+  ): Promise<{ data: watchlistDto }> {
     const watchlistUser = await this.checkUserAccess(id, userId);
     if (watchlistUser.role === 'viewer') {
       throw new ForbiddenException('You have read-only access');
@@ -80,7 +84,7 @@ export class WatchlistsService {
       },
     });
     return {
-      watchlist: this.toWatchlistDto(watchlistUser.role, watchlist),
+      data: this.toWatchlistDto(watchlistUser.role, watchlist),
     };
   }
 
@@ -96,6 +100,89 @@ export class WatchlistsService {
     });
     return {
       message: 'Deleted successfully',
+    };
+  }
+
+  async getMovies(id: number, userId: number) {
+    await this.checkUserAccess(id, userId);
+    const movies = await this.prisma.watchlist_movies.findMany({
+      where: {
+        watchlistId: id,
+      },
+      select: {
+        movie: true,
+      },
+    });
+    if (movies === null) throw new InternalServerErrorException();
+    return { data: movies.map(({ movie }) => movie) };
+  }
+
+  async addMovie(id: number, dto: movieDto, userId: number) {
+    const watchlistUser = await this.checkUserAccess(id, userId);
+    if (watchlistUser.role === 'viewer') {
+      throw new ForbiddenException('You have read-only access');
+    }
+    let movie = await this.prisma.movies.findUnique({
+      where: {
+        tmdbId: dto.tmdbId,
+      },
+    });
+    if (movie === null) {
+      const movieTitel = await this.getMovieTitel(dto.tmdbId);
+      movie = await this.prisma.movies.create({
+        data: {
+          tmdbId: dto.tmdbId,
+          name: movieTitel,
+        },
+      });
+      if (movie === null) throw new InternalServerErrorException();
+    }
+
+    try {
+      const watchlistMovie = await this.prisma.watchlist_movies.create({
+        data: {
+          watchlistId: id,
+          movieId: movie.id,
+        },
+      });
+      if (watchlistMovie === null) throw new InternalServerErrorException();
+      return { sucsess: true };
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ForbiddenException('Movie already added');
+        }
+      }
+      console.error(error);
+      throw new InternalServerErrorException();
+    }
+  }
+
+  async removeMovie(id: number, movieId: number, userId: number): Promise<{ sucsess: boolean }> {
+    const watchlistUser = await this.checkUserAccess(id, userId);
+    if (watchlistUser.role === 'viewer') {
+      throw new ForbiddenException('You have read-only access');
+    }
+    try {
+      await this.prisma.watchlist_movies.delete({
+        where: {
+          watchlistId_movieId: {
+            watchlistId: id,
+            movieId: movieId,
+          },
+        },
+      });
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Movie not found.');
+        }
+      }
+      console.error(error);
+      throw new InternalServerErrorException();
+    }
+    return {
+      sucsess: true,
     };
   }
 
@@ -123,5 +210,31 @@ export class WatchlistsService {
       createdAt: watchlistDb.createdAt,
     };
     return watchlist;
+  }
+
+  async getMovieTitel(tmdbId: number) {
+    const url = 'https://api.themoviedb.org/3/movie/' + tmdbId;
+    const options = {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
+      },
+    };
+
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(`TMDB API error: ${res.status}`);
+      const json = await res.json();
+
+      if (typeof json !== 'object' || json === null || typeof json.original_title !== 'string') {
+        throw new Error('Invalid TMDB API response');
+      }
+
+      return json.original_title;
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException();
+    }
   }
 }
