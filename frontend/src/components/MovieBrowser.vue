@@ -53,8 +53,14 @@ const showLoading = useDelayedLoading(isLoading);
 // an existing list (pagination).
 const showSkeletons = computed(() => showLoading.value && displayMovies.value.length === 0);
 const isPaginating = computed(() => showLoading.value && displayMovies.value.length > 0);
+// Only "no results" once the search has actually run dry — a fully filtered-out
+// first page (still more pages to come) keeps paginating instead of flashing this.
 const noResults = computed(
-  () => isSearching.value && searchStatus.value === 'ready' && searchResults.value.length === 0,
+  () =>
+    isSearching.value &&
+    searchStatus.value === 'ready' &&
+    searchResults.value.length === 0 &&
+    !searchHasMore.value,
 );
 const reachedEnd = computed(() => !activeHasMore.value && displayMovies.value.length > 0);
 
