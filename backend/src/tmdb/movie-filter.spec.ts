@@ -1,8 +1,8 @@
-import { MIN_POPULARITY, filterMovies } from './movie-filter';
+import { MIN_VOTE_AVERAGE, MIN_VOTE_COUNT, filterMovies } from './movie-filter';
 import { makeMovie } from './tmdb.fixtures';
 
 describe('filterMovies', () => {
-  it('keeps movies with a poster and popularity at or above the threshold', () => {
+  it('keeps movies with a poster, enough votes, and a rating above the floor', () => {
     const movies = [makeMovie({ id: 1 }), makeMovie({ id: 2 })];
 
     expect(filterMovies(movies)).toEqual(movies);
@@ -15,21 +15,36 @@ describe('filterMovies', () => {
     expect(filterMovies([withPoster, withoutPoster])).toEqual([withPoster]);
   });
 
-  it('drops movies below the popularity threshold', () => {
-    const popular = makeMovie({ id: 1, popularity: MIN_POPULARITY + 5 });
-    const obscure = makeMovie({ id: 2, popularity: MIN_POPULARITY - 5 });
+  it('drops movies below the vote count threshold', () => {
+    const established = makeMovie({ id: 1, vote_count: MIN_VOTE_COUNT + 5 });
+    const obscure = makeMovie({ id: 2, vote_count: MIN_VOTE_COUNT - 5 });
 
-    expect(filterMovies([popular, obscure])).toEqual([popular]);
+    expect(filterMovies([established, obscure])).toEqual([established]);
   });
 
-  it('keeps movies exactly at the popularity threshold', () => {
-    const boundary = makeMovie({ id: 1, popularity: MIN_POPULARITY });
+  it('drops movies below the vote average threshold', () => {
+    const decent = makeMovie({ id: 1, vote_average: MIN_VOTE_AVERAGE + 1 });
+    const panned = makeMovie({ id: 2, vote_average: MIN_VOTE_AVERAGE - 1 });
+
+    expect(filterMovies([decent, panned])).toEqual([decent]);
+  });
+
+  it('keeps movies exactly at the thresholds', () => {
+    const boundary = makeMovie({
+      id: 1,
+      vote_count: MIN_VOTE_COUNT,
+      vote_average: MIN_VOTE_AVERAGE,
+    });
 
     expect(filterMovies([boundary])).toEqual([boundary]);
   });
 
   it('returns an empty array when every movie is filtered out', () => {
-    const junk = [makeMovie({ id: 1, poster_path: null }), makeMovie({ id: 2, popularity: 0 })];
+    const junk = [
+      makeMovie({ id: 1, poster_path: null }),
+      makeMovie({ id: 2, vote_count: 0 }),
+      makeMovie({ id: 3, vote_average: 0 }),
+    ];
 
     expect(filterMovies(junk)).toEqual([]);
   });
