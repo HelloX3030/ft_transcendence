@@ -51,5 +51,5 @@ export class watchlistDto {
 
 export class watchlistsDto {
   @IsNotEmpty()
-  watchlists!: watchlistDto[];
+  data!: watchlistDto[];
 }

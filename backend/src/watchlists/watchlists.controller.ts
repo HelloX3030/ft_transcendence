@@ -21,6 +21,7 @@ import { WatchlistsService } from './watchlists.service';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAccessPayload } from 'src/types';
 import { watchlistCreateDto } from './dto';
+import { movieDto } from './dto/movie.dto';
 @ApiTags('Watchlists')
 @ApiBearerAuth()
 @Controller('watchlists')
@@ -75,5 +76,45 @@ export class WatchlistsController {
   remove(@Param('id', ParseIntPipe) id: number, @Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
     return this.watchlistsService.remove(id, user.sub);
+  }
+
+  // -------------------------
+  // MOVIES
+  // -------------------------
+
+  @Get(':id/movies')
+  @ApiOperation({ summary: 'Get movies in watchlist' })
+  getMovies(@Param('id', ParseIntPipe) id: number, @Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.getMovies(id, user.sub);
+  }
+
+  @Post(':id/movies')
+  @ApiOperation({ summary: 'Add movie to watchlist' })
+  @ApiBody({
+    schema: {
+      example: {
+        tmdbId: 123,
+      },
+    },
+  })
+  addMovie(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: movieDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.addMovie(id, dto, user.sub);
+  }
+
+  @Delete(':id/movies/:movieId')
+  @ApiOperation({ summary: 'Remove movie from watchlist' })
+  removeMovie(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('movieId', ParseIntPipe) movieId: number,
+    @Request() req: ExpressRequest,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.removeMovie(id, movieId, user.sub);
   }
 }
