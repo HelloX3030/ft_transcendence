@@ -15,6 +15,7 @@ from zlib import crc32
 import httpx
 
 from .config import DEFAULT_CONFIG, RecommenderConfig
+from .schemas import MovieMetadata
 
 _TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
 
@@ -123,15 +124,24 @@ async def _fetch_page(
     params: dict,
     api_key: str,
     page: int,
-) -> list[int]:
-    """Fetch one Discover page. Returns the TMDB movie IDs on that page."""
+) -> list[MovieMetadata]:
+    """Fetch one Discover page. Returns MovieMetadata for each result."""
     response = await client.get(
         _TMDB_DISCOVER_URL,
         params={**params, "page": page, "api_key": api_key},
         timeout=10.0,
     )
     response.raise_for_status()
-    return [movie["id"] for movie in response.json().get("results", [])]
+    return [
+        MovieMetadata(
+            tmdb_id=movie["id"],
+            genre_ids=movie.get("genre_ids", []),
+            overview=movie.get("overview", ""),
+            release_date=movie.get("release_date"),
+            vote_average=float(movie.get("vote_average", 0.0)),
+        )
+        for movie in response.json().get("results", [])
+    ]
 
 
 async def fetch_candidates(
@@ -142,9 +152,9 @@ async def fetch_candidates(
     config: RecommenderConfig = DEFAULT_CONFIG,
     api_key: str | None = None,
     _client: httpx.AsyncClient | None = None,
-) -> list[int]:
+) -> list[MovieMetadata]:
     """
-    Fetch candidate TMDB movie IDs from the Discover endpoint.
+    Fetch candidate movies from the TMDB Discover endpoint.
 
     Fetches config.tmdb_pages pages in parallel starting from params["page"].
     Filters out IDs in exclude. Keeps adding pages one at a time until the
@@ -153,14 +163,14 @@ async def fetch_candidates(
 
     Args:
         params:    TMDB Discover query parameters (from profile_to_params).
-        exclude:   IDs to drop — already-seen films, dislikes, etc.
+        exclude:   TMDB movie IDs to drop — already-seen films, dislikes, etc.
         min_pool:  Target pool size before stopping the refill loop.
         config:    Hyperparameters (tmdb_pages, etc.).
         api_key:   TMDB API key; falls back to the TMDB_API_KEY env var.
         _client:   Injected httpx client (tests only — skips context-manager).
 
     Returns:
-        Deduplicated list of TMDB movie IDs, ordered by discovery order.
+        Deduplicated list of MovieMetadata, ordered by discovery order.
 
     Raises:
         RuntimeError: If no API key is available at call time.
@@ -172,9 +182,9 @@ async def fetch_candidates(
     exclude_set = set(exclude)
     base_page = int(params.get("page", 1))
 
-    async def _run(client: httpx.AsyncClient) -> list[int]:
+    async def _run(client: httpx.AsyncClient) -> list[MovieMetadata]:
         seen_in_pool: set[int] = set()
-        pool: list[int] = []
+        pool: list[MovieMetadata] = []
 
         # Parallel initial burst.
         initial_pages = range(base_page, base_page + config.tmdb_pages)
@@ -185,10 +195,10 @@ async def fetch_candidates(
         for result in results:
             if isinstance(result, Exception):
                 continue
-            for mid in result:
-                if mid not in exclude_set and mid not in seen_in_pool:
-                    seen_in_pool.add(mid)
-                    pool.append(mid)
+            for movie in result:
+                if movie.tmdb_id not in exclude_set and movie.tmdb_id not in seen_in_pool:
+                    seen_in_pool.add(movie.tmdb_id)
+                    pool.append(movie)
 
         # Refill one page at a time until pool is large enough.
         # TMDB caps results at page 500.
@@ -200,10 +210,10 @@ async def fetch_candidates(
                 break
             if not batch:
                 break
-            for mid in batch:
-                if mid not in exclude_set and mid not in seen_in_pool:
-                    seen_in_pool.add(mid)
-                    pool.append(mid)
+            for movie in batch:
+                if movie.tmdb_id not in exclude_set and movie.tmdb_id not in seen_in_pool:
+                    seen_in_pool.add(movie.tmdb_id)
+                    pool.append(movie)
             next_page += 1
 
         return pool
@@ -234,7 +244,7 @@ class TMDBBridgeImpl:
 
     async def fetch_candidates(
         self, params: dict, exclude: list[int], min_pool: int = 20
-    ) -> list[int]:
+    ) -> list[MovieMetadata]:
         return await fetch_candidates(
             params, exclude, min_pool=min_pool, config=self._cfg, api_key=self._key
         )
