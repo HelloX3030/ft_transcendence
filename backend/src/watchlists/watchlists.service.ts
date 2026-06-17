@@ -354,9 +354,14 @@ export class WatchlistsService {
     try {
       const res = await fetch(url, options);
       if (!res.ok) throw new Error(`TMDB API error: ${res.status}`);
-      const json = await res.json();
+      const json: unknown = (await res.json()) as unknown;
 
-      if (typeof json !== 'object' || json === null || typeof json.original_title !== 'string') {
+      if (
+        typeof json !== 'object' ||
+        json === null ||
+        !('original_title' in json) ||
+        typeof json.original_title !== 'string'
+      ) {
         throw new Error('Invalid TMDB API response.');
       }
 
