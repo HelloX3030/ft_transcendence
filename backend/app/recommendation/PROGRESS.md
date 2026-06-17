@@ -72,7 +72,7 @@ recommendation/
 | `schemas.py` | Done | |
 | `engine.py` | Done | Pipeline fully wired; depends on real module implementations |
 | `main.py` | Done | Endpoints wired to engine; CF + TMDB are inline stubs (see Gaps) |
-| `content_based.py` | Partial | Profile dataclass + cache done; `content_score` + `update_profile` are stubs |
+| `content_based.py` | Done | Genre cosine similarity + TF-IDF overview scoring + full `update_profile` with metadata |
 | `engagement.py` | Done | |
 | `diversifier.py` | Done | `movie_ages` and `record_served` not yet wired (see Gaps) |
 | `collaborative.py` | Not started | SVD matrix factorization + predict |
@@ -140,9 +140,11 @@ The endpoint accepts a `secret` query param but does not verify it and does noth
 `TMDBBridgeImpl` is production-ready. Wire into `main.py` by replacing `_TMDBStub` with
 `TMDBBridgeImpl()` once `TMDB_API_KEY` is available in the Docker environment.
 
-**2. `content_based.py` — vector math**
-Implement `content_score` and `update_profile` once TMDB data flows through `tmdb_bridge.py`.
-Cosine similarity on feature vectors + TF-IDF on candidate overviews.
+**2. ~~`content_based.py` — vector math~~ — Done.**
+Genre cosine similarity + per-request TF-IDF on candidate overviews, beta-blended.
+`update_profile` populates genre_weights and liked_overviews when the engine passes
+movie metadata from its cache. Known gap: cast/keyword weights require separate TMDB
+detail calls (not from Discover) — tracked below.
 
 **3. `collaborative.py`**
 SVD matrix factorization. Implement full structure (load/save checkpoint, `predict`) with a
@@ -160,6 +162,15 @@ Nightly SVD retrain job. Last — depends on `collaborative.py` being stable.
 ## Worklog
 
 > One entry per working session — what landed, in one or two lines. Details live in the sections above.
+
+**2026-06-17** — `content_based.py` vector math implemented: genre cosine similarity
+(sparse weight dict vs binary candidate vectors) + per-request TF-IDF on candidate
+overviews (sklearn, fitted on pool only per spec), beta-blended. `update_profile` populates
+genre_weights and liked_overviews from engine-cached `MovieMetadata`. Engine now wires
+movie_ages (freshness boost) and `record_served` (genre history). `MovieMetadata` dataclass
+added to `schemas.py` and flows through tmdb_bridge → engine → content scoring. 18 new
+tests in `test_content_based.py`; fetch_candidates tests updated for MovieMetadata.
+36 tests total, all pass.
 
 **2026-06-17** — `tmdb_bridge.py` part 2: `fetch_candidates` implemented (async, 3-page parallel
 `asyncio.gather`, dedup against `seen_ids`, page refill until `min_pool` reached, graceful skip
