@@ -1,6 +1,23 @@
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+# ---------------------------------------------------------------------------
+# Internal data types
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MovieMetadata:
+    """Per-movie data from TMDB Discover. Flows through the pipeline for scoring and freshness."""
+
+    tmdb_id: int
+    genre_ids: list[int] = field(default_factory=list)
+    overview: str = ""
+    release_date: str | None = None
+    vote_average: float = 0.0
 
 
 # ---------------------------------------------------------------------------
