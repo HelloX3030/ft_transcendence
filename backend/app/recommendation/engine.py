@@ -46,7 +46,7 @@ class Diversifier(Protocol):
 
 class TMDBBridge(Protocol):
     def profile_to_params(self, profile: UserProfile, diversify: bool) -> dict: ...
-    def fetch_candidates(self, params: dict, exclude: list[int]) -> list[int]: ...
+    async def fetch_candidates(self, params: dict, exclude: list[int], min_pool: int = 20) -> list[int]: ...
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class RecommenderEngine:
         self._tmdb = tmdb_bridge
         self._cfg = config
 
-    def get_feed(
+    async def get_feed(
         self,
         user_id: str,
         limit: int = 10,
@@ -88,7 +88,9 @@ class RecommenderEngine:
 
         diversify = self._diversifier.should_diversify(user_id)
         tmdb_params = self._tmdb.profile_to_params(profile, diversify=diversify)
-        candidate_ids = self._tmdb.fetch_candidates(tmdb_params, exclude=seen)
+        candidate_ids = await self._tmdb.fetch_candidates(
+            tmdb_params, exclude=seen, min_pool=limit * self._cfg.min_pool_ratio
+        )
 
         scored = self._hybrid_score(user_id, candidate_ids, profile)
         scored = self._engagement.apply_signals(user_id, scored)

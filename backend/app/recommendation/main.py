@@ -38,7 +38,7 @@ class _TMDBStub:
     def profile_to_params(self, profile, diversify: bool) -> dict:  # type: ignore[override]
         return profile_to_params(profile, diversify=diversify)
 
-    def fetch_candidates(self, params: dict, exclude: list[int]) -> list[int]:
+    async def fetch_candidates(self, params: dict, exclude: list[int], min_pool: int = 20) -> list[int]:
         return [mid for mid in self._POOL if mid not in exclude]
 
 
@@ -85,7 +85,7 @@ async def health() -> HealthResponse:
 @app.post("/feed", response_model=list[ScoredMovie])
 async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
     # seen_ids: always None for now — wired to DB once user_interactions is queryable.
-    return _get_engine().get_feed(user_id=request.user_id, limit=request.limit)
+    return await _get_engine().get_feed(user_id=request.user_id, limit=request.limit)
 
 
 @app.post("/signal", status_code=204)
