@@ -137,7 +137,7 @@ export class WatchlistsController {
     schema: {
       example: {
         userId: 42,
-        role: 'MEMBER',
+        role: 'editor',
       },
     },
   })
