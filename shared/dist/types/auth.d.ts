@@ -1,13 +1,18 @@
-export interface JwtAccessPayload {
-    sub: number;
+export type LanguageCode = 'de' | 'en' | 'es';
+export interface LoginRequest {
     email: string;
+    password: string;
 }
-export interface JwtRefreshPayload {
-    sub: number;
-    sessionId: number;
-    session: string;
+export interface RegisterRequest {
+    username: string;
+    email: string;
+    password: string;
+    language: LanguageCode;
 }
-export interface JwtTokens {
-    access_token: string;
-    refresh_token: string;
+export interface AuthUserResponse {
+    id: number;
+    username: string;
+    email: string;
+    language: LanguageCode;
+    image: string | null;
 }

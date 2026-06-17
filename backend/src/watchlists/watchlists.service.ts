@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -51,27 +52,32 @@ export class WatchlistsService {
     return successResponse(watchlist);
   }
 
-  // todo: error handling if the watchlist exists alrady
   async create(dto: watchlistCreateDto, currentUserId: number) {
-    const watchlist = await this.prisma.watchlists.create({
-      data: {
-        name: dto.name,
-        image: dto.image,
-      },
-    });
-    if (watchlist === null) throw new InternalServerErrorException();
-    const userWatchlist = await this.prisma.watchlist_users.create({
-      data: {
-        userId: currentUserId,
-        watchlistId: watchlist.id,
-        role: 'editor',
-      },
-    });
-    if (userWatchlist === null) throw new InternalServerErrorException();
-    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
+    try {
+      const watchlist = await this.prisma.watchlists.create({
+        data: {
+          name: dto.name,
+          image: dto.image,
+        },
+      });
+      const userWatchlist = await this.prisma.watchlist_users.create({
+        data: {
+          userId: currentUserId,
+          watchlistId: watchlist.id,
+          role: 'editor',
+        },
+      });
+      return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException();
+    }
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
+    if (dto.name === undefined && dto.image === undefined) {
+      throw new BadRequestException('There is no data to update.');
+    }
     const watchlistUser = await this.checkUserAccess(id, currentUserId);
     const watchlist = await this.prisma.watchlists.update({
       where: {
@@ -206,14 +212,13 @@ export class WatchlistsService {
   async addUser(id: number, dto: watchlistUserDto, currentUserId: number) {
     await this.checkUserAccess(id, currentUserId);
 
-    let userToAdd = await this.prisma.users.findUnique({
+    const userToAdd = await this.prisma.users.findUnique({
       where: {
         id: dto.userId,
       },
     });
     if (userToAdd === null) {
-      // todo: add error handeling if user dos not exist.
-      throw new InternalServerErrorException();
+      throw new NotFoundException('User not found.');
     }
 
     try {
