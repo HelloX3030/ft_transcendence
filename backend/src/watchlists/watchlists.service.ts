@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -58,15 +57,18 @@ export class WatchlistsService {
         data: {
           name: dto.name,
           image: dto.image,
+          watchlistUsers: {
+            create: {
+              userId: currentUserId,
+              role: 'editor',
+            },
+          },
+        },
+        include: {
+          watchlistUsers: true,
         },
       });
-      const userWatchlist = await this.prisma.watchlist_users.create({
-        data: {
-          userId: currentUserId,
-          watchlistId: watchlist.id,
-          role: 'editor',
-        },
-      });
+      const userWatchlist = watchlist.watchlistUsers[0];
       return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
     } catch (error) {
       console.error(error);
@@ -116,7 +118,7 @@ export class WatchlistsService {
   // -------------------------
 
   async getMovies(id: number, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
+    await this.checkUserAccess(id, currentUserId, false);
     const movies = await this.prisma.watchlist_movies.findMany({
       where: {
         watchlistId: id,
@@ -137,14 +139,18 @@ export class WatchlistsService {
       },
     });
     if (movie === null) {
-      const movieTitel = await this.getMovieTitel(dto.tmdbId);
-      movie = await this.prisma.movies.create({
-        data: {
-          tmdbId: dto.tmdbId,
-          name: movieTitel,
-        },
-      });
-      if (movie === null) throw new InternalServerErrorException();
+      try {
+        const movieTitel = await this.getMovieTitel(dto.tmdbId);
+        movie = await this.prisma.movies.create({
+          data: {
+            tmdbId: dto.tmdbId,
+            name: movieTitel,
+          },
+        });
+      } catch (error) {
+        console.log(error);
+        throw new InternalServerErrorException();
+      }
     }
 
     try {
@@ -195,7 +201,7 @@ export class WatchlistsService {
   // -------------------------
 
   async getUsers(id: number, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
+    await this.checkUserAccess(id, currentUserId, false);
     const users = await this.prisma.watchlist_users.findMany({
       where: {
         watchlistId: id,
@@ -212,15 +218,6 @@ export class WatchlistsService {
   async addUser(id: number, dto: watchlistUserDto, currentUserId: number) {
     await this.checkUserAccess(id, currentUserId);
 
-    const userToAdd = await this.prisma.users.findUnique({
-      where: {
-        id: dto.userId,
-      },
-    });
-    if (userToAdd === null) {
-      throw new NotFoundException('User not found.');
-    }
-
     try {
       const watchlistUser = await this.prisma.watchlist_users.create({
         data: {
@@ -235,6 +232,9 @@ export class WatchlistsService {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ForbiddenException('User already added');
+        }
+        if (error.code === 'P2003') {
+          throw new NotFoundException('User not found.');
         }
       }
       console.error(error);
@@ -312,7 +312,7 @@ export class WatchlistsService {
     return successResponse(null);
   }
 
-  async checkUserAccess(watchlistId: number, userId: number) {
+  async checkUserAccess(watchlistId: number, userId: number, isEditor: boolean = true) {
     const watchlistUser = await this.prisma.watchlist_users.findUnique({
       where: {
         watchlistId_userId: {
@@ -324,7 +324,7 @@ export class WatchlistsService {
     if (!watchlistUser) {
       throw new NotFoundException('Watchlists not found.');
     }
-    if (watchlistUser.role === 'viewer') {
+    if (isEditor && watchlistUser.role === 'viewer') {
       throw new ForbiddenException('You have read-only access.');
     }
     return watchlistUser;
