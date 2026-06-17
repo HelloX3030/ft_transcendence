@@ -1,16 +1,22 @@
 """
-TMDB bridge, part 1: parameter translation (profile -> Discover query params).
+TMDB bridge — parameter translation (part 1) and candidate fetching (part 2).
 
-Pure logic, no I/O — fully unit-testable without network access.
-Part 2 (fetch_candidates: the actual Discover HTTP call, pagination, dedup)
-lands separately once TMDB_API_KEY / Docker wiring exists.
+Part 1 (profile_to_params): pure logic, no I/O — fully unit-testable.
+Part 2 (fetch_candidates / TMDBBridgeImpl): async httpx, config.tmdb_pages pages
+  fetched in parallel, dedup against seen IDs, pool refill when too small.
 """
 
+import asyncio
+import os
 from datetime import date
 from typing import Protocol
 from zlib import crc32
 
+import httpx
+
 from .config import DEFAULT_CONFIG, RecommenderConfig
+
+_TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
 
 
 class TranslatableProfile(Protocol):
@@ -105,3 +111,130 @@ def _rotated_page(user_id: str, today: date, window: int) -> int:
     hash() — the latter is salted per process and would break determinism."""
     seed = f"{user_id}:{today.isoformat()}"
     return crc32(seed.encode()) % window + 1
+
+
+# ---------------------------------------------------------------------------
+# Part 2: TMDB Discover HTTP calls
+# ---------------------------------------------------------------------------
+
+
+async def _fetch_page(
+    client: httpx.AsyncClient,
+    params: dict,
+    api_key: str,
+    page: int,
+) -> list[int]:
+    """Fetch one Discover page. Returns the TMDB movie IDs on that page."""
+    response = await client.get(
+        _TMDB_DISCOVER_URL,
+        params={**params, "page": page, "api_key": api_key},
+        timeout=10.0,
+    )
+    response.raise_for_status()
+    return [movie["id"] for movie in response.json().get("results", [])]
+
+
+async def fetch_candidates(
+    params: dict,
+    exclude: list[int],
+    min_pool: int = 20,
+    *,
+    config: RecommenderConfig = DEFAULT_CONFIG,
+    api_key: str | None = None,
+    _client: httpx.AsyncClient | None = None,
+) -> list[int]:
+    """
+    Fetch candidate TMDB movie IDs from the Discover endpoint.
+
+    Fetches config.tmdb_pages pages in parallel starting from params["page"].
+    Filters out IDs in exclude. Keeps adding pages one at a time until the
+    pool reaches min_pool or TMDB has no more results. A failed page is
+    silently skipped so partial results are still returned.
+
+    Args:
+        params:    TMDB Discover query parameters (from profile_to_params).
+        exclude:   IDs to drop — already-seen films, dislikes, etc.
+        min_pool:  Target pool size before stopping the refill loop.
+        config:    Hyperparameters (tmdb_pages, etc.).
+        api_key:   TMDB API key; falls back to the TMDB_API_KEY env var.
+        _client:   Injected httpx client (tests only — skips context-manager).
+
+    Returns:
+        Deduplicated list of TMDB movie IDs, ordered by discovery order.
+
+    Raises:
+        RuntimeError: If no API key is available at call time.
+    """
+    key = api_key or os.environ.get("TMDB_API_KEY", "")
+    if not key:
+        raise RuntimeError("TMDB_API_KEY is not configured")
+
+    exclude_set = set(exclude)
+    base_page = int(params.get("page", 1))
+
+    async def _run(client: httpx.AsyncClient) -> list[int]:
+        seen_in_pool: set[int] = set()
+        pool: list[int] = []
+
+        # Parallel initial burst.
+        initial_pages = range(base_page, base_page + config.tmdb_pages)
+        results = await asyncio.gather(
+            *[_fetch_page(client, params, key, p) for p in initial_pages],
+            return_exceptions=True,
+        )
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            for mid in result:
+                if mid not in exclude_set and mid not in seen_in_pool:
+                    seen_in_pool.add(mid)
+                    pool.append(mid)
+
+        # Refill one page at a time until pool is large enough.
+        # TMDB caps results at page 500.
+        next_page = base_page + config.tmdb_pages
+        while len(pool) < min_pool and next_page <= 500:
+            try:
+                batch = await _fetch_page(client, params, key, next_page)
+            except httpx.HTTPError:
+                break
+            if not batch:
+                break
+            for mid in batch:
+                if mid not in exclude_set and mid not in seen_in_pool:
+                    seen_in_pool.add(mid)
+                    pool.append(mid)
+            next_page += 1
+
+        return pool
+
+    if _client is not None:
+        return await _run(_client)
+    async with httpx.AsyncClient() as client:
+        return await _run(client)
+
+
+class TMDBBridgeImpl:
+    """
+    Concrete TMDB bridge for production use.
+    Wraps the two public functions as instance methods to satisfy the engine Protocol.
+    Inject into RecommenderEngine instead of _TMDBStub once TMDB_API_KEY is wired.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        config: RecommenderConfig = DEFAULT_CONFIG,
+    ) -> None:
+        self._key = api_key
+        self._cfg = config
+
+    def profile_to_params(self, profile: TranslatableProfile, diversify: bool = False) -> dict:
+        return profile_to_params(profile, diversify=diversify, config=self._cfg)
+
+    async def fetch_candidates(
+        self, params: dict, exclude: list[int], min_pool: int = 20
+    ) -> list[int]:
+        return await fetch_candidates(
+            params, exclude, min_pool=min_pool, config=self._cfg, api_key=self._key
+        )
