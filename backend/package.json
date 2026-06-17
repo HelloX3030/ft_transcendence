@@ -22,7 +22,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "DATABASE_URL=$DATABASE_TEST_URL npx prisma migrate reset --force --skip-seed && DATABASE_URL=$DATABASE_TEST_URL jest --config ./test/jest-e2e.json"
+    "e2e:db:reset": "DATABASE_URL=$DATABASE_TEST_URL npx prisma migrate reset --force --skip-seed",
+    "e2e:test": "DATABASE_URL=$DATABASE_TEST_URL NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
+    "test:e2e": "npm run e2e:db:reset && npm run e2e:test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
