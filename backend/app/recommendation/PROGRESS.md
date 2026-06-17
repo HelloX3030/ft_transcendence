@@ -6,24 +6,29 @@
 
 ## Current State
 
-Core modules are in place. The engine runs a full request/response cycle end-to-end, and the
-profile→TMDB-Discover parameter translation is real and unit-tested. Candidate fetching and
-collaborative filtering are still stubbed; vector math in `content_based.py` is pending TMDB data.
+Core modules are in place. The engine runs a full request/response cycle end-to-end.
+`tmdb_bridge.py` is now complete — profile→params translation and the real async TMDB
+Discover fetch (3-page parallel, dedup, pool refill) are both implemented and tested.
+`engine.get_feed` is now async; the `/feed` endpoint awaits it. `_TMDBStub` in `main.py`
+remains active until `TMDB_API_KEY` is wired into Docker (swap for `TMDBBridgeImpl` then).
+Collaborative filtering and content vector math are still stubbed.
 
 ```
 recommendation/
 ├── __init__.py          package marker
-├── requirements.txt     dependencies (FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest)
+├── requirements.txt     dependencies (FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest, pytest-asyncio)
 ├── config.py            all hyperparameters + engagement signal deltas in one frozen dataclass
 ├── schemas.py           Pydantic API contracts (request/response models)
-├── engine.py            orchestration + Protocol interfaces for all modules
-├── main.py              FastAPI app — all endpoints wired; CF + TMDB are inline stubs
+├── engine.py            orchestration + Protocol interfaces; get_feed is async
+├── main.py              FastAPI app — all endpoints wired; CF stub remains; TMDB stub active until Docker wiring
 ├── content_based.py     UserProfile dataclass + in-RAM profile cache; vector math is TODO
 ├── engagement.py        delta accumulation + apply_signals — fully implemented
 ├── diversifier.py       genre history + freshness boost — fully implemented
 ├── collaborative.py     not started
-├── tmdb_bridge.py       profile→Discover-params translation done; fetch_candidates pending
-├── tests/               pytest unit tests (run: `python -m pytest recommendation/tests` from backend/app)
+├── tmdb_bridge.py       COMPLETE — profile_to_params + fetch_candidates (async) + TMDBBridgeImpl
+├── tests/               pytest unit tests (run: `python3 -m pytest recommendation/tests` from backend/app)
+│   ├── test_tmdb_bridge.py       8 tests for profile_to_params (part 1)
+│   └── test_fetch_candidates.py  9 tests for fetch_candidates (part 2)
 ├── retrain.py           not started
 └── architecture.md      full algorithm spec (reference, do not edit here)
 ```
@@ -71,7 +76,7 @@ recommendation/
 | `engagement.py` | Done | |
 | `diversifier.py` | Done | `movie_ages` and `record_served` not yet wired (see Gaps) |
 | `collaborative.py` | Not started | SVD matrix factorization + predict |
-| `tmdb_bridge.py` | Partial | `profile_to_params` done + tested; `fetch_candidates` pending (needs `TMDB_API_KEY` + Docker wiring) |
+| `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` (async, 3-page parallel, dedup, refill) + `TMDBBridgeImpl` — 17 tests total |
 | `retrain.py` | Not started | Nightly SVD batch job |
 
 ---
@@ -131,11 +136,9 @@ The endpoint accepts a `secret` query param but does not verify it and does noth
 
 ## Next Steps
 
-**1. `tmdb_bridge.py` part 2: `fetch_candidates`** ← unblocked
-`profile_to_params` is done (pure logic + unit tests; wired into the live path via `_TMDBStub`).
-Remaining: httpx call to TMDB Discover, 3-page parallel fetch, dedup against `exclude`,
-page refill when the pool is too small. Needs `TMDB_API_KEY` (infra/Docker wiring).
-This unblocks real candidate pools, freshness boosts, and genre history for diversification.
+**1. ~~`tmdb_bridge.py` part 2: `fetch_candidates`~~ — Done.**
+`TMDBBridgeImpl` is production-ready. Wire into `main.py` by replacing `_TMDBStub` with
+`TMDBBridgeImpl()` once `TMDB_API_KEY` is available in the Docker environment.
 
 **2. `content_based.py` — vector math**
 Implement `content_score` and `update_profile` once TMDB data flows through `tmdb_bridge.py`.
@@ -157,6 +160,12 @@ Nightly SVD retrain job. Last — depends on `collaborative.py` being stable.
 ## Worklog
 
 > One entry per working session — what landed, in one or two lines. Details live in the sections above.
+
+**2026-06-17** — `tmdb_bridge.py` part 2: `fetch_candidates` implemented (async, 3-page parallel
+`asyncio.gather`, dedup against `seen_ids`, page refill until `min_pool` reached, graceful skip
+on HTTP errors). `TMDBBridgeImpl` class added — swap out `_TMDBStub` in `main.py` once
+`TMDB_API_KEY` is in Docker. `engine.get_feed` is now async; `/feed` endpoint awaits it.
+`pytest-asyncio` added; 9 new tests in `test_fetch_candidates.py`. 17 tests total, all pass.
 
 **2026-06-11** — `tmdb_bridge.py` part 1: `profile_to_params` implemented as a pure function
 (genres/keywords/cast/crew/vote thresholds/daily page rotation, diversify support, cold-start
