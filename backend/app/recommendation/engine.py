@@ -1,9 +1,10 @@
+from datetime import date
 from typing import Protocol
 
 import numpy as np
 
 from .config import DEFAULT_CONFIG, RecommenderConfig
-from .schemas import ScoredMovie
+from .schemas import MovieMetadata, ScoredMovie
 
 
 # ---------------------------------------------------------------------------
@@ -22,9 +23,14 @@ class UserProfile(Protocol):
 
 class ContentFilter(Protocol):
     def get_profile(self, user_id: str) -> UserProfile: ...
-    def content_score(self, profile: UserProfile, candidate_ids: list[int]) -> np.ndarray: ...
+    def content_score(self, profile: UserProfile, candidates: list[MovieMetadata]) -> np.ndarray: ...
     def update_profile(
-        self, user_id: str, movie_id: int, action: str, lambda_decay: float
+        self,
+        user_id: str,
+        movie_id: int,
+        action: str,
+        lambda_decay: float,
+        metadata: MovieMetadata | None = None,
     ) -> None: ...
 
 
@@ -41,12 +47,39 @@ class EngagementTracker(Protocol):
 
 class Diversifier(Protocol):
     def should_diversify(self, user_id: str) -> bool: ...
-    def apply(self, user_id: str, candidates: list[ScoredMovie]) -> list[ScoredMovie]: ...
+    def apply(
+        self,
+        user_id: str,
+        candidates: list[ScoredMovie],
+        movie_ages: dict[int, float] | None = None,
+    ) -> list[ScoredMovie]: ...
+    def record_served(self, user_id: str, genre_ids: list[int]) -> None: ...
 
 
 class TMDBBridge(Protocol):
     def profile_to_params(self, profile: UserProfile, diversify: bool) -> dict: ...
-    async def fetch_candidates(self, params: dict, exclude: list[int], min_pool: int = 20) -> list[int]: ...
+    async def fetch_candidates(
+        self, params: dict, exclude: list[int], min_pool: int = 20
+    ) -> list[MovieMetadata]: ...
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _compute_movie_ages(candidates: list[MovieMetadata]) -> dict[int, float]:
+    """Days since release for each candidate that has a valid release_date."""
+    today = date.today()
+    ages: dict[int, float] = {}
+    for m in candidates:
+        if m.release_date:
+            try:
+                rd = date.fromisoformat(m.release_date)
+                ages[m.tmdb_id] = float((today - rd).days)
+            except ValueError:
+                pass
+    return ages
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +108,9 @@ class RecommenderEngine:
         self._diversifier = diversifier
         self._tmdb = tmdb_bridge
         self._cfg = config
+        # In-RAM movie metadata cache: populated on each fetch, read on each signal.
+        # Allows update_profile to receive TMDB metadata without an extra API call.
+        self._movie_cache: dict[int, MovieMetadata] = {}
 
     async def get_feed(
         self,
@@ -88,16 +124,31 @@ class RecommenderEngine:
 
         diversify = self._diversifier.should_diversify(user_id)
         tmdb_params = self._tmdb.profile_to_params(profile, diversify=diversify)
-        candidate_ids = await self._tmdb.fetch_candidates(
+        candidates = await self._tmdb.fetch_candidates(
             tmdb_params, exclude=seen, min_pool=limit * self._cfg.min_pool_ratio
         )
 
-        scored = self._hybrid_score(user_id, candidate_ids, profile)
+        # Cache metadata so record_signal can update the profile without an extra TMDB call.
+        for m in candidates:
+            self._movie_cache[m.tmdb_id] = m
+
+        movie_ages = _compute_movie_ages(candidates)
+
+        scored = self._hybrid_score(user_id, candidates, profile)
         scored = self._engagement.apply_signals(user_id, scored)
-        scored = self._diversifier.apply(user_id, scored)
+        scored = self._diversifier.apply(user_id, scored, movie_ages=movie_ages)
 
         scored.sort(key=lambda m: m.score, reverse=True)
-        return scored[:limit]
+        top = scored[:limit]
+
+        # Record genres of served films (top-N) for diversification history.
+        served_ids = {m.movie_id for m in top}
+        served_genres = [
+            gid for m in candidates if m.tmdb_id in served_ids for gid in m.genre_ids
+        ]
+        self._diversifier.record_served(user_id, served_genres)
+
+        return top
 
     def record_signal(
         self,
@@ -106,7 +157,8 @@ class RecommenderEngine:
         action: str,
         watch_time: float | None = None,
     ) -> None:
-        self._content.update_profile(user_id, movie_id, action, self._cfg.lambda_decay)
+        metadata = self._movie_cache.get(movie_id)
+        self._content.update_profile(user_id, movie_id, action, self._cfg.lambda_decay, metadata)
         self._engagement.record_action(user_id, movie_id, action, watch_time)
 
     # ------------------------------------------------------------------
@@ -114,12 +166,13 @@ class RecommenderEngine:
     def _hybrid_score(
         self,
         user_id: str,
-        candidate_ids: list[int],
+        candidates: list[MovieMetadata],
         profile: UserProfile,
     ) -> list[ScoredMovie]:
         alpha = self._effective_alpha(profile)
+        candidate_ids = [m.tmdb_id for m in candidates]
 
-        content_scores = self._content.content_score(profile, candidate_ids)
+        content_scores = self._content.content_score(profile, candidates)
         collab_scores = self._collab.predict(user_id, candidate_ids)
 
         blended = alpha * content_scores + (1.0 - alpha) * collab_scores

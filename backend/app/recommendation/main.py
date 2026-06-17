@@ -8,7 +8,7 @@ from .content_based import ContentBasedFilter
 from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
-from .schemas import EngagementSignal, FeedRequest, HealthResponse, ScoredMovie
+from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
 from .tmdb_bridge import profile_to_params
 
 # ---------------------------------------------------------------------------
@@ -26,20 +26,34 @@ class _CollabStub:
 class _TMDBStub:
     """
     Real parameter translation (tmdb_bridge.profile_to_params), but candidates
-    come from a fixed pool of 10 real TMDB IDs — the params are computed and
-    then ignored. Replaced once fetch_candidates() (bridge part 2) lands.
+    come from a fixed pool of 10 real TMDB movies — the params are computed and
+    then ignored. Replaced by TMDBBridgeImpl once TMDB_API_KEY is wired in Docker.
 
     IDs: Dark Knight, Inception, Fight Club, Forrest Gump, The Avengers,
          Infinity War, Avatar, Interstellar, Star Wars IV, The Matrix.
     """
 
-    _POOL: list[int] = [155, 27205, 550, 13, 24428, 299536, 19995, 157336, 11, 603]
+    _POOL: list[MovieMetadata] = [
+        MovieMetadata(tmdb_id=155,    genre_ids=[18, 28, 80],        overview="Bruce Wayne becomes Batman to fight crime in Gotham."),
+        MovieMetadata(tmdb_id=27205,  genre_ids=[28, 53, 878],       overview="A thief who steals corporate secrets through dream-sharing technology."),
+        MovieMetadata(tmdb_id=550,    genre_ids=[18, 53],            overview="An insomniac office worker forms an underground fight club."),
+        MovieMetadata(tmdb_id=13,     genre_ids=[18, 35, 10749],     overview="Forrest Gump witnesses and participates in defining historical events."),
+        MovieMetadata(tmdb_id=24428,  genre_ids=[12, 28, 878],       overview="Earth's mightiest heroes assemble to stop an alien invasion."),
+        MovieMetadata(tmdb_id=299536, genre_ids=[12, 28, 878],       overview="The Avengers face Thanos who seeks to collect all Infinity Stones."),
+        MovieMetadata(tmdb_id=19995,  genre_ids=[12, 14, 28, 878],   overview="A paraplegic marine on an alien moon interacts with the native Na'vi."),
+        MovieMetadata(tmdb_id=157336, genre_ids=[12, 18, 878],       overview="A team of explorers travel through a wormhole in space."),
+        MovieMetadata(tmdb_id=11,     genre_ids=[12, 28, 878],       overview="Luke Skywalker joins rebels to rescue a princess and save the galaxy."),
+        MovieMetadata(tmdb_id=603,    genre_ids=[28, 878],           overview="A computer hacker discovers the world is a simulation."),
+    ]
 
     def profile_to_params(self, profile, diversify: bool) -> dict:  # type: ignore[override]
         return profile_to_params(profile, diversify=diversify)
 
-    async def fetch_candidates(self, params: dict, exclude: list[int], min_pool: int = 20) -> list[int]:
-        return [mid for mid in self._POOL if mid not in exclude]
+    async def fetch_candidates(
+        self, params: dict, exclude: list[int], min_pool: int = 20
+    ) -> list[MovieMetadata]:
+        exclude_set = set(exclude)
+        return [m for m in self._POOL if m.tmdb_id not in exclude_set]
 
 
 # ---------------------------------------------------------------------------
