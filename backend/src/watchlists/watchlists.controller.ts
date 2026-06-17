@@ -20,8 +20,9 @@ import {
 import { WatchlistsService } from './watchlists.service';
 import type { Request as ExpressRequest } from 'express';
 import { watchlistCreateDto } from './dto';
-import { movieDto } from './dto/movie.dto';
+import { watchlistMovieDto } from './dto/movie.dto';
 import { JwtAccessPayload } from 'src/types';
+import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 
 @ApiTags('Watchlists')
 @ApiBearerAuth()
@@ -101,7 +102,7 @@ export class WatchlistsController {
   })
   addMovie(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: movieDto,
+    @Body() dto: watchlistMovieDto,
     @Request() req: ExpressRequest,
   ) {
     const user = req.user as JwtAccessPayload;
@@ -117,5 +118,65 @@ export class WatchlistsController {
   ) {
     const user = req.user as JwtAccessPayload;
     return this.watchlistsService.removeMovie(id, movieId, user.sub);
+  }
+
+  // -------------------------
+  // USERS
+  // -------------------------
+
+  @Get(':id/users')
+  @ApiOperation({ summary: 'Get users of watchlist' })
+  getUsers(@Param('id', ParseIntPipe) id: number, @Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.getUsers(id, user.sub);
+  }
+
+  @Post(':id/users')
+  @ApiOperation({ summary: 'Add user to watchlist with role' })
+  @ApiBody({
+    schema: {
+      example: {
+        userId: 42,
+        role: 'MEMBER',
+      },
+    },
+  })
+  addUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: watchlistUserDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.addUser(id, dto, user.sub);
+  }
+
+  @Patch(':id/users/:userId')
+  @ApiOperation({ summary: 'Update user role in watchlist' })
+  @ApiBody({
+    schema: {
+      example: {
+        role: 'editor',
+      },
+    },
+  })
+  updateUserRole(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() dto: watchlistRoleDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.updateUserRole(id, userId, dto, user.sub);
+  }
+
+  @Delete(':id/users/:userId')
+  @ApiOperation({ summary: 'Remove user from watchlist' })
+  removeUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Request() req: ExpressRequest,
+  ) {
+    const user = req.user as JwtAccessPayload;
+    return this.watchlistsService.removeUser(id, userId, user.sub);
   }
 }
