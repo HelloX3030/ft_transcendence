@@ -32,7 +32,6 @@ describe('Watchlists (e2e)', () => {
   let app: INestApplication<App>;
   let ownerAgent: TestAgent;
   let viewerAgent: TestAgent;
-  let ownerUserId: number;
   let viewerUserId: number;
 
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -63,7 +62,6 @@ describe('Watchlists (e2e)', () => {
     ownerAgent = await registerUser(app, ownerCredentials);
     viewerAgent = await registerUser(app, viewerCredentials);
 
-    ownerUserId = await getCurrentUserId(ownerAgent);
     viewerUserId = await getCurrentUserId(viewerAgent);
   });
 
@@ -130,7 +128,8 @@ describe('Watchlists (e2e)', () => {
       .send({ unexpected: 'field' })
       .expect(400);
 
-    expect(invalidResponse.body.error).toBeDefined();
+    const invalidBody = invalidResponse.body as { error: string };
+    expect(invalidBody.error).toBeDefined();
   });
 
   it('adds, lists and removes movies in a watchlist', async () => {
@@ -140,7 +139,7 @@ describe('Watchlists (e2e)', () => {
 
     jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
-      json: async () => ({ original_title: movieTitle }),
+      json: () => Promise.resolve({ original_title: movieTitle }),
     } as unknown as Awaited<ReturnType<typeof fetch>>);
 
     const addResponse = await ownerAgent
@@ -148,7 +147,8 @@ describe('Watchlists (e2e)', () => {
       .send({ tmdbId })
       .expect(201);
 
-    expect(addResponse.body.success).toBe(true);
+    const addBody = addResponse.body as ApiResponse<null>;
+    expect(addBody.success).toBe(true);
 
     const moviesResponse = await ownerAgent.get(`/watchlists/${created.id}/movies`).expect(200);
     const moviesBody = moviesResponse.body as ApiResponse<MovieResponse[]>;
@@ -165,7 +165,8 @@ describe('Watchlists (e2e)', () => {
     const removeResponse = await ownerAgent
       .delete(`/watchlists/${created.id}/movies/${movieId}`)
       .expect(200);
-    expect(removeResponse.body.success).toBe(true);
+    const body = removeResponse.body as ApiResponse<null>;
+    expect(body.success).toBe(true);
 
     const emptyResponse = await ownerAgent.get(`/watchlists/${created.id}/movies`).expect(200);
     const emptyBody = emptyResponse.body as ApiResponse<MovieResponse[]>;
@@ -180,11 +181,13 @@ describe('Watchlists (e2e)', () => {
       .send({ userId: viewerUserId, role: 'viewer' })
       .expect(201);
 
-    expect(addViewerResponse.body.success).toBe(true);
+    const addViewerBody = addViewerResponse.body as ApiResponse<null>;
+    expect(addViewerBody.success).toBe(true);
 
     const viewerListResponse = await viewerAgent.get('/watchlists').expect(200);
     const viewerListBody = viewerListResponse.body as ApiResponse<WatchlistResponse[]>;
 
+    expect(viewerListBody.success).toBe(true);
     expect(viewerListBody.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: created.id, name: created.name, role: 'viewer' }),
@@ -194,14 +197,16 @@ describe('Watchlists (e2e)', () => {
     const viewerUsersResponse = await viewerAgent
       .get(`/watchlists/${created.id}/users`)
       .expect(200);
-    expect(viewerUsersResponse.body.success).toBe(true);
+    const viewerUsersBody = viewerUsersResponse.body as ApiResponse<unknown>;
+    expect(viewerUsersBody.success).toBe(true);
 
     const forbiddenResponse = await viewerAgent
       .patch(`/watchlists/${created.id}`)
       .send({ name: `Blocked ${runId}` })
       .expect(403);
 
-    expect(forbiddenResponse.body.message).toBe('You have read-only access.');
+    const forbiddenBody = forbiddenResponse.body as { message: string };
+    expect(forbiddenBody.message).toBe('You have read-only access.');
   });
 
   async function createWatchlist(agent: TestAgent, name: string) {
