@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -38,7 +39,7 @@ export class FriendsService {
 
     user.friendsB.forEach((friend) => {
       friends.push({
-        friendId: friend.userBId,
+        friendId: friend.userAId,
         status: friend.status,
         createdAt: friend.createdAt,
       });
@@ -83,7 +84,7 @@ export class FriendsService {
         },
       });
 
-      if (friendship === null) throw new BadRequestException('This friendship does not exist.');
+      if (friendship === null) throw new NotFoundException('This friendship does not exist.');
 
       if (friendship.status === 'pending' && friendship.initiatorId === payload.sub) {
         throw new BadRequestException('You cannot accept your own friendship request.');
@@ -102,14 +103,16 @@ export class FriendsService {
         },
       });
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2003') {
           throw new NotFoundException('This friendship does not exist.');
         }
-        console.error(error);
-        throw new InternalServerErrorException();
       }
-      throw error;
+      console.error(error);
+      throw new InternalServerErrorException();
     }
     return { message: 'friendship status updated' };
   }
@@ -127,6 +130,8 @@ export class FriendsService {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new NotFoundException('This friendship does not exist.');
       }
+      console.error(error);
+      throw new InternalServerErrorException();
     }
     return { message: 'friendship deleted' };
   }
