@@ -7,6 +7,8 @@ import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jes
 import { RegisterDto } from 'src/auth/dto';
 import cookieParser from 'cookie-parser';
 import TestAgent from 'supertest/lib/agent';
+import { createTestApp } from './utils/create-test-app';
+import { checkCookies } from './utils';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -37,24 +39,7 @@ describe('Watchlists (e2e)', () => {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    app.enableCors({
-      origin: process.env.CORS_ORIGIN,
-      credentials: true,
-    });
-    app.use(cookieParser());
-    await app.init();
+    app = await createTestApp();
 
     const ownerCredentials = buildRegisterDto('watchlist-owner');
     const viewerCredentials = buildRegisterDto('watchlist-viewer');
@@ -257,10 +242,4 @@ function buildRegisterDto(prefix: string): RegisterDto {
     password: 'Test123!',
     language: 'en',
   };
-}
-
-function checkCookies(response: Response) {
-  const cookies = response.headers['set-cookie'];
-  expect(cookies[0]).toContain('access_token=');
-  expect(cookies[1]).toContain('refresh_token=');
 }
