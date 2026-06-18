@@ -42,9 +42,6 @@ export class AuthService {
         if (error.code === 'P2002') {
           throw new ForbiddenException('Credentials taken');
         }
-        if (error.code === 'P2000') {
-          throw new BadRequestException('Provided value for the column is too long');
-        }
       }
       throw error;
     }
@@ -102,17 +99,11 @@ export class AuthService {
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
-    try {
-      await this.prisma.sessions.delete({
-        where: {
-          id: payload.sessionId,
-        },
-      });
-    } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        throw error;
-      }
-    }
+    await this.prisma.sessions.delete({
+      where: {
+        id: payload.sessionId,
+      },
+    });
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
     return { message: 'Logged out' };
@@ -235,9 +226,7 @@ export class AuthService {
         },
       });
     } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        console.error(error);
-      }
+      console.error(error);
     }
   }
 }
