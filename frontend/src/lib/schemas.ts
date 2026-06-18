@@ -27,6 +27,7 @@ export const registerSchema = z
 
 export const createListSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50),
+  description: z.string().max(260).optional(),
   image: z
     .instanceof(File)
     .refine((file) => file.size <= 1024 * 1024, 'Max 1MB')

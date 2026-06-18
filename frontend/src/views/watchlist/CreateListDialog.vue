@@ -34,6 +34,7 @@ import MovieCard from '@/components/MovieCard.vue';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 import { createListSchema } from '@/lib/schemas';
+import { Textarea } from '@/components/ui/textarea';
 
 const { searchedMovies } = useFetch();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
@@ -63,19 +64,28 @@ watch(isOpen, (open) => {
 <template>
   <Dialog v-model:open="isOpen">
     <DialogTrigger as-child>
-      <Button variant="outline">+ New</Button>
+      <Button variant="outline" class="md:text-xl">+ New</Button>
     </DialogTrigger>
     <DialogContent class="sm:max-w-5/6">
+      <DialogHeader>
+        <DialogTitle>Create New List</DialogTitle>
+        <DialogDescription> Create a new movie list. To share with your friends.</DialogDescription>
+      </DialogHeader>
       <form @submit.prevent="onSubmit" class="space-y-4">
-        <DialogHeader>
-          <DialogTitle>Create New List</DialogTitle>
-          <DialogDescription> Create a new movie list. </DialogDescription>
-        </DialogHeader>
         <FormField v-slot="{ componentField }" name="name">
           <FormItem>
             <FormLabel>Name</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="My List ..." autocomplete="off" />
+              <Input v-bind="componentField" placeholder="My List..." autocomplete="off" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
+        <FormField v-slot="{ componentField }" name="description">
+          <FormItem>
+            <FormLabel>Description</FormLabel>
+            <FormControl>
+              <Textarea v-bind="componentField" placeholder="Description..." />
             </FormControl>
             <FormMessage />
           </FormItem>
