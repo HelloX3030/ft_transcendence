@@ -25,7 +25,7 @@ export class FriendsController {
   })
   @ApiResponse({ status: 400, description: "You can't be friends with yourself." })
   @ApiResponse({ status: 409, description: 'This friendship already exists.' })
-  @ApiResponse({ status: 400, description: 'The user ID is invalid.' })
+  @ApiResponse({ status: 409, description: 'The user ID is invalid.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   addFriend(@Request() req: ExpressRequest, @Param('id', ParseIntPipe) id: number) {
     const user = req.user as JwtAccessPayload;
