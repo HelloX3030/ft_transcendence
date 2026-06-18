@@ -135,7 +135,6 @@ enum user_role {
 }
 
 enum watchlist_role {
-  owner
   editor
   viewer
 }
