@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -181,14 +185,12 @@ describe('UsersService', () => {
       expect(mockStorage.delete).not.toHaveBeenCalled();
     });
 
-    it('returns account deleted message when user does not exist (P2025)', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue(null);
+    it('throws a Prisma P2025 error when deleting a non-existent user', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
       mockStorage.extractKey.mockReturnValue(null);
       mockPrisma.users.delete.mockRejectedValue(prismaError('P2025'));
 
-      const result = await service.deleteMe(999);
-
-      expect(result).toEqual({ message: 'Account deleted' });
+      await expect(service.deleteMe(1)).rejects.toThrow();
     });
 
     it('re-throws non-P2025 errors', async () => {

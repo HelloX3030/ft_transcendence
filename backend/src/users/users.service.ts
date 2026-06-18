@@ -77,13 +77,7 @@ export class UsersService {
     });
     const oldKey = this.storage.extractKey(current?.image);
 
-    try {
-      await this.prisma.users.delete({ where: { id: userId } });
-    } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        throw error;
-      }
-    }
+    await this.prisma.users.delete({ where: { id: userId } });
 
     if (oldKey) await this.storage.delete(oldKey);
     return { message: 'Account deleted' };
