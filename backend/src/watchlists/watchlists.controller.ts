@@ -119,7 +119,7 @@ export class WatchlistsController {
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiResponse({ status: 403, description: 'You have read-only access.' })
-  @ApiResponse({ status: 403, description: 'Movie already added.' })
+  @ApiResponse({ status: 409, description: 'Movie already added.' })
   @ApiResponse({ status: 404, description: 'Watchlists not found.' })
   @ApiBody({
     schema: {
@@ -172,8 +172,8 @@ export class WatchlistsController {
   @ApiResponse({ status: 400, description: 'Invalid input data' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiResponse({ status: 403, description: 'You have read-only access.' })
-  @ApiResponse({ status: 403, description: 'User already added.' })
-  @ApiResponse({ status: 404, description: 'Watchlists not found. User not found.' })
+  @ApiResponse({ status: 409, description: 'User already added.' })
+  @ApiResponse({ status: 409, description: 'Watchlists not found or user not found.' })
   @ApiBody({
     schema: {
       example: {
