@@ -59,7 +59,6 @@ describe('Friends (e2e)', () => {
   });
 
   it('should create a friend request', async () => {
-    console.log(bobId);
     await malloryAgent.post(`/friends/${bobId}`).expect(201);
 
     const response = await bobAgent.get('/friends').expect(200);
