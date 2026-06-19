@@ -9,7 +9,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
-import { successResponse } from 'src/helper';
+import { successResponse } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 
 export const WATCHLIST_SELECT = {

@@ -1,13 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request, { Response } from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
 import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jest/globals';
 import { RegisterDto } from 'src/auth/dto';
-import cookieParser from 'cookie-parser';
 import TestAgent from 'supertest/lib/agent';
-import { createTestApp } from './utils/create-test-app';
+import { createTestApp } from './utils/create-test-app.utils';
 import { checkCookies } from './utils';
 
 interface ApiResponse<T = unknown> {
