@@ -22,15 +22,12 @@ const genreNames = computed(() =>
     .map((id) => MOVIE_GENRES[id])
     .filter(Boolean)
     .slice(0, 3),
-
-    
 );
 </script>
 
 <template>
   <div class="absolute top-0 left-0 right-0 z-20">
     <div class="relative p-6">
-
       <!-- Genres nur anzeigen wenn showGenres nicht false -->
       <div v-if="showGenres !== false" class="flex gap-2 mb-2 pointer-events-none">
         <span
@@ -67,7 +64,6 @@ const genreNames = computed(() =>
           </TooltipProvider>
         </template>
       </div>
-
     </div>
   </div>
 </template>
