@@ -26,6 +26,17 @@ const rating = computed(() => movie.value?.vote_average.toFixed(1) ?? '');
 const providers = computed(() => movie.value?.watchProviders.results.DE?.flatrate ?? []);
 const backdropUrl = computed(() => `https://image.tmdb.org/t/p/w1280${movie.value?.backdrop_path}`);
 const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.poster_path}`);
+
+const showControls = ref(true);
+let hideTimer: ReturnType<typeof setTimeout>;
+
+function handleMouseMove() {
+  showControls.value = true;
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    showControls.value = false;
+  }, 5000);
+}
 </script>
 
 <template>
@@ -101,9 +112,7 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
                 :alt="actor.name"
                 class="w-16 h-16 rounded-full object-cover ring-2 ring-zinc-700"
               />
-              <p
-                class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2"
-              >
+              <p class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2">
                 {{ actor.name }}
               </p>
               <p class="text-xs text-center text-zinc-500 leading-tight w-full line-clamp-2">
@@ -164,9 +173,13 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
       </button>
 
       <!-- Trailer Modal -->
-      <div v-if="showTrailer && movie" class="fixed inset-0 z-50 bg-black">
+      <div
+        v-if="showTrailer && movie"
+        class="fixed inset-0 z-50 bg-black"
+        @mousemove="handleMouseMove"
+      >
         <!-- Schließen Button unten links -->
-        <div class="absolute bottom-6 left-6 z-50">
+        <div v-show="showControls" class="absolute bottom-6 md:bottom-10 left-6 z-50">
           <Button
             variant="outline"
             class="rounded-full size-11 flex items-center justify-center"
@@ -188,6 +201,7 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
           class="w-full h-full"
         />
       </div>
+
     </div>
     <!-- end v-else -->
   </div>
