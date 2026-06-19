@@ -13,7 +13,7 @@ import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
-import { successResponse } from 'src/helper';
+import { successResponse } from 'src/utils';
 
 @Injectable()
 export class AuthService {

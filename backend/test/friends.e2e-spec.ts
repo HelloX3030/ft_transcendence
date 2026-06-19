@@ -1,11 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
-import { createTestApp } from './utils/create-test-app';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
-import { register } from './utils';
-import { getUserId } from './utils/user.utils';
+import { createTestApp, register } from './utils';
+import { getUserId } from './utils';
 import { apiResponse, Friend } from '@trailertinder/shared';
 
 const bobRegister: RegisterDto = {

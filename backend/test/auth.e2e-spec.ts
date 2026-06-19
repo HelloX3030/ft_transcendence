@@ -2,9 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
-import { createTestApp } from './utils/create-test-app';
-import { ApiMsgResponse } from './types';
-import { checkCookies, login, logout, register } from './utils';
+import { checkCookies, createTestApp, login, logout, register } from './utils';
+import { apiResponse } from '@trailertinder/shared';
 
 const mockUserRegister: RegisterDto = {
   username: 'testuser',
@@ -42,7 +41,7 @@ describe('Auth (e2e)', () => {
       .expect('Content-Type', /json/)
       .expect(403);
 
-    const body = response.body as ApiMsgResponse;
+    const body = response.body as apiResponse<null>;
     expect(body.message).toBe('Credentials taken');
     const cookies = response.headers['set-cookie'];
     expect(cookies).toBeUndefined();

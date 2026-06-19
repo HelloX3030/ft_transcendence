@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Friend } from '@trailertinder/shared';
-import { successResponse } from 'src/helper';
+import { successResponse } from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey, JwtAccessPayload } from 'src/types';
 
