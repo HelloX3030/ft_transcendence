@@ -4,7 +4,11 @@ import { useRoute } from 'vue-router';
 import { severalMovies } from '@/lib/test';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-vue-next';
+import { Heart, X, Bookmark, ArrowLeft } from 'lucide-vue-next';
+
+const isLiked = ref(false);
+const isDisliked = ref(false);
+const isSaved = ref(false);
 
 const route = useRoute();
 
@@ -112,7 +116,9 @@ function handleMouseMove() {
                 :alt="actor.name"
                 class="w-16 h-16 rounded-full object-cover ring-2 ring-zinc-700"
               />
-              <p class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2">
+              <p
+                class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2"
+              >
                 {{ actor.name }}
               </p>
               <p class="text-xs text-center text-zinc-500 leading-tight w-full line-clamp-2">
@@ -142,7 +148,7 @@ function handleMouseMove() {
         </div>
 
         <!-- More like this -->
-        <div class="mt-8 pb-24">
+        <div class="mt-8 pb-32">
           <p class="text-xs text-zinc-500 uppercase tracking-wider px-6 mb-3">More like this</p>
           <div class="flex gap-3 overflow-x-auto px-6 pb-2 scrollbar-hide">
             <div
@@ -164,13 +170,50 @@ function handleMouseMove() {
       </div>
       <!-- end max-w-2xl -->
 
-      <!-- Floating Trailer Button -->
-      <button
-        class="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
-        @click="showTrailer = true"
-      >
-        ▶ Trailer
-      </button>
+      <!-- Social Buttons + Trailer Button rechts -->
+      <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        <!-- Social Icons als Pill wie Trailer Button -->
+        <div
+          class="flex items-center gap-4 bg-zinc-800 text-zinc-300 font-semibold px-5 py-3 rounded-full shadow-xl"
+        >
+          <button
+            @click="
+              isLiked = !isLiked;
+              if (isLiked) isDisliked = false;
+            "
+          >
+            <Heart
+              :class="isLiked ? 'text-red-500 fill-red-500' : 'text-zinc-300'"
+              class="size-5"
+            />
+          </button>
+          <button
+            @click="
+              isDisliked = !isDisliked;
+              if (isDisliked) isLiked = false;
+            "
+          >
+            <X
+              :class="isDisliked ? 'text-blue-400 fill-blue-400' : 'text-zinc-300'"
+              class="size-5"
+            />
+          </button>
+          <button @click="isSaved = !isSaved">
+            <Bookmark
+              :class="isSaved ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-300'"
+              class="size-5"
+            />
+          </button>
+        </div>
+
+        <!-- Trailer Button -->
+        <button
+          class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
+          @click="showTrailer = true"
+        >
+          ▶ Trailer
+        </button>
+      </div>
 
       <!-- Trailer Modal -->
       <div
@@ -178,7 +221,6 @@ function handleMouseMove() {
         class="fixed inset-0 z-50 bg-black"
         @mousemove="handleMouseMove"
       >
-        <!-- Schließen Button unten links -->
         <div v-show="showControls" class="absolute bottom-6 md:bottom-10 left-6 z-50">
           <Button
             variant="outline"
@@ -189,7 +231,6 @@ function handleMouseMove() {
           </Button>
         </div>
 
-        <!-- VideoPlayer genau wie im Feed -->
         <VideoPlayer
           :title="movie.title"
           :video-id="movie.trailerKey"
@@ -201,7 +242,6 @@ function handleMouseMove() {
           class="w-full h-full"
         />
       </div>
-
     </div>
     <!-- end v-else -->
   </div>
