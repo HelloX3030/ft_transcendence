@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { severalMovies } from '@/lib/test';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-vue-next';
 
 const route = useRoute();
 
@@ -42,7 +44,6 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
 
       <!-- Content wrapper mit max-width -->
       <div class="max-w-2xl mx-auto">
-
         <!-- Poster + Titel -->
         <div class="flex gap-6 px-4 -mt-24 relative z-10">
           <img
@@ -100,7 +101,9 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
                 :alt="actor.name"
                 class="w-16 h-16 rounded-full object-cover ring-2 ring-zinc-700"
               />
-              <p class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2">
+              <p
+                class="text-xs text-center text-zinc-300 leading-tight font-medium w-full line-clamp-2"
+              >
                 {{ actor.name }}
               </p>
               <p class="text-xs text-center text-zinc-500 leading-tight w-full line-clamp-2">
@@ -149,8 +152,8 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
             </div>
           </div>
         </div>
-
-      </div> <!-- end max-w-2xl -->
+      </div>
+      <!-- end max-w-2xl -->
 
       <!-- Floating Trailer Button -->
       <button
@@ -161,31 +164,31 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
       </button>
 
       <!-- Trailer Modal -->
-      <div
-        v-if="showTrailer && movie"
-        class="fixed inset-0 z-50 bg-black"
-      >
-        <!-- Schließen Button -->
-        <button
-          class="absolute top-4 left-4 z-50 text-white bg-black/50 rounded-full p-2"
-          @click="showTrailer = false"
-        >
-          ✕
-        </button>
+      <div v-if="showTrailer && movie" class="fixed inset-0 z-50 bg-black">
+        <!-- Schließen Button unten links -->
+        <div class="absolute bottom-6 left-6 z-50">
+          <Button
+            variant="outline"
+            class="rounded-full size-11 flex items-center justify-center"
+            @click="showTrailer = false"
+          >
+            <ArrowLeft class="size-5" />
+          </Button>
+        </div>
 
         <!-- VideoPlayer genau wie im Feed -->
         <VideoPlayer
           :title="movie.title"
           :video-id="movie.trailerKey"
           :active="showTrailer"
-          :genre-ids="movie.genres.map(g => g.id)"
+          :genre-ids="movie.genres.map((g) => g.id)"
           :release-date="movie.release_date"
           :providers="[]"
+          :show-genres="false"
           class="w-full h-full"
         />
       </div>
-
-    </div> <!-- end v-else -->
-
+    </div>
+    <!-- end v-else -->
   </div>
 </template>
