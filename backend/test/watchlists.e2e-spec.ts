@@ -1,6 +1,5 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jest/globals';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
@@ -28,7 +27,7 @@ interface MovieResponse {
 }
 
 describe('Watchlists (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ownerAgent: TestAgent;
   let viewerAgent: TestAgent;
   let viewerUserId: number;
@@ -207,7 +206,7 @@ describe('Watchlists (e2e)', () => {
     return body.data;
   }
 
-  async function registerUser(application: INestApplication<App>, dto: RegisterDto) {
+  async function registerUser(application: INestApplication, dto: RegisterDto) {
     const agent = request.agent(application.getHttpServer());
 
     const response = await agent
