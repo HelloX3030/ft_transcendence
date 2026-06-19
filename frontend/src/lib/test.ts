@@ -107,7 +107,8 @@ export const severalMovies = [
     origin_country: ['US'],
     original_language: 'en',
     original_title: 'The Super Mario Bros. Movie',
-    overview: 'While working underground to fix a water main, Brooklyn plumbers—and brothers—Mario and Luigi are transported down a mysterious pipe and wander into a magical new world. But when the brothers are separated, Mario embarks on an epic quest to find Luigi.',
+    overview:
+      'While working underground to fix a water main, Brooklyn plumbers—and brothers—Mario and Luigi are transported down a mysterious pipe and wander into a magical new world. But when the brothers are separated, Mario embarks on an epic quest to find Luigi.',
     popularity: 31.8114,
     poster_path: '/qNBAXBIQlnOThrVvA6mA2B5ggV6.jpg',
     release_date: '2023-04-05',
@@ -128,9 +129,24 @@ export const severalMovies = [
     ],
     credits: {
       cast: [
-        { id: 73457, name: 'Chris Pratt', character: 'Mario (voice)', profile_path: '/cRH6HPAQ98PlOwwEvhYO4CM9lwu.jpg' },
-        { id: 1397778, name: 'Anya Taylor-Joy', character: 'Princess Peach (voice)', profile_path: '/jxAbDJWvz4p1hoFpJYG5vY2dQmq.jpg' },
-        { id: 95101, name: 'Charlie Day', character: 'Luigi (voice)', profile_path: '/c0HNhjChGybnHa4eoLyqO4dDu1j.jpg' },
+        {
+          id: 73457,
+          name: 'Chris Pratt',
+          character: 'Mario (voice)',
+          profile_path: '/cRH6HPAQ98PlOwwEvhYO4CM9lwu.jpg',
+        },
+        {
+          id: 1397778,
+          name: 'Anya Taylor-Joy',
+          character: 'Princess Peach (voice)',
+          profile_path: '/jxAbDJWvz4p1hoFpJYG5vY2dQmq.jpg',
+        },
+        {
+          id: 95101,
+          name: 'Charlie Day',
+          character: 'Luigi (voice)',
+          profile_path: '/c0HNhjChGybnHa4eoLyqO4dDu1j.jpg',
+        },
       ],
     },
     watchProviders: {
@@ -138,8 +154,18 @@ export const severalMovies = [
         DE: {
           link: 'https://www.themoviedb.org/movie/502356/watch?locale=DE',
           flatrate: [
-            { logo_path: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg', provider_id: 8, provider_name: 'Netflix', display_priority: 0 },
-            { logo_path: '/emthp39XA2YScoYL1p0sdbAH2WA.jpg', provider_id: 119, provider_name: 'Amazon Prime Video', display_priority: 1 },
+            {
+              logo_path: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg',
+              provider_id: 8,
+              provider_name: 'Netflix',
+              display_priority: 0,
+            },
+            {
+              logo_path: '/emthp39XA2YScoYL1p0sdbAH2WA.jpg',
+              provider_id: 119,
+              provider_name: 'Amazon Prime Video',
+              display_priority: 1,
+            },
           ],
         },
       },
@@ -153,7 +179,8 @@ export const severalMovies = [
     origin_country: ['US'],
     original_language: 'en',
     original_title: 'Avatar: The Way of Water',
-    overview: 'Set more than a decade after the events of the first film, learn the story of the Sully family (Jake, Neytiri, and their kids), the trouble that follows them, the lengths they go to keep each other safe, the battles they fight to stay alive, and the tragedies they endure.',
+    overview:
+      'Set more than a decade after the events of the first film, learn the story of the Sully family (Jake, Neytiri, and their kids), the trouble that follows them, the lengths they go to keep each other safe, the battles they fight to stay alive, and the tragedies they endure.',
     popularity: 24.9235,
     poster_path: '/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg',
     release_date: '2022-12-14',
@@ -172,9 +199,24 @@ export const severalMovies = [
     ],
     credits: {
       cast: [
-        { id: 65731, name: 'Sam Worthington', character: 'Jake Sully', profile_path: '/vM1WIfYQ1HUBtlVPwB9Hp9fLcn8.jpg' },
-        { id: 8691, name: 'Zoe Saldaña', character: 'Neytiri', profile_path: '/fCJuIn1PMUQtYdRRSnnoZeMJVWs.jpg' },
-        { id: 10205, name: 'Sigourney Weaver', character: 'Kiri', profile_path: '/wTSnfktNBLd6kwQxgvkqYw6vEon.jpg' },
+        {
+          id: 65731,
+          name: 'Sam Worthington',
+          character: 'Jake Sully',
+          profile_path: '/vM1WIfYQ1HUBtlVPwB9Hp9fLcn8.jpg',
+        },
+        {
+          id: 8691,
+          name: 'Zoe Saldaña',
+          character: 'Neytiri',
+          profile_path: '/fCJuIn1PMUQtYdRRSnnoZeMJVWs.jpg',
+        },
+        {
+          id: 10205,
+          name: 'Sigourney Weaver',
+          character: 'Kiri',
+          profile_path: '/wTSnfktNBLd6kwQxgvkqYw6vEon.jpg',
+        },
       ],
     },
     watchProviders: {
@@ -182,7 +224,12 @@ export const severalMovies = [
         DE: {
           link: 'https://www.themoviedb.org/movie/76600/watch?locale=DE',
           flatrate: [
-            { logo_path: '/97yvRBw1GzX7fXprcF80er19ot.jpg', provider_id: 337, provider_name: 'Disney Plus', display_priority: 0 },
+            {
+              logo_path: '/97yvRBw1GzX7fXprcF80er19ot.jpg',
+              provider_id: 337,
+              provider_name: 'Disney Plus',
+              display_priority: 0,
+            },
           ],
         },
       },
@@ -196,7 +243,8 @@ export const severalMovies = [
     origin_country: ['US'],
     original_language: 'en',
     original_title: 'Shazam! Fury of the Gods',
-    overview: 'Billy Batson and his foster siblings, who transform into superheroes by saying "Shazam!", are forced to get back into action and fight the Daughters of Atlas, who they must stop from using a weapon that could destroy the world.',
+    overview:
+      'Billy Batson and his foster siblings, who transform into superheroes by saying "Shazam!", are forced to get back into action and fight the Daughters of Atlas, who they must stop from using a weapon that could destroy the world.',
     popularity: 5.6409,
     poster_path: '/3GrRgt6CiLIUXUtoktcv1g2iwT5.jpg',
     release_date: '2023-03-15',
@@ -215,9 +263,24 @@ export const severalMovies = [
     ],
     credits: {
       cast: [
-        { id: 69899, name: 'Zachary Levi', character: 'Shazam', profile_path: '/1W8L3kEMMPF9umT3ZGaNIiCYKfZ.jpg' },
-        { id: 1768966, name: 'Asher Angel', character: 'Billy Batson', profile_path: '/lgBt67iggDs0d8QBSyjdk2ytHtK.jpg' },
-        { id: 1774679, name: 'Jack Dylan Grazer', character: 'Freddy Freeman', profile_path: '/wkLAOleFx9Pis97g6t3noJRhAwg.jpg' },
+        {
+          id: 69899,
+          name: 'Zachary Levi',
+          character: 'Shazam',
+          profile_path: '/1W8L3kEMMPF9umT3ZGaNIiCYKfZ.jpg',
+        },
+        {
+          id: 1768966,
+          name: 'Asher Angel',
+          character: 'Billy Batson',
+          profile_path: '/lgBt67iggDs0d8QBSyjdk2ytHtK.jpg',
+        },
+        {
+          id: 1774679,
+          name: 'Jack Dylan Grazer',
+          character: 'Freddy Freeman',
+          profile_path: '/wkLAOleFx9Pis97g6t3noJRhAwg.jpg',
+        },
       ],
     },
     watchProviders: {
@@ -225,8 +288,18 @@ export const severalMovies = [
         DE: {
           link: 'https://www.themoviedb.org/movie/594767/watch?locale=DE',
           flatrate: [
-            { logo_path: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg', provider_id: 8, provider_name: 'Netflix', display_priority: 0 },
-            { logo_path: '/jbe4gVSfRlbPTdESXhEKpornsfu.jpg', provider_id: 1899, provider_name: 'HBO Max', display_priority: 1 },
+            {
+              logo_path: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg',
+              provider_id: 8,
+              provider_name: 'Netflix',
+              display_priority: 0,
+            },
+            {
+              logo_path: '/jbe4gVSfRlbPTdESXhEKpornsfu.jpg',
+              provider_id: 1899,
+              provider_name: 'HBO Max',
+              display_priority: 1,
+            },
           ],
         },
       },
