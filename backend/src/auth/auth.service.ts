@@ -13,6 +13,7 @@ import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
+import { successResponse } from 'src/helper';
 
 @Injectable()
 export class AuthService {
@@ -36,7 +37,7 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res);
-      return { message: 'User registered successfully' };
+      return successResponse(null, 'User registered successfully');
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -61,7 +62,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return { message: 'Login successful' };
+    return successResponse(null, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -95,7 +96,7 @@ export class AuthService {
         .refresh_token,
     };
     this.setCookies(tokens, res);
-    return { message: 'Token refreshed' };
+    return successResponse(null, 'Token refreshed');
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -106,7 +107,7 @@ export class AuthService {
     });
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
-    return { message: 'Logged out' };
+    return successResponse(null, 'Logged out');
   }
 
   async createJwt(userId: number, email: string, req: ExpressRequest): Promise<JwtTokens> {

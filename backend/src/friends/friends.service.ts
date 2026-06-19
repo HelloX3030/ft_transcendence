@@ -4,8 +4,10 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { Friend } from '@trailertinder/shared';
+import { successResponse } from 'src/helper';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Friend, FriendKey, JwtAccessPayload } from 'src/types';
+import { FriendKey, JwtAccessPayload } from 'src/types';
 
 export const FRIENDS_SELECT = {
   friendsA: true,
@@ -41,7 +43,7 @@ export class FriendsService {
         createdAt: friend.createdAt,
       });
     });
-    return { friends: friends };
+    return successResponse(friends);
   }
 
   async addFriend(payload: JwtAccessPayload, id: number) {
@@ -55,7 +57,7 @@ export class FriendsService {
         status: 'pending',
       },
     });
-    return { message: 'friendship request created' };
+    return successResponse(null, 'friendship request created');
   }
 
   async acceptFriendship(payload: JwtAccessPayload, id: number) {
@@ -86,7 +88,7 @@ export class FriendsService {
       },
     });
 
-    return { message: 'friendship status updated' };
+    return successResponse(null, 'friendship status updated');
   }
 
   async deleteFriend(payload: JwtAccessPayload, id: number) {
@@ -96,7 +98,7 @@ export class FriendsService {
         userAId_userBId: friendsKey,
       },
     });
-    return { message: 'friendship deleted' };
+    return successResponse(null, 'friendship deleted');
   }
 
   getFriendsKey(userXId: number, userYId: number): FriendKey {
