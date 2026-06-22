@@ -53,6 +53,7 @@ const onSubmit = handleSubmit((values) => {
 
 const resetDialog = () => {
   selectedMovies.value = [];
+  searchedMovies.value = [];
   resetForm();
 };
 
@@ -76,7 +77,11 @@ watch(isOpen, (open) => {
           <FormItem>
             <FormLabel>Name</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="My List..." autocomplete="off" />
+              <Input
+                :model-value="componentField.modelValue"
+                @update:model-value="(value) => componentField['onUpdate:modelValue']?.(value)"
+                placeholder="My List..."
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -105,34 +110,43 @@ watch(isOpen, (open) => {
         </FormField>
         <div class="grid gap-3">
           <Label for="movies">Add Movies</Label>
-          <TagsInput
-            id="movies"
-            v-model="selectedMovies"
-            class=""
-            :display-value="(value) => (value as Movie).title"
-          >
-            <TagsInputItem v-for="item in selectedMovies" :key="item.id" :value="item">
-              <TagsInputItemText />
-              <TagsInputItemDelete @click="removeMovie(item.id)" />
-            </TagsInputItem>
-            <TagsInputInput placeholder="" disabled />
-          </TagsInput>
+          <div class="max-h-40 md:max-h-80 overflow-y-auto" v-show="selectedMovies.length > 0">
+            <TagsInput
+              id="movies"
+              v-model="selectedMovies"
+              class=""
+              :display-value="(value) => (value as Movie).title"
+            >
+              <TagsInputItem
+                v-for="item in selectedMovies"
+                :key="item.id"
+                :value="item"
+                class="flex items-center gap-1 min-w-0"
+              >
+                <TagsInputItemText class="truncate" />
+                <TagsInputItemDelete @click="removeMovie(item.id)" class="shrink-0" />
+              </TagsInputItem>
+              <TagsInputInput placeholder="" disabled />
+            </TagsInput>
+          </div>
           <MovieSearch />
-          <div class="grid grid-cols-4 gap-2 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
-            <MovieCard
-              v-for="movie in searchedMovies"
-              :key="movie.id"
-              :title="movie.title"
-              :img="movie.poster_path ?? null"
-              :selected="isSelected(movie.id)"
-              :loading="false"
-              @select="addMovie({ title: movie.title, id: movie.id, img: movie.poster_path })"
-            />
+          <div class="max-h-40 md:max-h-80 overflow-y-auto">
+            <div class="grid grid-cols-4 gap-2 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
+              <MovieCard
+                v-for="movie in searchedMovies"
+                :key="movie.id"
+                :title="movie.title"
+                :img="movie.poster_path ?? null"
+                :selected="isSelected(movie.id)"
+                :loading="false"
+                @select="addMovie({ title: movie.title, id: movie.id, img: movie.poster_path })"
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
           <DialogClose as-child>
-            <Button variant="outline"> Cancel </Button>
+            <Button variant="outline" type="button"> Cancel </Button>
           </DialogClose>
           <Button type="submit"> Create List </Button>
         </DialogFooter>
