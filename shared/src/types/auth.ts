@@ -1,8 +1,9 @@
-export type LanguageCode = 'de' | 'en' | 'es';
+export type LanguageCode = "de" | "en" | "es";
 
 export interface LoginRequest {
   email: string;
   password: string;
+  otp?: string;
 }
 
 export interface RegisterRequest {
@@ -18,4 +19,8 @@ export interface AuthUserResponse {
   email: string;
   language: LanguageCode;
   image: string | null;
+}
+
+export interface otp {
+  otp: string;
 }
