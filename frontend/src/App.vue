@@ -14,7 +14,7 @@ const route = useRoute();
       <SidebarInset>
         <Header />
         <main class="flex flex-col flex-1">
-          <RouterView />
+          <RouterView :key="$route.fullPath" />
         </main>
       </SidebarInset>
     </SidebarProvider>
