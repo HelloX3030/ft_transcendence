@@ -18,6 +18,10 @@ from .config import DEFAULT_CONFIG, RecommenderConfig
 from .schemas import MovieMetadata
 
 _TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
+_TMDB_MOVIE_URL = "https://api.themoviedb.org/3/movie"
+
+# Top-N billed cast members included in cast_ids (billing order, 0 = lead).
+_DETAIL_CAST_LIMIT = 5
 
 
 class TranslatableProfile(Protocol):
@@ -115,7 +119,78 @@ def _rotated_page(user_id: str, today: date, window: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Part 2: TMDB Discover HTTP calls
+# Part 2: TMDB movie detail — cast, director, keywords
+# ---------------------------------------------------------------------------
+
+
+async def fetch_movie_detail(
+    movie_id: int,
+    *,
+    api_key: str | None = None,
+    _client: httpx.AsyncClient | None = None,
+) -> MovieMetadata:
+    """
+    Fetch full movie detail from TMDB, including top cast, director(s), and keywords.
+
+    Calls /movie/{id}?append_to_response=keywords,credits — one HTTP request.
+    Returns a MovieMetadata with all fields populated (Discover fields included
+    so the caller can replace the cached entry wholesale).
+
+    Args:
+        movie_id: TMDB movie ID.
+        api_key:  TMDB API key; falls back to the TMDB_API_KEY env var.
+        _client:  Injected httpx client (tests only).
+
+    Raises:
+        RuntimeError: If no API key is available.
+    """
+    key = api_key or os.environ.get("TMDB_API_KEY", "")
+    if not key:
+        raise RuntimeError("TMDB_API_KEY is not configured")
+
+    async def _run(client: httpx.AsyncClient) -> MovieMetadata:
+        response = await client.get(
+            f"{_TMDB_MOVIE_URL}/{movie_id}",
+            params={"api_key": key, "append_to_response": "keywords,credits"},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        genre_ids = [g["id"] for g in data.get("genres", [])]
+        keyword_ids = [k["id"] for k in data.get("keywords", {}).get("keywords", [])]
+
+        credits = data.get("credits", {})
+        cast_ids = [
+            c["id"]
+            for c in sorted(credits.get("cast", []), key=lambda c: c.get("order", 999))
+            [:_DETAIL_CAST_LIMIT]
+        ]
+        director_ids = [
+            c["id"]
+            for c in credits.get("crew", [])
+            if c.get("job") == "Director"
+        ]
+
+        return MovieMetadata(
+            tmdb_id=movie_id,
+            genre_ids=genre_ids,
+            overview=data.get("overview", ""),
+            release_date=data.get("release_date"),
+            vote_average=float(data.get("vote_average", 0.0)),
+            cast_ids=cast_ids,
+            director_ids=director_ids,
+            keyword_ids=keyword_ids,
+        )
+
+    if _client is not None:
+        return await _run(_client)
+    async with httpx.AsyncClient() as client:
+        return await _run(client)
+
+
+# ---------------------------------------------------------------------------
+# Part 3: TMDB Discover HTTP calls
 # ---------------------------------------------------------------------------
 
 
@@ -248,3 +323,6 @@ class TMDBBridgeImpl:
         return await fetch_candidates(
             params, exclude, min_pool=min_pool, config=self._cfg, api_key=self._key
         )
+
+    async def fetch_movie_detail(self, movie_id: int) -> MovieMetadata:
+        return await fetch_movie_detail(movie_id, api_key=self._key)
