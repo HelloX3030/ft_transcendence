@@ -11,13 +11,25 @@ from pydantic import BaseModel, Field
 
 @dataclass
 class MovieMetadata:
-    """Per-movie data from TMDB Discover. Flows through the pipeline for scoring and freshness."""
+    """
+    Per-movie data that flows through the pipeline.
+
+    Discover fields (always populated):
+        tmdb_id, genre_ids, overview, release_date, vote_average
+
+    Detail fields (populated by fetch_movie_detail on positive signal):
+        cast_ids, director_ids, keyword_ids
+    """
 
     tmdb_id: int
     genre_ids: list[int] = field(default_factory=list)
     overview: str = ""
     release_date: str | None = None
     vote_average: float = 0.0
+    # Populated via /movie/{id}?append_to_response=keywords,credits
+    cast_ids: list[int] = field(default_factory=list)
+    director_ids: list[int] = field(default_factory=list)
+    keyword_ids: list[int] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
