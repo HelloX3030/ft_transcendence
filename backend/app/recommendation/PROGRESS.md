@@ -6,31 +6,36 @@
 
 ## Current State
 
-Core modules are in place. The engine runs a full request/response cycle end-to-end.
-`tmdb_bridge.py` is now complete — profile→params translation and the real async TMDB
-Discover fetch (3-page parallel, dedup, pool refill) are both implemented and tested.
-`engine.get_feed` is now async; the `/feed` endpoint awaits it. `_TMDBStub` in `main.py`
-remains active until `TMDB_API_KEY` is wired into Docker (swap for `TMDBBridgeImpl` then).
-Collaborative filtering and content vector math are still stubbed.
+Content scoring and TMDB candidate fetching are both implemented and tested.
+The service runs end-to-end with real scoring logic: genre cosine similarity + TF-IDF
+on overviews blend into hybrid scores; engagement deltas shift rankings in real time.
+The remaining gaps are actor/director/keyword weight population (needs a TMDB detail
+call per film), collaborative filtering (SVD), and DB persistence.
 
 ```
 recommendation/
-├── __init__.py          package marker
-├── requirements.txt     dependencies (FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest, pytest-asyncio)
-├── config.py            all hyperparameters + engagement signal deltas in one frozen dataclass
-├── schemas.py           Pydantic API contracts (request/response models)
-├── engine.py            orchestration + Protocol interfaces; get_feed is async
-├── main.py              FastAPI app — all endpoints wired; CF stub remains; TMDB stub active until Docker wiring
-├── content_based.py     UserProfile dataclass + in-RAM profile cache; vector math is TODO
-├── engagement.py        delta accumulation + apply_signals — fully implemented
-├── diversifier.py       genre history + freshness boost — fully implemented
-├── collaborative.py     not started
-├── tmdb_bridge.py       COMPLETE — profile_to_params + fetch_candidates (async) + TMDBBridgeImpl
-├── tests/               pytest unit tests (run: `python3 -m pytest recommendation/tests` from backend/app)
-│   ├── test_tmdb_bridge.py       8 tests for profile_to_params (part 1)
-│   └── test_fetch_candidates.py  9 tests for fetch_candidates (part 2)
-├── retrain.py           not started
-└── architecture.md      full algorithm spec (reference, do not edit here)
+├── __init__.py
+├── requirements.txt       FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest, pytest-asyncio
+├── config.py              all hyperparameters in one frozen dataclass
+├── schemas.py             Pydantic API contracts + MovieMetadata dataclass
+├── engine.py              async orchestration + Protocol interfaces; movie metadata cache
+├── main.py                all endpoints wired; _CollabStub + _TMDBStub active (see Gaps)
+├── content_based.py       genre cosine similarity + TF-IDF overview scoring; update_profile done
+├── engagement.py          delta accumulation + apply_signals — complete
+├── diversifier.py         genre history + freshness boost — complete
+├── tmdb_bridge.py         profile_to_params + async fetch_candidates + TMDBBridgeImpl — complete
+├── collaborative.py       not started
+├── retrain.py             not started
+├── tests/
+│   ├── test_tmdb_bridge.py       8 tests — profile_to_params
+│   ├── test_fetch_candidates.py  9 tests — fetch_candidates
+│   └── test_content_based.py    14 tests — content_score + update_profile
+└── architecture.md        full algorithm spec (reference, do not edit here)
+```
+
+Run tests from `backend/app/`:
+```
+python3 -m pytest recommendation/tests -v
 ```
 
 ---
@@ -45,12 +50,13 @@ recommendation/
 | Cold-start alpha | Handled in `engine._effective_alpha()` | System-level concern belongs in the orchestrator, not a module |
 | `UserProfile` type | Concrete dataclass in `content_based.py` | Engine Protocol only requires `user_id` + `interaction_count`; modules own the rest |
 | Engagement deltas | Fields on `RecommenderConfig` | Consistent with all other hyperparameters; tunable without code changes |
-| Diversification constants | Module-level in `diversifier.py` | Not in the architecture spec — promote to `config.py` if tuning is needed |
-| TMDB call location | **Option A: Python calls TMDB directly** | NestJS has no Discover integration; keeping the full pipeline in one service is cleaner |
-| Keyword/cast Discover params | OR-joined (`\|`), genres AND-joined (`,`) | Spec example AND-joins everything, but ANDing 5 keywords or 2 actors over-constrains Discover to a near-empty pool; genres stay AND per spec |
+| Diversification constants | Module-level in `diversifier.py` | Not in architecture spec — promote to `config.py` if tuning is needed |
+| TMDB call location | **Option A: Python calls TMDB directly** | NestJS has no Discover integration; full pipeline in one service |
+| Keyword/cast Discover params | OR-joined (`\|`), genres AND-joined (`,`) | AND-joining keywords/actors over-constrains Discover to near-empty pools |
 | Page rotation hash | `zlib.crc32`, not `hash()` | `hash()` is salted per process — rotation would change on every restart |
-| `keyword_weights` on `UserProfile` | New dict field, in-RAM only | Needed for `with_keywords`; recoverable from `feature_vector`, no DB change |
-| Python tests | pytest in `recommendation/tests/` | Pure-logic modules get unit tests; first consumer is `tmdb_bridge` |
+| `keyword_weights` on `UserProfile` | New dict field, in-RAM only | Needed for `with_keywords` translation; populated via TMDB detail calls |
+| Tests | pytest in `recommendation/tests/` | Pure-logic modules get unit tests; first added for tmdb_bridge + content_based |
+| Movie metadata in engine cache | `_movie_cache: dict[int, MovieMetadata]` | Lets `record_signal` enrich the profile without an extra TMDB call per signal |
 
 ---
 
@@ -58,9 +64,9 @@ recommendation/
 
 | Decision | Status |
 |---|---|
-| DB schema additions | Request sent to backend team (`DB_REQUEST.md`). Blocking DB persistence and cold-start. |
-| Docker integration | Pending infra team. Requirements in `DB_REQUEST.md` notes and `PROGRESS.md` Notes section. |
-| `user_id` type at API boundary | DB uses `Int`, Python uses `str`. Resolve at the `main.py` boundary when DB is wired — low priority. |
+| DB schema additions | Request sent (`DB_REQUEST.md`). Blocking persistence and cold-start. |
+| Docker integration | Pending infra team. Run command + env vars in `PROGRESS.md` Notes section. |
+| `user_id` type at API boundary | DB uses `Int`, Python uses `str`. Resolve at `main.py` boundary when DB is wired — low priority. |
 
 ---
 
@@ -69,14 +75,14 @@ recommendation/
 | File | Status | Notes |
 |---|---|---|
 | `config.py` | Done | |
-| `schemas.py` | Done | |
-| `engine.py` | Done | Pipeline fully wired; depends on real module implementations |
-| `main.py` | Done | Endpoints wired to engine; CF + TMDB are inline stubs (see Gaps) |
-| `content_based.py` | Done | Genre cosine similarity + TF-IDF overview scoring + full `update_profile` with metadata |
+| `schemas.py` | Done | `MovieMetadata` dataclass added; flows through full pipeline |
+| `engine.py` | Done | Async; movie metadata cache; `record_served` wired for diversification |
+| `main.py` | Done | All endpoints wired; stubs active until real modules replace them |
+| `content_based.py` | Done | Genre cosine + TF-IDF overview; actor/keyword weights pending (see Gaps) |
 | `engagement.py` | Done | |
-| `diversifier.py` | Done | `movie_ages` and `record_served` not yet wired (see Gaps) |
+| `diversifier.py` | Done | Freshness and genre history fully wired via engine |
+| `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` async + `TMDBBridgeImpl` |
 | `collaborative.py` | Not started | SVD matrix factorization + predict |
-| `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` (async, 3-page parallel, dedup, refill) + `TMDBBridgeImpl` — 17 tests total |
 | `retrain.py` | Not started | Nightly SVD batch job |
 
 ---
@@ -87,48 +93,39 @@ Everything here is intentional and tracked — none of it is forgotten tech debt
 
 ### Inline stubs in `main.py`
 
-| Stub | What it does | Replaces when |
+| Stub | Current behaviour | Replaced when |
 |---|---|---|
 | `_CollabStub` | Returns `np.zeros` for all candidates | `collaborative.py` is implemented |
-| `_TMDBStub` | Runs the real `profile_to_params` translation, then ignores the result and returns a fixed list of 10 TMDB IDs | `fetch_candidates` (bridge part 2) is implemented |
+| `_TMDBStub` | Runs real `profile_to_params` but returns 10 hardcoded movies | `TMDB_API_KEY` is in Docker; swap for `TMDBBridgeImpl()` in `main.py` |
 
-### `content_based.py` — vector math not implemented
+### Actor / director / keyword weights not populated
 
-`content_score` returns `np.zeros`. `update_profile` increments the interaction count and timestamp only.
-Neither the feature vector nor the genre/actor/director weight dicts are updated.
+`UserProfile` has `actor_weights`, `director_weights`, and `keyword_weights` dicts.
+`profile_to_params` already reads them and builds `with_cast`, `with_crew`, `with_keywords`
+Discover params — but `update_profile` never fills them in.
 
-**Blocked on:** TMDB API integration — we need to fetch a movie's genres, cast, keywords, and overview before we can build or update the vector.
+TMDB Discover results (`MovieMetadata`) only carry `genre_ids`. To get cast, crew, and
+keywords we need a separate call to TMDB's `/movie/{id}?append_to_response=keywords,credits`.
 
-### Freshness boost inactive
-
-`diversifier.apply()` accepts `movie_ages: dict[int, float] | None`. The engine calls it without this argument, so the `δ · freshness(f)` term is always zero.
-
-**Blocked on:** `tmdb_bridge.py` — once candidates come with a `release_date`, the engine passes `movie_ages` down.
-
-### Genre history for diversification never populated
-
-`diversifier.record_served(user_id, genre_ids)` exists but the engine never calls it.
-As a result, `should_diversify` always returns `False` — the diversification gamma boost never fires.
-
-**Blocked on:** `tmdb_bridge.py` — candidate metadata (genre IDs) needed to call `record_served`.
+**Next step:** add `fetch_movie_detail` to `tmdb_bridge.py` and call it from `record_signal`
+in the engine when a positive action arrives. This makes `record_signal` async.
 
 ### `seen_ids` not deduplicated
 
 `engine.get_feed` accepts `seen_ids` but `main.py` always passes `None`.
-Users will see already-watched films until the DB is wired.
+Users can be served films they have already interacted with.
 
-**Blocked on:** DB integration — query `ratings` for the user's interaction history on each `/feed` request.
+**Blocked on:** DB integration — query `ratings` for the user's interaction history.
 
 ### No DB persistence
 
-`ContentBasedFilter.load(db)` is a no-op. Profile vectors reset on every service restart.
-Engagement deltas and genre history also live in RAM only.
+`ContentBasedFilter.load()` is a no-op. All profile state resets on service restart.
 
-**Blocked on:** `user_profiles` and `user_preferences` tables being added to the Prisma schema.
+**Blocked on:** `user_profiles` and `user_preferences` tables in Prisma schema (`DB_REQUEST.md`).
 
 ### `/retrain` endpoint not secured
 
-The endpoint accepts a `secret` query param but does not verify it and does nothing.
+Accepts a `secret` query param but does not verify it and schedules nothing.
 
 **Blocked on:** `collaborative.py` and `retrain.py`.
 
@@ -136,69 +133,35 @@ The endpoint accepts a `secret` query param but does not verify it and does noth
 
 ## Next Steps
 
-**1. ~~`tmdb_bridge.py` part 2: `fetch_candidates`~~ — Done.**
-`TMDBBridgeImpl` is production-ready. Wire into `main.py` by replacing `_TMDBStub` with
-`TMDBBridgeImpl()` once `TMDB_API_KEY` is available in the Docker environment.
+**1. Actor / director / keyword weights (`tmdb_bridge.py` + `content_based.py`)**
+Add `fetch_movie_detail` to `tmdb_bridge.py` (TMDB `/movie/{id}?append_to_response=keywords,credits`).
+Extend `MovieMetadata` or add a `MovieDetail` type with cast IDs, director IDs, keyword IDs.
+Update `update_profile` to populate the three weight dicts on positive signals.
+Makes `record_signal` in the engine async.
 
-**2. ~~`content_based.py` — vector math~~ — Done.**
-Genre cosine similarity + per-request TF-IDF on candidate overviews, beta-blended.
-`update_profile` populates genre_weights and liked_overviews when the engine passes
-movie metadata from its cache. Known gap: cast/keyword weights require separate TMDB
-detail calls (not from Discover) — tracked below.
+**2. `collaborative.py`**
+SVD matrix factorization. Full structure (load/save checkpoint, `predict`) with zero
+fallback until a trained model exists. Replaces `_CollabStub`.
 
-**3. `collaborative.py`**
-SVD matrix factorization. Implement full structure (load/save checkpoint, `predict`) with a
-graceful zero fallback until a trained model exists. Unblocks replacing `_CollabStub`.
-
-**4. DB integration**
+**3. DB integration**
 Wire `ContentBasedFilter.load()`, persist profile vectors, fetch `seen_ids` on feed requests.
-Depends on backend team applying the schema additions from `DB_REQUEST.md`.
+Depends on backend team applying schema additions from `DB_REQUEST.md`.
 
-**5. `retrain.py`**
-Nightly SVD retrain job. Last — depends on `collaborative.py` being stable.
-
----
-
-## Worklog
-
-> One entry per working session — what landed, in one or two lines. Details live in the sections above.
-
-**2026-06-17** — `content_based.py` vector math implemented: genre cosine similarity
-(sparse weight dict vs binary candidate vectors) + per-request TF-IDF on candidate
-overviews (sklearn, fitted on pool only per spec), beta-blended. `update_profile` populates
-genre_weights and liked_overviews from engine-cached `MovieMetadata`. Engine now wires
-movie_ages (freshness boost) and `record_served` (genre history). `MovieMetadata` dataclass
-added to `schemas.py` and flows through tmdb_bridge → engine → content scoring. 18 new
-tests in `test_content_based.py`; fetch_candidates tests updated for MovieMetadata.
-36 tests total, all pass.
-
-**2026-06-17** — `tmdb_bridge.py` part 2: `fetch_candidates` implemented (async, 3-page parallel
-`asyncio.gather`, dedup against `seen_ids`, page refill until `min_pool` reached, graceful skip
-on HTTP errors). `TMDBBridgeImpl` class added — swap out `_TMDBStub` in `main.py` once
-`TMDB_API_KEY` is in Docker. `engine.get_feed` is now async; `/feed` endpoint awaits it.
-`pytest-asyncio` added; 9 new tests in `test_fetch_candidates.py`. 17 tests total, all pass.
-
-**2026-06-11** — `tmdb_bridge.py` part 1: `profile_to_params` implemented as a pure function
-(genres/keywords/cast/crew/vote thresholds/daily page rotation, diversify support, cold-start
-falls through the same path). First pytest suite added (`tests/`, 8 tests). `_TMDBStub` now runs
-the real translation in the live `/feed` path. `keyword_weights` added to `UserProfile` (in-RAM,
-no DB change). Translation hyperparameters promoted to `config.py`.
-
-**2026-06-10** — Team meeting: TMDB call location decided (Option A — Python calls TMDB).
-Schema additions written up in `DB_REQUEST.md` and handed to the backend team.
+**4. `retrain.py`**
+Nightly SVD retrain job. Depends on `collaborative.py` being stable.
 
 ---
 
 ## Notes for Other Teams
 
-**Backend team (Prisma schema):** The algorithm needs three things not yet in the schema:
-
-1. `ratings` table needs a `watch_time Float?` column (nullable; only set for `skip_fast` / `watched_long` signals)
-2. New table `user_profiles` — `user_id Int @unique`, `feature_vector Bytes`, `updated_at DateTime`
-3. New table `user_preferences` — `user_id Int @unique`, `genre_ids Int[]`, `actor_ids Int[]`, `director_ids Int[]`
+**Backend team (Prisma schema):** Three additions needed — see `DB_REQUEST.md` for full spec.
+1. `ratings.watch_time Float?` — nullable; for skip_fast / watched_long signals
+2. New table `user_profiles` — `userId`, `featureVector Float[]`, `updatedAt`
+3. New table `user_preferences` — `userId`, `genreIds Int[]`, `actorIds Int[]`, `directorIds Int[]`
 
 **Infra team (Docker):** Add a `recommender` service to `docker-compose.yml`:
 - Build context: `./backend/app`
 - Run command: `uvicorn recommendation.main:app --host 0.0.0.0 --port 8000`
-- Env vars needed: `TMDB_API_KEY`, `DATABASE_URL`
+- Env vars: `TMDB_API_KEY`, `DATABASE_URL`
 - Network: same internal network as `backend` and `db`
+- Once `TMDB_API_KEY` is available, swap `_TMDBStub` for `TMDBBridgeImpl()` in `main.py` (one line)
