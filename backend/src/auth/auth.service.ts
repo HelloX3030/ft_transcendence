@@ -33,6 +33,7 @@ export class AuthService {
           password: hash,
           language: dto.language,
           role: 'user',
+          totpActive: false,
         },
       });
       const tokens = await this.createJwt(user.id, user.email, req);
