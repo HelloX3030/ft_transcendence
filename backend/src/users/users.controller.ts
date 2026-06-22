@@ -19,6 +19,7 @@ import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
+import { otpDto } from 'src/utils';
 
 @Controller('users')
 export class UsersController {
@@ -79,5 +80,33 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   getUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getUser(id);
+  }
+
+  //todo: Swigger doc
+  @Post('mfa/totp/setup')
+  @ApiOperation({ summary: 'Delete authenticated user account' })
+  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  createTOTP(@Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.createTOTP(user.sub);
+  }
+
+  @Post('mfa/totp/activate')
+  @ApiOperation({ summary: 'Delete authenticated user account' })
+  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  activateTOTP(@Request() req: ExpressRequest, @Body() dto: otpDto) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.activateTOTP(user.sub, dto.otp);
+  }
+
+  @Delete('mfa/totp')
+  @ApiOperation({ summary: 'Delete authenticated user account' })
+  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  deleteTOTP(@Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.deleteTOTP(user.sub);
   }
 }
