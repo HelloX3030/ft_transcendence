@@ -55,6 +55,11 @@ class _TMDBStub:
         exclude_set = set(exclude)
         return [m for m in self._POOL if m.tmdb_id not in exclude_set]
 
+    async def fetch_movie_detail(self, movie_id: int) -> MovieMetadata:
+        # Return the pool entry as-is — cast/keyword fields stay empty in the stub.
+        pool_map = {m.tmdb_id: m for m in self._POOL}
+        return pool_map.get(movie_id, MovieMetadata(tmdb_id=movie_id))
+
 
 # ---------------------------------------------------------------------------
 # Engine — single instance, created at startup.
@@ -104,7 +109,7 @@ async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
 
 @app.post("/signal", status_code=204)
 async def record_signal(payload: EngagementSignal) -> None:
-    _get_engine().record_signal(
+    await _get_engine().record_signal(
         user_id=payload.user_id,
         movie_id=payload.movie_id,
         action=payload.action,

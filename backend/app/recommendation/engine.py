@@ -61,6 +61,11 @@ class TMDBBridge(Protocol):
     async def fetch_candidates(
         self, params: dict, exclude: list[int], min_pool: int = 20
     ) -> list[MovieMetadata]: ...
+    async def fetch_movie_detail(self, movie_id: int) -> MovieMetadata: ...
+
+
+# Actions that warrant a TMDB detail fetch to enrich cast/director/keyword weights.
+_DETAIL_ACTIONS: frozenset[str] = frozenset({"like", "watchlist_add", "rewatch", "watched_long", "share"})
 
 
 # ---------------------------------------------------------------------------
@@ -108,9 +113,11 @@ class RecommenderEngine:
         self._diversifier = diversifier
         self._tmdb = tmdb_bridge
         self._cfg = config
-        # In-RAM movie metadata cache: populated on each fetch, read on each signal.
-        # Allows update_profile to receive TMDB metadata without an extra API call.
+        # In-RAM movie metadata cache: populated on each feed fetch, read on each signal.
         self._movie_cache: dict[int, MovieMetadata] = {}
+        # Tracks which movie IDs have had their detail fetched (cast/keywords/directors).
+        # Prevents repeated detail calls for the same film within one service lifetime.
+        self._detail_fetched: set[int] = set()
 
     async def get_feed(
         self,
@@ -150,7 +157,7 @@ class RecommenderEngine:
 
         return top
 
-    def record_signal(
+    async def record_signal(
         self,
         user_id: str,
         movie_id: int,
@@ -158,6 +165,18 @@ class RecommenderEngine:
         watch_time: float | None = None,
     ) -> None:
         metadata = self._movie_cache.get(movie_id)
+
+        # For positive signals, enrich the cached metadata with cast/director/keyword
+        # data from the TMDB detail endpoint — but only once per movie per process lifetime.
+        if action in _DETAIL_ACTIONS and movie_id not in self._detail_fetched:
+            self._detail_fetched.add(movie_id)
+            try:
+                detailed = await self._tmdb.fetch_movie_detail(movie_id)
+                self._movie_cache[movie_id] = detailed
+                metadata = detailed
+            except Exception:
+                pass  # detail fetch failed — fall back to genre-only profile update
+
         self._content.update_profile(user_id, movie_id, action, self._cfg.lambda_decay, metadata)
         self._engagement.record_action(user_id, movie_id, action, watch_time)
 

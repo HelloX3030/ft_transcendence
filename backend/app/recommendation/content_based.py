@@ -101,6 +101,12 @@ class ContentBasedFilter:
             if action in _POSITIVE_ACTIONS:
                 for gid in metadata.genre_ids:
                     profile.genre_weights[gid] = profile.genre_weights.get(gid, 0.0) + 1.0
+                for aid in metadata.cast_ids:
+                    profile.actor_weights[aid] = profile.actor_weights.get(aid, 0.0) + 1.0
+                for did in metadata.director_ids:
+                    profile.director_weights[did] = profile.director_weights.get(did, 0.0) + 1.0
+                for kid in metadata.keyword_ids:
+                    profile.keyword_weights[kid] = profile.keyword_weights.get(kid, 0.0) + 1.0
                 if metadata.overview.strip():
                     profile.liked_overviews.append(metadata.overview)
                     if len(profile.liked_overviews) > _MAX_OVERVIEW_HISTORY:
