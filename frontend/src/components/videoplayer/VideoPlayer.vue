@@ -3,14 +3,16 @@ import { useTemplateRef, toRef, watch } from 'vue';
 import { useGlobalVideoPlayer, useVideoPlayer } from '@/composables/useVideoPlayer';
 import VideoInfo from './VideoInfo.vue';
 import Controls from './Controls.vue';
+import type { Provider } from '@/lib/test.ts';
 
 const props = defineProps<{
   title: string;
   videoId: string;
   active: boolean;
   genreIds: number[];
-  providers: string[];
+  providers: Provider[];
   releaseDate: string;
+  showGenres?: boolean;
 }>();
 
 const container = useTemplateRef<HTMLElement>('video-container');
@@ -53,6 +55,7 @@ watch(isMuted, (muted) => {
       :genre-ids="genreIds"
       :providers="providers"
       :release-date="releaseDate"
+      :show-genres="showGenres"
     />
     <div :id="`player-${videoId}`" class="w-full h-full lg:scale-y-125 scale-y-150" />
   </div>

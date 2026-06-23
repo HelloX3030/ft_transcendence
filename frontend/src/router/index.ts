@@ -6,6 +6,7 @@ import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
 import HomeView from '@/views/HomeView.vue';
+import MovieDetailView from '@/views/MovieDetailView.vue';
 
 import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
@@ -73,28 +74,33 @@ const router = createRouter({
       component: OnboardingView,
       meta: { requiresOnboarding: true, hideLayout: true, title: 'Onboarding' },
     },
+    {
+      path: '/moviedetail/:id',
+      component: MovieDetailView,
+      meta: { requiresAuth: true, title: 'Movie Details' },
+    },
   ],
 });
 
-router.beforeEach((to) => {
-  const { isLoggedIn, requiresOnboarding } = storeToRefs(useAuthStore());
+// router.beforeEach((to) => {
+//   const { isLoggedIn, requiresOnboarding } = storeToRefs(useAuthStore());
 
-  if (to.meta.requiresAuth && !isLoggedIn.value) {
-    return { path: '/login' };
-  }
+//   if (to.meta.requiresAuth && !isLoggedIn.value) {
+//     return { path: '/login' };
+//   }
 
-  if (to.meta.requiresAuth && isLoggedIn.value && requiresOnboarding.value) {
-    return { path: '/onboarding' };
-  }
+//   if (to.meta.requiresAuth && isLoggedIn.value && requiresOnboarding.value) {
+//     return { path: '/onboarding' };
+//   }
 
-  if (to.meta.guestOnly && isLoggedIn.value) {
-    return { path: '/' };
-  }
+//   if (to.meta.guestOnly && isLoggedIn.value) {
+//     return { path: '/' };
+//   }
 
-  if (to.meta.requiresOnboarding && !requiresOnboarding.value) {
-    return { path: '/' };
-  }
-});
+//   if (to.meta.requiresOnboarding && !requiresOnboarding.value) {
+//     return { path: '/' };
+//   }
+// });
 
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} | ${APP_NAME}` : APP_NAME;
