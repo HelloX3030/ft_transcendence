@@ -2,7 +2,7 @@ import { expect } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { Response } from 'supertest';
-import { ApiMsgResponse } from 'test/types';
+import { apiResponse } from '@trailertinder/shared';
 
 export async function register(agent: TestAgent, user: RegisterDto) {
   const response = await agent
@@ -13,7 +13,7 @@ export async function register(agent: TestAgent, user: RegisterDto) {
     .expect(201);
 
   checkCookies(response);
-  const body = response.body as ApiMsgResponse;
+  const body = response.body as apiResponse<null>;
   expect(body.message).toBe('User registered successfully');
 }
 
@@ -26,7 +26,7 @@ export async function login(agent: TestAgent, user: LoginDto) {
     .expect(200);
 
   checkCookies(response);
-  const body = response.body as ApiMsgResponse;
+  const body = response.body as apiResponse<null>;
   expect(body.message).toBe('Login successful');
   return agent;
 }

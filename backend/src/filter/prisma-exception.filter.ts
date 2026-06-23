@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Catch,
   ConflictException,
   ExceptionFilter,
@@ -11,6 +12,9 @@ import { Prisma } from '@prisma/client';
 export class PrismaExceptionFilter implements ExceptionFilter {
   catch(exception: Prisma.PrismaClientKnownRequestError) {
     switch (exception.code) {
+      case 'P2000':
+        throw new BadRequestException('Provided value for the column is too long.');
+
       case 'P2002':
         throw new ConflictException('The record already exists');
 

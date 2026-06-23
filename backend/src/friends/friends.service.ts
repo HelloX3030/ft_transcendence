@@ -1,14 +1,13 @@
 import {
   BadRequestException,
-  ConflictException,
-  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { Friend } from '@trailertinder/shared';
+import { successResponse } from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Friend, FriendKey, JwtAccessPayload } from 'src/types';
+import { FriendKey, JwtAccessPayload } from 'src/types';
 
 export const FRIENDS_SELECT = {
   friendsA: true,
@@ -44,96 +43,62 @@ export class FriendsService {
         createdAt: friend.createdAt,
       });
     });
-    return { friends: friends };
+    return successResponse(friends);
   }
 
   async addFriend(payload: JwtAccessPayload, id: number) {
     const friendsKey = this.getFriendsKey(payload.sub, id);
 
-    try {
-      await this.prisma.friends.create({
-        data: {
-          userAId: friendsKey.userAId,
-          userBId: friendsKey.userBId,
-          initiatorId: payload.sub,
-          status: 'pending',
-        },
-      });
-    } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
-          throw new ConflictException('This friendship already exists.');
-        }
-        if (error.code === 'P2003') {
-          throw new BadRequestException('The user ID is invalid.');
-        }
-      }
-      console.error(error);
-      throw new InternalServerErrorException();
-    }
-    return { message: 'friendship request created' };
+    await this.prisma.friends.create({
+      data: {
+        userAId: friendsKey.userAId,
+        userBId: friendsKey.userBId,
+        initiatorId: payload.sub,
+        status: 'pending',
+      },
+    });
+    return successResponse(null, 'friendship request created');
   }
 
   async acceptFriendship(payload: JwtAccessPayload, id: number) {
     const friendsKey = this.getFriendsKey(payload.sub, id);
 
-    try {
-      const friendship = await this.prisma.friends.findUnique({
-        where: {
-          userAId_userBId: friendsKey,
-        },
-      });
+    const friendship = await this.prisma.friends.findUnique({
+      where: {
+        userAId_userBId: friendsKey,
+      },
+    });
 
-      if (friendship === null) throw new NotFoundException('This friendship does not exist.');
+    if (friendship === null) throw new NotFoundException('This friendship does not exist.');
 
-      if (friendship.status === 'pending' && friendship.initiatorId === payload.sub) {
-        throw new BadRequestException('You cannot accept your own friendship request.');
-      }
-
-      if (friendship.status === 'accepted') {
-        throw new BadRequestException('Friendship is already accepted.');
-      }
-
-      await this.prisma.friends.update({
-        where: {
-          userAId_userBId: friendsKey,
-        },
-        data: {
-          status: 'accepted',
-        },
-      });
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      if (error instanceof PrismaClientKnownRequestError) {
-        if (error.code === 'P2003') {
-          throw new NotFoundException('This friendship does not exist.');
-        }
-      }
-      console.error(error);
-      throw new InternalServerErrorException();
+    if (friendship.status === 'pending' && friendship.initiatorId === payload.sub) {
+      throw new BadRequestException('You cannot accept your own friendship request.');
     }
-    return { message: 'friendship status updated' };
+
+    if (friendship.status === 'accepted') {
+      throw new BadRequestException('Friendship is already accepted.');
+    }
+
+    await this.prisma.friends.update({
+      where: {
+        userAId_userBId: friendsKey,
+      },
+      data: {
+        status: 'accepted',
+      },
+    });
+
+    return successResponse(null, 'friendship status updated');
   }
 
   async deleteFriend(payload: JwtAccessPayload, id: number) {
     const friendsKey = this.getFriendsKey(payload.sub, id);
-
-    try {
-      await this.prisma.friends.delete({
-        where: {
-          userAId_userBId: friendsKey,
-        },
-      });
-    } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException('This friendship does not exist.');
-      }
-      console.error(error);
-      throw new InternalServerErrorException();
-    }
-    return { message: 'friendship deleted' };
+    await this.prisma.friends.delete({
+      where: {
+        userAId_userBId: friendsKey,
+      },
+    });
+    return successResponse(null, 'friendship deleted');
   }
 
   getFriendsKey(userXId: number, userYId: number): FriendKey {
