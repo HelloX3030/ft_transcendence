@@ -19,43 +19,34 @@ import { RouterLink } from 'vue-router';
 import { registerSchema } from '@/lib/schemas';
 import { Eye, EyeOff } from 'lucide-vue-next';
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { z } from 'zod';
 import Separator from '@/components/ui/separator/Separator.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const form = useForm({
   validationSchema: toTypedSchema(registerSchema),
 });
 
-type RegisterValueType = z.infer<typeof registerSchema>;
+const router = useRouter();
+const auth = useAuthStore();
+const errorMessage = ref<string | null>(null);
 
-async function createAccount({ username, email, password }: RegisterValueType) {
+const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
+  errorMessage.value = null;
   try {
-    const data = await fetch('http://localhost:3000/v1/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username,
-        email,
-        password,
-        language: 'de', //TODO: dynamic
-      }),
-    });
-    const res = await data.json();
-    console.log(res);
-  } catch (error) {
-    console.log(error);
+    await auth.register({ username, email, password, language: 'de' }); //TODO: dynamic language
+    router.push('/onboarding');
+  } catch (err: unknown) {
+    const e = err as { status?: number; message?: string };
+    if (e?.status === 403) {
+      errorMessage.value = 'Email or username is already taken.';
+    } else if (e?.status) {
+      errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
+    } else {
+      errorMessage.value = 'Could not reach the server.';
+    }
   }
-}
-
-const emit = defineEmits(['onboarding']);
-
-const onSubmit = form.handleSubmit((values) => {
-  console.log('Form submitted!', values);
-  createAccount(values);
-  emit('onboarding');
 });
 
 const isPwVisible = ref(false);
@@ -74,7 +65,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Username</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="urbi420" type="text" />
+              <Input
+                v-bind="componentField"
+                type="text"
+                autocomplete="nickname"
+                placeholder="urbi420"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -83,7 +79,12 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Email</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="email@cinemates.de" />
+              <Input
+                v-bind="componentField"
+                type="email"
+                autocomplete="email"
+                placeholder="email@cinemates.de"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -102,8 +103,9 @@ const isPwVisible = ref(false);
               <div class="flex items-center gap-2">
                 <Input
                   v-bind="componentField"
-                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                   :type="isPwVisible ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
                 >
                 </Input>
               </div>
@@ -115,13 +117,19 @@ const isPwVisible = ref(false);
           <FormItem>
             <FormLabel>Confirm Password</FormLabel>
             <FormControl>
-              <Input v-bind="componentField" placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄" type="password" />
+              <Input
+                v-bind="componentField"
+                type="password"
+                autocomplete="new-password"
+                placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
         </FormField>
 
         <div class="mt-8 flex flex-col space-y-4">
+          <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
           <Button type="submit" class="w-full">Create Account</Button>
           <div class="w-full flex items-center gap-2">
             <Separator class="flex-1" />

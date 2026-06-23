@@ -8,16 +8,12 @@ import {
 import VideoPlayer from './videoplayer/VideoPlayer.vue';
 import { ref, watch } from 'vue';
 import { watchOnce } from '@vueuse/core';
-import { useVideoPlayer } from '@/composables/useVideoPlayer';
+import { useGlobalVideoPlayer } from '@/composables/useVideoPlayer';
+import { popular } from '@/lib/test.ts';
 
-const { isFullscreen } = useVideoPlayer();
-const trailers = [
-  { key: 'MlsrbQaKXoY', name: 'Der Astronaut' },
-  { key: 'BdJKm16Co6M', name: '#TBT Trailer' },
-  { key: 'JE9z-gy4De4', name: 'Official New UK Trailer' },
-];
+const { isFullscreen } = useGlobalVideoPlayer();
 
-const currentIndex = ref(0); //TODO: check ob VideoPlayer component immer neu rendert wegen dem currentIndex ref
+const currentIndex = ref(0);
 const api = ref<CarouselApi>();
 const setApi = (val: CarouselApi) => {
   api.value = val;
@@ -48,11 +44,14 @@ watch(isFullscreen, (fullscreen) => {
     @init-api="setApi"
   >
     <CarouselContent class="h-full">
-      <CarouselItem v-for="(trailer, index) in trailers" :key="trailer.key" class="h-full">
+      <CarouselItem v-for="(trailer, index) in popular" :key="trailer.key" class="h-full">
         <VideoPlayer
-          :title="trailer.name"
+          :title="trailer.title"
           :video-id="trailer.key"
           :active="currentIndex === index"
+          :genre-ids="trailer.genre_ids"
+          :release-date="trailer.release_date"
+          :providers="trailer.providers"
         />
       </CarouselItem>
     </CarouselContent>

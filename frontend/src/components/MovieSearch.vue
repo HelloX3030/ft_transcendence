@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next';
-import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group';
-import { ref } from 'vue';
+import { InputGroup, InputGroupInput } from './ui/input-group';
+import { onMounted, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { Spinner } from './ui/spinner';
-import { useFetch } from '@/composables/useFetch';
-import { Button } from './ui/button';
-import { X } from '@lucide/vue';
+import { useMoviesStore } from '@/stores/movies';
 
-const { searchMovies, searchedMovies, isLoading } = useFetch();
+const store = useMoviesStore();
+const { searchStatus, searchTotal } = storeToRefs(store);
 
 const inputQuery = ref('');
+
+// A freshly mounted search box (empty input) starts a fresh session — results
+// from a previous view must not leak into this one.
+onMounted(store.resetSearch);
 </script>
 
 <template>
-  <form @submit.prevent="searchMovies(inputQuery)">
+  <form @submit.prevent="store.search(inputQuery)">
     <InputGroup class="px-4">
       <InputGroupAddon>
         <Button type="submit" :variant="null" class="hover:text-primary" size="icon">
@@ -21,15 +25,10 @@ const inputQuery = ref('');
         </Button>
       </InputGroupAddon>
       <InputGroupInput placeholder="Search..." v-model="inputQuery" />
-      <InputGroupAddon v-show="inputQuery" align="inline-end">
-        <Button :variant="null" class="hover:text-primary" size="icon" @click="inputQuery = ''">
-          <X />
-        </Button>
-      </InputGroupAddon>
-      <InputGroupAddon align="inline-end"
-        ><Spinner v-if="isLoading === 'loading'" />
-        <span v-else-if="isLoading === 'finish'" v-show="searchedMovies.length > 0"
-          >{{ searchedMovies.length }} Results
+      <InputGroupAddon
+        ><Spinner v-if="searchStatus === 'loading'" />
+        <span v-else-if="searchStatus === 'ready'" v-show="searchTotal > 0"
+          >{{ searchTotal.toLocaleString() }} results
         </span>
       </InputGroupAddon>
     </InputGroup>

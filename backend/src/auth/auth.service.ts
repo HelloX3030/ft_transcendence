@@ -36,7 +36,7 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res);
-      return { mssage: 'User registered successfully' };
+      return { message: 'User registered successfully' };
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {

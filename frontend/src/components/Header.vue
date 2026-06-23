@@ -2,6 +2,7 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Bell } from 'lucide-vue-next';
 import Separator from './ui/separator/Separator.vue';
+import { APP_NAME } from '@/lib/constants';
 </script>
 
 <template>
@@ -12,7 +13,7 @@ import Separator from './ui/separator/Separator.vue';
         <div class="flex items-center">
           <img src="/logo-512x512.png" alt="logo" class="size-12 rounded-full" />
 
-          <p class="text-lg font-medium hover:text-primary transition-colors">Trailer Mates</p>
+          <p class="text-lg font-medium hover:text-primary transition-colors">{{ APP_NAME }}</p>
         </div>
       </RouterLink>
 

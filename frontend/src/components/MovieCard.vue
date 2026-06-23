@@ -37,6 +37,7 @@ defineProps<Props>();
           class="rounded-2xl w-full h-full object-cover"
           loading="lazy"
         />
+        <div v-else class="rounded-2xl w-full h-full bg-muted"></div>
         <div class="bg-black/50 absolute bottom-0 w-full p-4 rounded-b-2xl">
           <p class="text-sm truncate">{{ title }}</p>
         </div>
