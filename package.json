@@ -12,7 +12,8 @@
     "test": "docker compose run --rm --no-deps backend sh -c 'npm install && npm run test && npm run test:e2e'",
     "fix": "docker compose run --rm --no-deps frontend sh -c 'npm install && npm run fix' && docker compose run --rm --no-deps backend sh -c 'npm install && npm run fix'",
     "check": "docker compose run --rm --no-deps frontend sh -c 'npm install && npm run check' && docker compose run --rm --no-deps backend sh -c 'npm install && npm run check && npm run test'",
-    "reset": "docker compose down -v && docker compose up --build"
+    "reset": "docker compose down -v && docker compose up --build",
+    "clear-cache": "docker compose exec redis redis-cli FLUSHALL"
   },
   "devDependencies": {
     "husky": "^9.1.7"

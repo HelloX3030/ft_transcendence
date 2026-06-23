@@ -11,6 +11,7 @@ interface PropsType {
   genreIds: number[];
   providers: Provider[];
   releaseDate: string;
+  showGenres?: boolean;
 }
 const props = defineProps<PropsType>();
 
@@ -27,7 +28,7 @@ const genreNames = computed(() =>
 <template>
   <div class="absolute top-0 left-0 right-0 z-20">
     <div class="relative p-6">
-      <div class="flex gap-2 mb-2 pointer-events-none">
+      <div v-if="showGenres" class="flex gap-2 mb-2 pointer-events-none">
         <span
           v-for="genre in genreNames"
           :key="genre"

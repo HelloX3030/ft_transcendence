@@ -7,3 +7,16 @@ PostgreSQL also provides strong support for advanced SQL features, extensibility
 ## Database Layout and Visualization
 
 Our database schema can be viewed in the /backend/prisma folder. If you want a visual overview of the table relationships, you can use https://dbdiagram.io/d to visualize them.
+
+## Prisma Studio
+
+Prisma Studio is a tool that allows you to inspect and interact with database tables over the web. It is very useful for development.
+
+### How do I launch Prisma Studio?
+Go to the backend directory and execute the command:
+
+`npx prisma studio --url=postgresql://user:password@localhost:5432/dbname`
+
+That's it!
+
+https://www.prisma.io/docs/studio
