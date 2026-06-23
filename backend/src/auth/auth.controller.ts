@@ -1,13 +1,13 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
+  HttpException,
   Post,
   UseGuards,
   Request,
-  BadRequestException,
   Response,
-  ForbiddenException,
   InternalServerErrorException,
   HttpCode,
 } from '@nestjs/common';
@@ -26,12 +26,11 @@ export class AuthController {
     try {
       return await fn();
     } catch (error) {
-      if (error instanceof ForbiddenException) {
+      if (error instanceof HttpException) {
         throw error;
-      } else {
-        console.error(error);
-        throw new InternalServerErrorException();
       }
+      console.error(error);
+      throw new InternalServerErrorException();
     }
   }
 
@@ -65,6 +64,14 @@ export class AuthController {
   ) {
     console.log('login request');
     return this.handleAuth(() => this.authService.login(req, dto, res));
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiResponse({ status: 200, description: 'Returns the authenticated user payload' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  me(@Request() req: ExpressRequest) {
+    return req.user;
   }
 
   @Public()

@@ -1,7 +1,11 @@
+<script lang="ts" setup>
+import { APP_NAME } from '@/lib/constants';
+</script>
+
 <template>
   <div class="flex flex-col h-full">
     <h1 class="text-4xl lg:text-6xl mb-16 text-center">
-      <span class="text-primary">Expierence</span> CineMates
+      <span class="text-primary">Experience</span> {{ APP_NAME }}
     </h1>
     <div class="relative h-1/2">
       <img
