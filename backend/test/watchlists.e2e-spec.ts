@@ -1,12 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request, { Response } from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jest/globals';
 import { RegisterDto } from 'src/auth/dto';
-import cookieParser from 'cookie-parser';
 import TestAgent from 'supertest/lib/agent';
+import { createTestApp } from './utils/create-test-app.utils';
+import { checkCookies } from './utils';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -29,7 +27,7 @@ interface MovieResponse {
 }
 
 describe('Watchlists (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let ownerAgent: TestAgent;
   let viewerAgent: TestAgent;
   let viewerUserId: number;
@@ -37,24 +35,7 @@ describe('Watchlists (e2e)', () => {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      }),
-    );
-    app.enableCors({
-      origin: process.env.CORS_ORIGIN,
-      credentials: true,
-    });
-    app.use(cookieParser());
-    await app.init();
+    app = await createTestApp();
 
     const ownerCredentials = buildRegisterDto('watchlist-owner');
     const viewerCredentials = buildRegisterDto('watchlist-viewer');
@@ -225,7 +206,7 @@ describe('Watchlists (e2e)', () => {
     return body.data;
   }
 
-  async function registerUser(application: INestApplication<App>, dto: RegisterDto) {
+  async function registerUser(application: INestApplication, dto: RegisterDto) {
     const agent = request.agent(application.getHttpServer());
 
     const response = await agent
@@ -257,10 +238,4 @@ function buildRegisterDto(prefix: string): RegisterDto {
     password: 'Test123!',
     language: 'en',
   };
-}
-
-function checkCookies(response: Response) {
-  const cookies = response.headers['set-cookie'];
-  expect(cookies[0]).toContain('access_token=');
-  expect(cookies[1]).toContain('refresh_token=');
 }

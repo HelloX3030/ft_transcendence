@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
-import { createTestApp } from './utils/create-test-app';
+import { createTestApp } from './utils';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
