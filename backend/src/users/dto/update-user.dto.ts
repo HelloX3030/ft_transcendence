@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { language_code } from '@prisma/client';
+import { UpdateUserRequest } from '@trailertinder/shared';
 import { IsEmail, IsEnum, IsOptional, IsString, IsUrl } from 'class-validator';
 
-export class UpdateUserDto {
+export class UpdateUserDto implements UpdateUserRequest {
   @ApiProperty({ example: 'alice', required: false })
   @IsOptional()
   @IsString()
