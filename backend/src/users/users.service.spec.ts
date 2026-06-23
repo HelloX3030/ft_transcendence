@@ -21,6 +21,8 @@ const mockPublicUser = { id: 1, username: 'testuser', image: null };
 const mockPrisma = {
   users: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
@@ -198,6 +200,39 @@ describe('UsersService', () => {
       mockPrisma.users.delete.mockRejectedValue(error);
 
       await expect(service.deleteMe(1)).rejects.toThrow('DB connection failed');
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('returns a paginated case-insensitive substring match, excluding the requester', async () => {
+      const matches = [mockPublicUser];
+      mockPrisma.users.count.mockResolvedValue(1);
+      mockPrisma.users.findMany.mockResolvedValue(matches);
+
+      const result = await service.searchUsers(42, { query: 'test', page: 2, limit: 10 });
+
+      const expectedWhere = {
+        username: { contains: 'test', mode: 'insensitive' },
+        id: { not: 42 },
+      };
+      expect(mockPrisma.users.count).toHaveBeenCalledWith({ where: expectedWhere });
+      expect(mockPrisma.users.findMany).toHaveBeenCalledWith({
+        where: expectedWhere,
+        select: PUBLIC_SELECT,
+        orderBy: { username: 'asc' },
+        skip: 10,
+        take: 10,
+      });
+      expect(result).toEqual({ page: 2, limit: 10, total: 1, results: matches });
+    });
+
+    it('returns an empty result set when nothing matches', async () => {
+      mockPrisma.users.count.mockResolvedValue(0);
+      mockPrisma.users.findMany.mockResolvedValue([]);
+
+      const result = await service.searchUsers(1, { query: 'zzz', page: 1, limit: 20 });
+
+      expect(result).toEqual({ page: 1, limit: 20, total: 0, results: [] });
     });
   });
 
