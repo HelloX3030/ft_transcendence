@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { SearchQueryDto } from './dto/search-query.dto';
-import { PaginatedMovies } from './tmdb.types';
+import { PaginatedMovies } from '@trailertinder/shared';
 import { TmdbService } from './tmdb.service';
 
 @ApiTags('tmdb')

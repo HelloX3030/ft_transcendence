@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies } from './movie-filter';
+import { PaginatedMovies } from '@trailertinder/shared';
 import { TmdbClient } from './tmdb.client';
-import { PaginatedMovies } from './tmdb.types';
 
 const CACHE_TTL_SECONDS = 3600;
 

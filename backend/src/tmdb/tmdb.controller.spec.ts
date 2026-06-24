@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
+import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { makeMovie } from './tmdb.fixtures';
-import { PaginatedMovies, TmdbMovie } from './tmdb.types';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
