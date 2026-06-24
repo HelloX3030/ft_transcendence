@@ -5,16 +5,29 @@ import {
   WatchlistResponse,
   WatchlistUpdateRequest,
 } from '@trailertinder/shared';
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { DEFAULT_MAX_LENGTH } from 'src/utils';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class watchlistCreateDto implements WatchlistCreateRequest {
   @ApiProperty({ example: 'action movies' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(DEFAULT_MAX_LENGTH)
   name!: string;
 
   @ApiProperty({ example: 'http://exapmle.com:9000/avatars/134.webp', required: false })
   @IsString()
+  @MaxLength(DEFAULT_MAX_LENGTH)
+  @IsUrl()
   @IsOptional()
   image?: string;
 }
@@ -22,11 +35,14 @@ export class watchlistCreateDto implements WatchlistCreateRequest {
 export class watchlistUpdateDto implements WatchlistUpdateRequest {
   @ApiProperty({ example: 'action movies', required: false })
   @IsString()
+  @MaxLength(DEFAULT_MAX_LENGTH)
   @IsOptional()
   name?: string;
 
   @ApiProperty({ example: 'http://exapmle.com:9000/avatars/134.webp', required: false })
   @IsString()
+  @MaxLength(DEFAULT_MAX_LENGTH)
+  @IsUrl()
   @IsOptional()
   image?: string;
 }
@@ -34,13 +50,16 @@ export class watchlistUpdateDto implements WatchlistUpdateRequest {
 export class watchlistDto implements WatchlistResponse {
   @IsNumber()
   @IsNotEmpty()
+  @Min(0)
   id!: number;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(DEFAULT_MAX_LENGTH)
   name!: string;
 
-  @IsString()
+  @MaxLength(DEFAULT_MAX_LENGTH)
+  @IsUrl()
   @IsOptional()
   image!: string | null;
 
