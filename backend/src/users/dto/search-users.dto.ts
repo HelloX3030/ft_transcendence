@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { USERNAME_MAX_LENGTH } from 'src/utils';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
@@ -6,7 +7,7 @@ export class SearchUsersDto {
   @ApiProperty({ description: 'Username search term', minLength: 1, maxLength: 32 })
   @IsString()
   @MinLength(1)
-  @MaxLength(32)
+  @MaxLength(USERNAME_MAX_LENGTH)
   query!: string;
 
   @ApiPropertyOptional({ description: 'Result page (1-based)', minimum: 1, default: 1 })
