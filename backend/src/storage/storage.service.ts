@@ -56,24 +56,40 @@ export class StorageService implements OnModuleInit {
   }
 
   private async ensureBucket() {
+    if (await this.bucketExists()) return;
+
+    await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+    this.logger.log(`Created bucket "${this.bucket}"`);
+
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${this.bucket}/*`],
+        },
+      ],
+    });
+    await this.client.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
+  }
+
+  private async bucketExists(): Promise<boolean> {
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
-    } catch {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket })); //todo:?
-      this.logger.log(`Created bucket "${this.bucket}"`);
-
-      const policy = JSON.stringify({
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Effect: 'Allow',
-            Principal: { AWS: ['*'] },
-            Action: ['s3:GetObject'],
-            Resource: [`arn:aws:s3:::${this.bucket}/*`],
-          },
-        ],
-      });
-      await this.client.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
+      return true;
+    } catch (err) {
+      // A 404/NotFound means the bucket is genuinely missing — anything else
+      // (network, auth, permissions) is a real error we must not swallow.
+      if (this.isNotFound(err)) return false;
+      throw err;
     }
+  }
+
+  private isNotFound(err: unknown): boolean {
+    const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+    const name = (err as { name?: string })?.name;
+    return status === 404 || name === 'NotFound' || name === 'NoSuchBucket';
   }
 }
