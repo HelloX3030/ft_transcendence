@@ -3,19 +3,20 @@ import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
 import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
-import { makeMovie } from './tmdb.fixtures';
-import { TmdbListResponse } from './tmdb.types';
+import { makeListResponse, makeMovie } from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
 
+// A movie the quality filter always rejects (no poster, zero popularity).
+const junkMovie: TmdbMovie = makeMovie({ id: 99, poster_path: null, popularity: 0 });
+
 // page 1 of 5 — more pages available, so hasMore is true.
-const multiPageResponse: TmdbListResponse = {
+const multiPageResponse = makeListResponse({
   results: mockMovies,
-  page: 1,
   total_pages: 5,
   total_results: 100,
-};
+});
 const expectedMultiPage: PaginatedMovies = {
   results: mockMovies,
   hasMore: true,
@@ -23,20 +24,11 @@ const expectedMultiPage: PaginatedMovies = {
 };
 
 // page 1 of 1 — no more pages, so hasMore is false.
-const lastPageResponse: TmdbListResponse = {
-  results: mockMovies,
-  page: 1,
-  total_pages: 1,
-  total_results: 1,
-};
+const lastPageResponse = makeListResponse({ results: mockMovies });
 const expectedLastPage: PaginatedMovies = { results: mockMovies, hasMore: false, totalResults: 1 };
 
-const emptyResponse: TmdbListResponse = {
-  results: [],
-  page: 0,
-  total_pages: 0,
-  total_results: 0,
-};
+const emptyResponse = makeListResponse({ results: [], page: 0, total_pages: 0, total_results: 0 });
+const expectedEmpty: PaginatedMovies = { results: [], hasMore: false, totalResults: 0 };
 
 const mockTmdbClient = {
   get: jest.fn(),
@@ -46,6 +38,11 @@ const mockRedisClient = {
   get: jest.fn(),
   set: jest.fn(),
 };
+
+// Asserts the result was cached under `key` with the raw payload and standard TTL.
+function expectCached(key: string, payload: PaginatedMovies): void {
+  expect(mockRedisClient.set).toHaveBeenCalledWith(key, JSON.stringify(payload), 3600);
+}
 
 describe('TmdbService', () => {
   let service: TmdbService;
@@ -60,6 +57,8 @@ describe('TmdbService', () => {
     }).compile();
     service = module.get<TmdbService>(TmdbService);
     jest.clearAllMocks();
+    // Default to a cache miss; the cache-hit tests override get() per-test.
+    mockRedisClient.get.mockResolvedValue(null);
   });
 
   it('should be defined', () => {
@@ -67,11 +66,6 @@ describe('TmdbService', () => {
   });
 
   describe('fetchPopular — cache miss', () => {
-    beforeEach(() => {
-      mockRedisClient.get.mockResolvedValue(null);
-      mockRedisClient.set.mockResolvedValue(undefined);
-    });
-
     it('calls client.get with the popular endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
@@ -93,11 +87,7 @@ describe('TmdbService', () => {
 
       await service.fetchPopular();
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:1:filtered',
-        JSON.stringify(expectedMultiPage),
-        3600,
-      );
+      expectCached('tmdb:popular:page:1:filtered', expectedMultiPage);
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -105,7 +95,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual(successResponse({ results: [], hasMore: false, totalResults: 0 }));
+      expect(result).toEqual(successResponse(expectedEmpty));
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -114,11 +104,7 @@ describe('TmdbService', () => {
       await service.fetchPopular(4);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:4:filtered',
-        JSON.stringify(expectedMultiPage),
-        3600,
-      );
+      expectCached('tmdb:popular:page:4:filtered', expectedMultiPage);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -129,13 +115,13 @@ describe('TmdbService', () => {
     });
 
     it('filters out movies without a poster or below the popularity threshold', async () => {
-      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
-      mockTmdbClient.get.mockResolvedValue({
-        results: [...mockMovies, junk],
-        page: 1,
-        total_pages: 5,
-        total_results: 100,
-      });
+      mockTmdbClient.get.mockResolvedValue(
+        makeListResponse({
+          results: [...mockMovies, junkMovie],
+          total_pages: 5,
+          total_results: 100,
+        }),
+      );
 
       const result = await service.fetchPopular();
 
@@ -155,11 +141,6 @@ describe('TmdbService', () => {
   });
 
   describe('searchMovies — cache miss', () => {
-    beforeEach(() => {
-      mockRedisClient.get.mockResolvedValue(null);
-      mockRedisClient.set.mockResolvedValue(undefined);
-    });
-
     it('calls client.get with a path containing the encoded query params', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
@@ -187,11 +168,7 @@ describe('TmdbService', () => {
       await service.searchMovies('  Batman ');
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('query=batman'));
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:1:filtered',
-        JSON.stringify(expectedLastPage),
-        3600,
-      );
+      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
@@ -215,11 +192,7 @@ describe('TmdbService', () => {
 
       await service.searchMovies('batman');
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:1:filtered',
-        JSON.stringify(expectedLastPage),
-        3600,
-      );
+      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -228,11 +201,7 @@ describe('TmdbService', () => {
       await service.searchMovies('batman', 3);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:search:batman:page:3:filtered',
-        JSON.stringify(expectedLastPage),
-        3600,
-      );
+      expectCached('tmdb:search:batman:page:3:filtered', expectedLastPage);
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -240,7 +209,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('unknownquery');
 
-      expect(result).toEqual(successResponse({ results: [], hasMore: false, totalResults: 0 }));
+      expect(result).toEqual(successResponse(expectedEmpty));
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -251,13 +220,9 @@ describe('TmdbService', () => {
     });
 
     it('filters out movies without a poster or below the popularity threshold', async () => {
-      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
-      mockTmdbClient.get.mockResolvedValue({
-        results: [...mockMovies, junk],
-        page: 1,
-        total_pages: 1,
-        total_results: 2,
-      });
+      mockTmdbClient.get.mockResolvedValue(
+        makeListResponse({ results: [...mockMovies, junkMovie], total_results: 2 }),
+      );
 
       const result = await service.searchMovies('batman');
 
@@ -277,23 +242,14 @@ describe('TmdbService', () => {
   });
 
   describe('filtered = false', () => {
-    beforeEach(() => {
-      mockRedisClient.get.mockResolvedValue(null);
-      mockRedisClient.set.mockResolvedValue(undefined);
-    });
-
     it('returns raw TMDB results without applying the filter', async () => {
-      const junk: TmdbMovie = { ...mockMovies[0], id: 99, poster_path: null, popularity: 0 };
-      mockTmdbClient.get.mockResolvedValue({
-        results: [...mockMovies, junk],
-        page: 1,
-        total_pages: 1,
-        total_results: 2,
-      });
+      mockTmdbClient.get.mockResolvedValue(
+        makeListResponse({ results: [...mockMovies, junkMovie], total_results: 2 }),
+      );
 
       const result = await service.searchMovies('batman', 1, false);
 
-      expect(result.data?.results).toEqual([...mockMovies, junk]);
+      expect(result.data?.results).toEqual([...mockMovies, junkMovie]);
     });
 
     it('caches under a distinct ":raw" key so it never collides with filtered', async () => {
