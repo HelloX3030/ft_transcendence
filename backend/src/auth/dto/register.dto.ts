@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { language_code } from '@prisma/client';
+import { RegisterRequest } from '@trailertinder/shared';
 import { IsEmail, IsEnum, IsNotEmpty, IsString, IsStrongPassword } from 'class-validator';
 
-export class RegisterDto {
+export class RegisterDto implements RegisterRequest {
   @ApiProperty({ example: 'bob' })
   @IsString()
   @IsNotEmpty()

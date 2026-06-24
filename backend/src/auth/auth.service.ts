@@ -13,6 +13,7 @@ import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
+import { successResponse } from 'src/utils';
 
 @Injectable()
 export class AuthService {
@@ -36,14 +37,11 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res);
-      return { message: 'User registered successfully' };
+      return successResponse(null, 'User registered successfully');
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ForbiddenException('Credentials taken');
-        }
-        if (error.code === 'P2000') {
-          throw new BadRequestException('Provided value for the column is too long');
         }
       }
       throw error;
@@ -64,7 +62,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return { message: 'Login successful' };
+    return successResponse(null, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -98,24 +96,18 @@ export class AuthService {
         .refresh_token,
     };
     this.setCookies(tokens, res);
-    return { message: 'Token refreshed' };
+    return successResponse(null, 'Token refreshed');
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
-    try {
-      await this.prisma.sessions.delete({
-        where: {
-          id: payload.sessionId,
-        },
-      });
-    } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        throw error;
-      }
-    }
+    await this.prisma.sessions.delete({
+      where: {
+        id: payload.sessionId,
+      },
+    });
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
-    return { message: 'Logged out' };
+    return successResponse(null, 'Logged out');
   }
 
   async createJwt(userId: number, email: string, req: ExpressRequest): Promise<JwtTokens> {
@@ -235,9 +227,7 @@ export class AuthService {
         },
       });
     } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        console.error(error);
-      }
+      console.error(error);
     }
   }
 }

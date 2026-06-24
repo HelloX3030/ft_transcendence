@@ -1,37 +1,11 @@
 <script setup lang="ts">
-<<<<<<< HEAD
-import { computed, onMounted } from 'vue';
-
-import { useFetch } from '@/composables/useFetch';
-import { useMovieSelection, type Movie } from '@/composables/useMovieSelection';
-
-=======
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import MovieCard from '@/components/MovieCard.vue';
->>>>>>> main
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import MovieSearch from '@/components/MovieSearch.vue';
-import { toast } from 'vue-sonner';
-import MovieCard from '@/components/MovieCard.vue';
 
-<<<<<<< HEAD
-const { fetchPopular, popularMovies, searchedMovies, isLoading } = useFetch();
-const { selectedMovies, addMovie, isSelected } = useMovieSelection();
-
-const movies = computed(() => [...searchedMovies.value, ...popularMovies.value]);
-
-const addFavoriteMovie = (movie: Movie) => {
-  if (selectedMovies.value.length >= 10) {
-    toast.error('Maximum 10 movies');
-    return;
-  }
-  addMovie(movie);
-};
-onMounted(fetchPopular);
-=======
 import { useSelectionStore } from '@/stores/selection';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
@@ -46,7 +20,6 @@ function completeOnboarding() {
   auth.completeOnboarding();
   router.push('/');
 }
->>>>>>> main
 </script>
 
 <template>
@@ -65,19 +38,6 @@ function completeOnboarding() {
       <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />
     </div>
 
-<<<<<<< HEAD
-    <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
-      <MovieCard
-        v-for="movie in movies"
-        :key="movie.id"
-        :title="movie.title"
-        :img="movie.poster_path"
-        :selected="isSelected(movie.id)"
-        @select="addFavoriteMovie({ title: movie.title, id: movie.id, img: movie.poster_path })"
-        :loading="isLoading === 'loading'"
-      />
-    </div>
-=======
     <MovieBrowser :show-label="false">
       <template #movie="{ movie }">
         <MovieCard
@@ -88,6 +48,5 @@ function completeOnboarding() {
         />
       </template>
     </MovieBrowser>
->>>>>>> main
   </div>
 </template>

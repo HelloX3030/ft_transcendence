@@ -1,12 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
-import { createTestApp } from './utils/create-test-app';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
-import { register } from './utils';
-import { FriendsResponse } from './types';
-import { getUserId } from './utils/user.utils';
+import { createTestApp, register } from './utils';
+import { getUserId } from './utils';
+import { apiResponse, Friend } from '@trailertinder/shared';
 
 const bobRegister: RegisterDto = {
   username: 'bob',
@@ -63,9 +62,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    const body = response.body as FriendsResponse;
+    const body = response.body as apiResponse<Friend>;
 
-    expect(body.friends).toEqual(
+    expect(body.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
@@ -80,9 +79,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    const body = response.body as FriendsResponse;
+    const body = response.body as apiResponse<Friend>;
 
-    expect(body.friends).toEqual(
+    expect(body.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
@@ -97,9 +96,9 @@ describe('Friends (e2e)', () => {
 
     const response = await bobAgent.get('/friends').expect(200);
 
-    const body = response.body as FriendsResponse;
+    const body = response.body as apiResponse<Friend>;
 
-    expect(body.friends).not.toEqual(
+    expect(body.data).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           friendId: malloryId,
