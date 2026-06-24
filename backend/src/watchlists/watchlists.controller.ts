@@ -228,6 +228,10 @@ export class WatchlistsController {
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiResponse({ status: 403, description: 'You have read-only access.' })
   @ApiResponse({ status: 404, description: 'Watchlist or user not found.' })
+  @ApiResponse({
+    status: 409,
+    description: 'The last editor cannot be removed. Delete the watchlist instead.',
+  })
   removeUser(
     @Param('id', ParseIntPipe) id: number,
     @Param('userId', ParseIntPipe) userId: number,
