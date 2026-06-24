@@ -83,7 +83,6 @@ const initials = computed(() =>
           </div>
         </div>
       </div>
-      <test>TEST</test>
     </template>
   </div>
 </template>
