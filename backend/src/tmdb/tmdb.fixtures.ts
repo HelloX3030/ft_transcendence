@@ -1,4 +1,4 @@
-import { TmdbMovie } from './tmdb.types';
+import { TmdbMovie } from '@trailertinder/shared';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a

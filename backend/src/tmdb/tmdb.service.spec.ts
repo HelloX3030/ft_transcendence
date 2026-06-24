@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
+import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { makeMovie } from './tmdb.fixtures';
-import { PaginatedMovies, TmdbListResponse, TmdbMovie } from './tmdb.types';
+import { TmdbListResponse } from './tmdb.types';
 import { TmdbService } from './tmdb.service';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];

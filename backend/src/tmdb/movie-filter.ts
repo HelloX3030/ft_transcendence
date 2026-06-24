@@ -1,4 +1,4 @@
-import { TmdbMovie } from './tmdb.types';
+import { TmdbMovie } from '@trailertinder/shared';
 
 /**
  * Minimum number of user ratings for a movie to be surfaced. Unlike TMDB's
