@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import MovieGrid from '@/components/MovieGrid.vue';
+import MovieBrowser from '@/components/MovieBrowser.vue';
+import MovieCard from '@/components/MovieCard.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { popular } from '@/lib/test';
+
+
+
 </script>
 
 <template>
@@ -28,6 +31,10 @@ import { popular } from '@/lib/test';
       adipisicing elit. Rerum laboriosam, sapiente itaque sint, voluptatem accusantium quia sit
       iusto distinctio harum reiciendis modi enim, quisquam ducimus ea labore odio. Porro, pariatur?
     </p>
-    <MovieGrid :movies="popular" />
+    <MovieBrowser :show-label="false">
+      <template #movie="{ movie }">
+        <MovieCard :title="movie.title" :img="movie.poster_path" :selected="false" />
+      </template>
+    </MovieBrowser>
   </section>
 </template>

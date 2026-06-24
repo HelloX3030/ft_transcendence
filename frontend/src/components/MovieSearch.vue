@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Search } from 'lucide-vue-next';
-import { InputGroup, InputGroupInput } from './ui/input-group';
+import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group';
 import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Spinner } from './ui/spinner';
