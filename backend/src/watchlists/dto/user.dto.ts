@@ -1,12 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { watchlist_role } from '@prisma/client';
 import { WatchlistRoleRequest, WatchlistUserRequest } from '@trailertinder/shared';
-import { IsEnum, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 
 export class watchlistUserDto implements WatchlistUserRequest {
   @ApiProperty({ example: '68' })
   @IsNumber()
   @IsNotEmpty()
+  @Min(0)
   userId!: number;
 
   @ApiProperty({ example: 'editor' })
