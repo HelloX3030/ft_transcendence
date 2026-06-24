@@ -1,6 +1,4 @@
-import { useAuthStore } from '@/stores/auth';
 import { APP_NAME } from '@/lib/constants';
-import { storeToRefs } from 'pinia';
 import LoginView from '@/views/auth/LoginView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
