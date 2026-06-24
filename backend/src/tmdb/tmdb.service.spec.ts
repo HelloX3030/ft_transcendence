@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
 import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
+import { successResponse } from 'src/utils';
 import { makeMovie } from './tmdb.fixtures';
 import { TmdbListResponse } from './tmdb.types';
 import { TmdbService } from './tmdb.service';
@@ -84,7 +85,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual(expectedMultiPage);
+      expect(result).toEqual(successResponse(expectedMultiPage));
     });
 
     it('stores the result in Redis with the correct key and TTL', async () => {
@@ -104,7 +105,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual({ results: [], hasMore: false, totalResults: 0 });
+      expect(result).toEqual(successResponse({ results: [], hasMore: false, totalResults: 0 }));
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -138,7 +139,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result.results).toEqual(mockMovies);
+      expect(result.data?.results).toEqual(mockMovies);
     });
   });
 
@@ -148,7 +149,7 @@ describe('TmdbService', () => {
 
       const result = await service.fetchPopular();
 
-      expect(result).toEqual(expectedMultiPage);
+      expect(result).toEqual(successResponse(expectedMultiPage));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
@@ -198,7 +199,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual(expectedLastPage);
+      expect(result).toEqual(successResponse(expectedLastPage));
     });
 
     it('sets hasMore to true when more pages are available', async () => {
@@ -206,7 +207,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual(expectedMultiPage);
+      expect(result).toEqual(successResponse(expectedMultiPage));
     });
 
     it('stores the result in Redis with the correct key and TTL', async () => {
@@ -239,7 +240,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('unknownquery');
 
-      expect(result).toEqual({ results: [], hasMore: false, totalResults: 0 });
+      expect(result).toEqual(successResponse({ results: [], hasMore: false, totalResults: 0 }));
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -260,7 +261,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('batman');
 
-      expect(result.results).toEqual(mockMovies);
+      expect(result.data?.results).toEqual(mockMovies);
     });
   });
 
@@ -270,7 +271,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('batman');
 
-      expect(result).toEqual(expectedLastPage);
+      expect(result).toEqual(successResponse(expectedLastPage));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
@@ -292,7 +293,7 @@ describe('TmdbService', () => {
 
       const result = await service.searchMovies('batman', 1, false);
 
-      expect(result.results).toEqual([...mockMovies, junk]);
+      expect(result.data?.results).toEqual([...mockMovies, junk]);
     });
 
     it('caches under a distinct ":raw" key so it never collides with filtered', async () => {

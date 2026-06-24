@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { apiResponse, PaginatedMovies } from '@trailertinder/shared';
+import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies } from './movie-filter';
-import { PaginatedMovies } from '@trailertinder/shared';
 import { TmdbClient } from './tmdb.client';
 
 const CACHE_TTL_SECONDS = 3600;
@@ -13,15 +14,20 @@ export class TmdbService {
     private readonly redis: RedisService,
   ) {}
 
-  fetchPopular(page = 1, filtered = true): Promise<PaginatedMovies> {
-    return this.getCachedMovies(
+  async fetchPopular(page = 1, filtered = true): Promise<apiResponse<PaginatedMovies>> {
+    const movies = await this.getCachedMovies(
       `tmdb:popular:page:${page}:${filtered ? 'filtered' : 'raw'}`,
       `/movie/popular?language=en-US&page=${page}`,
       filtered,
     );
+    return successResponse(movies);
   }
 
-  searchMovies(query: string, page = 1, filtered = true): Promise<PaginatedMovies> {
+  async searchMovies(
+    query: string,
+    page = 1,
+    filtered = true,
+  ): Promise<apiResponse<PaginatedMovies>> {
     // Normalized so 'Batman', 'batman' and ' batman ' share one cache entry —
     // TMDB search is case-insensitive, so the results are identical anyway.
     const normalized = query.trim().toLowerCase();
@@ -31,11 +37,12 @@ export class TmdbService {
       language: 'en-US',
       page: String(page),
     });
-    return this.getCachedMovies(
+    const movies = await this.getCachedMovies(
       `tmdb:search:${normalized}:page:${page}:${filtered ? 'filtered' : 'raw'}`,
       `/search/movie?${params}`,
       filtered,
     );
+    return successResponse(movies);
   }
 
   // Cache-through fetch shared by every TMDB endpoint: serve the cached page
