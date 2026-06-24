@@ -32,6 +32,7 @@ export class FriendsService {
       friends.push({
         friendId: friend.userBId,
         status: friend.status,
+        initiatorId: friend.initiatorId,
         createdAt: friend.createdAt,
       });
     });
@@ -40,6 +41,7 @@ export class FriendsService {
       friends.push({
         friendId: friend.userAId,
         status: friend.status,
+        initiatorId: friend.initiatorId,
         createdAt: friend.createdAt,
       });
     });
