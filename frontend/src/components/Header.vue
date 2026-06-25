@@ -6,7 +6,7 @@ import Separator from './ui/separator/Separator.vue';
 
 <template>
   <header class="flex h-14 shrink-0 items-center">
-    <div class="grid grid-cols-3 w-full items-center px-2 md:px-9">
+    <div class="grid grid-cols-3 w-full items-center px-9">
       <!-- Links: Sidebar -->
       <div class="flex justify-start">
         <SidebarTrigger />
