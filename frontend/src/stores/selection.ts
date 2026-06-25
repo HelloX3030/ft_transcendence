@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { TmdbMovie } from '@/lib/tmdb.types';
+import type { TmdbMovie } from '@trailertinder/shared';
 
 export interface SelectedMovie {
   id: number;
