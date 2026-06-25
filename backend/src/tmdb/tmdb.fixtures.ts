@@ -1,5 +1,5 @@
-import { TmdbMovie } from '@trailertinder/shared';
-import { TmdbListResponse } from './tmdb.types';
+import { TmdbGenre, TmdbMovie } from '@trailertinder/shared';
+import { TmdbGenreListResponse, TmdbListResponse } from './tmdb.types';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a
@@ -38,4 +38,16 @@ export function makeListResponse(overrides: Partial<TmdbListResponse> = {}): Tmd
     total_results: 1,
     ...overrides,
   };
+}
+
+/** Test-only factory: builds a TmdbGenre with valid defaults. */
+export function makeGenre(overrides: Partial<TmdbGenre> = {}): TmdbGenre {
+  return { id: 28, name: 'Action', ...overrides };
+}
+
+/** Test-only factory: builds a TMDB genre-list response with one genre by default. */
+export function makeGenreListResponse(
+  overrides: Partial<TmdbGenreListResponse> = {},
+): TmdbGenreListResponse {
+  return { genres: [makeGenre()], ...overrides };
 }

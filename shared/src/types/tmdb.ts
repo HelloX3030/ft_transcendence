@@ -21,3 +21,8 @@ export interface PaginatedMovies {
   // TMDB's total match count for the query (unfiltered — see TmdbService).
   totalResults: number;
 }
+
+export interface TmdbGenre {
+  id: number;
+  name: string;
+}

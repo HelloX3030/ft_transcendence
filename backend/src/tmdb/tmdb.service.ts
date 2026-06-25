@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { apiResponse, PaginatedMovies } from '@trailertinder/shared';
+import { apiResponse, PaginatedMovies, TmdbGenre } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
+import { TmdbGenreListResponse } from './tmdb.types';
 
 const CACHE_TTL_SECONDS = 3600;
+
+// Genres are a small, near-static catalogue, so cache them under one fixed key
+// and refresh only daily rather than hourly like the paginated movie endpoints.
+const GENRES_CACHE_KEY = 'tmdb:genres';
+const GENRES_CACHE_TTL_SECONDS = 86_400;
 
 @Injectable()
 export class TmdbService {
@@ -43,6 +49,21 @@ export class TmdbService {
       filtered,
     );
     return successResponse(movies);
+  }
+
+  async getGenres(): Promise<apiResponse<TmdbGenre[]>> {
+    const cached = await this.redis.get(GENRES_CACHE_KEY);
+    if (cached) return successResponse(JSON.parse(cached) as TmdbGenre[]);
+
+    const response = await this.client.get<TmdbGenreListResponse>(
+      '/genre/movie/list?language=en-US',
+    );
+    await this.redis.set(
+      GENRES_CACHE_KEY,
+      JSON.stringify(response.genres),
+      GENRES_CACHE_TTL_SECONDS,
+    );
+    return successResponse(response.genres);
   }
 
   // Cache-through fetch shared by every TMDB endpoint: serve the cached page

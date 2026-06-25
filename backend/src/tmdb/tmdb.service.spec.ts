@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
-import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
+import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
-import { makeListResponse, makeMovie } from './tmdb.fixtures';
+import { makeGenre, makeGenreListResponse, makeListResponse, makeMovie } from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
@@ -237,6 +237,57 @@ describe('TmdbService', () => {
       const result = await service.searchMovies('batman');
 
       expect(result).toEqual(successResponse(expectedLastPage));
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getGenres — cache miss', () => {
+    const genres: TmdbGenre[] = [makeGenre(), makeGenre({ id: 18, name: 'Drama' })];
+
+    it('calls client.get with the genre-list endpoint path', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeGenreListResponse());
+
+      await service.getGenres();
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/genre/movie/list?language=en-US');
+    });
+
+    it('returns the unwrapped genre array', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeGenreListResponse({ genres }));
+
+      const result = await service.getGenres();
+
+      expect(result).toEqual(successResponse(genres));
+    });
+
+    it('caches the genres under a fixed key with a daily TTL', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeGenreListResponse({ genres }));
+
+      await service.getGenres();
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:genres',
+        JSON.stringify(genres),
+        86_400,
+      );
+    });
+
+    it('propagates a TMDB failure without caching anything', async () => {
+      mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
+
+      await expect(service.getGenres()).rejects.toThrow('TMDB request failed');
+      expect(mockRedisClient.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getGenres — cache hit', () => {
+    it('returns the cached genres without calling client.get', async () => {
+      const genres: TmdbGenre[] = [makeGenre()];
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(genres));
+
+      const result = await service.getGenres();
+
+      expect(result).toEqual(successResponse(genres));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
