@@ -18,4 +18,9 @@ export class TmdbController {
   searchMovies(@Query() dto: SearchQueryDto) {
     return this.tmdbService.searchMovies(dto.query, dto.page, dto.filtered);
   }
+
+  @Get('genres')
+  getGenres() {
+    return this.tmdbService.getGenres();
+  }
 }
