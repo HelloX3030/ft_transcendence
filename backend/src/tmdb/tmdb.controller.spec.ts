@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
-import { makeGenre, makeMovie } from './tmdb.fixtures';
+import { makeGenre, makeMovie, makeWatchProviders } from './tmdb.fixtures';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
@@ -10,6 +10,7 @@ const mockTmdbService = {
   fetchPopular: jest.fn(),
   searchMovies: jest.fn(),
   getGenres: jest.fn(),
+  getWatchProviders: jest.fn(),
 } satisfies Partial<jest.Mocked<TmdbService>>;
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
@@ -106,6 +107,26 @@ describe('TmdbController', () => {
       const result = await controller.getGenres();
 
       expect(result).toEqual(mockGenresResponse);
+    });
+  });
+
+  describe('getWatchProviders', () => {
+    const mockProvidersResponse = successResponse(makeWatchProviders({ id: 502356 }));
+
+    it('delegates to tmdbService.getWatchProviders with the movie id', async () => {
+      mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
+
+      await controller.getWatchProviders(502356);
+
+      expect(mockTmdbService.getWatchProviders).toHaveBeenCalledWith(502356);
+    });
+
+    it('returns the providers that tmdbService.getWatchProviders resolves with', async () => {
+      mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
+
+      const result = await controller.getWatchProviders(502356);
+
+      expect(result).toEqual(mockProvidersResponse);
     });
   });
 });

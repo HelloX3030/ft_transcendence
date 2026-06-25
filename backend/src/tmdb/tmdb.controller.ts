@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from './dto/pagination-query.dto';
 import { SearchQueryDto } from './dto/search-query.dto';
@@ -22,5 +22,10 @@ export class TmdbController {
   @Get('genres')
   getGenres() {
     return this.tmdbService.getGenres();
+  }
+
+  @Get('movies/:movieId/providers')
+  getWatchProviders(@Param('movieId', ParseIntPipe) movieId: number) {
+    return this.tmdbService.getWatchProviders(movieId);
   }
 }
