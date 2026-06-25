@@ -43,7 +43,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "joi": "^18.2.1",
-    "otplib": "^13.4.1",
+    "otpauth": "^9.5.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "qrcode": "^1.5.4",

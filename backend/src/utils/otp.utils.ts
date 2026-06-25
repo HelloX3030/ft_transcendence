@@ -1,4 +1,4 @@
-import { verify } from 'otplib';
+import * as OTPAuth from 'otpauth';
 import { decrypt, getMfaKey } from './crypto.utils';
 
 export async function verifyTOTP(totpSecret: string, otp: string) {
@@ -9,6 +9,13 @@ export async function verifyTOTP(totpSecret: string, otp: string) {
 
   const secret = decrypt(encryptedSecret, key, iv);
 
-  const isValid = (await verify({ secret, token: otp })).valid;
-  return isValid;
+  let totp = new OTPAuth.TOTP({
+    algorithm: 'SHA1',
+    digits: 6,
+    period: 30,
+    secret: secret,
+  });
+
+  if (totp.generate() === otp) return true;
+  else return false;
 }

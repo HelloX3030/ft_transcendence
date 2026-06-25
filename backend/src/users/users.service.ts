@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -11,11 +12,11 @@ import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { SearchUsersDto, UpdateUserDto } from './dto';
-import { generateSecret, generateURI } from 'otplib';
 import * as crypto from 'crypto';
 import { encrypt, getMfaKey, successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
+import * as OTPAuth from 'otpauth';
 
 export const ME_SELECT = {
   id: true,
@@ -136,10 +137,6 @@ export class UsersService {
       },
     });
     if (user === null) throw new NotFoundException('User not found.');
-    if (user.totpActive)
-      throw new BadRequestException('TOTP alrady set, remove it first to set a new TOTP.');
-
-    const secret = generateSecret();
 
     const appName = process.env.APP_NAME;
     if (appName === undefined) {
@@ -147,29 +144,34 @@ export class UsersService {
       throw new InternalServerErrorException();
     }
 
-    const uri = generateURI({
+    let totp = new OTPAuth.TOTP({
       issuer: appName,
       label: user.username,
-      secret,
+      algorithm: 'SHA1',
       digits: 6,
       period: 30,
     });
 
-    const qrCode = await this.generateQRCode(uri);
+    const secret = totp.secret.base32;
+    const qrCode = await this.generateQRCode(totp.toString());
 
     const key = getMfaKey();
     const iv = crypto.randomBytes(16);
     let encryptedSecret = iv.toString('hex') + ':';
     encryptedSecret += encrypt(secret, key, iv);
 
-    await this.prisma.users.update({
+    const result = await this.prisma.users.updateMany({
       where: {
         id: userId,
+        totpActive: false,
       },
       data: {
         totpSecret: encryptedSecret,
       },
     });
+    if (result.count === 0) {
+      throw new ConflictException('TOTP setup already in progress or active.');
+    }
     return successResponse(qrCode);
   }
 
@@ -187,14 +189,18 @@ export class UsersService {
     if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
     const isValid = await verifyTOTP(user.totpSecret, otp);
     if (isValid) {
-      await this.prisma.users.update({
+      const result = await this.prisma.users.updateMany({
         where: {
           id: userId,
+          totpSecret: user.totpSecret,
         },
         data: {
           totpActive: true,
         },
       });
+      if (result.count === 0) {
+        throw new ConflictException('TOTP setup already in progress or active.');
+      }
     } else {
       throw new BadRequestException('TOTP code is invalid.');
     }
