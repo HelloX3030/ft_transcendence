@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Request,
   UploadedFile,
   UseInterceptors,
@@ -17,7 +18,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
-import { UpdateUserDto } from './dto';
+import { SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
 import { otpDto } from 'src/utils';
 
@@ -71,6 +72,16 @@ export class UsersController {
   deleteMe(@Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.deleteMe(user.sub);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Search users by username' })
+  @ApiResponse({ status: 200, description: 'Paginated list of matching public profiles' })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  searchUsers(@Request() req: ExpressRequest, @Query() dto: SearchUsersDto) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.searchUsers(user.sub, dto);
   }
 
   @Get(':id')

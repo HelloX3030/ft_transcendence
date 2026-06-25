@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -206,9 +207,22 @@ export class WatchlistsService {
   }
 
   async removeUser(id: number, userId: number, currentUserId: number) {
-    if (userId != currentUserId) {
+    if (userId == currentUserId) {
+      const watchlistUsers = await this.prisma.watchlist_users.findMany({
+        where: {
+          watchlistId: id,
+          role: 'editor',
+        },
+      });
+      if (watchlistUsers.length === 1 && watchlistUsers[0].userId == userId) {
+        throw new ConflictException(
+          'The last editor cannot be removed. Delete the watchlist instead.',
+        );
+      }
+    } else {
       await this.checkUserAccess(id, currentUserId);
     }
+
     await this.prisma.watchlist_users.delete({
       where: {
         watchlistId_userId: {
@@ -217,19 +231,7 @@ export class WatchlistsService {
         },
       },
     });
-    const watchlistUsers = await this.prisma.watchlist_users.findMany({
-      where: {
-        watchlistId: id,
-        role: 'editor',
-      },
-    });
-    if (watchlistUsers.length === 0) {
-      await this.prisma.watchlists.delete({
-        where: {
-          id,
-        },
-      });
-    }
+
     return successResponse(null);
   }
 
