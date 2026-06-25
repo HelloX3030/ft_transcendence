@@ -144,7 +144,7 @@ export class UsersService {
       throw new InternalServerErrorException();
     }
 
-    let totp = new OTPAuth.TOTP({
+    const totp = new OTPAuth.TOTP({
       issuer: appName,
       label: user.username,
       algorithm: 'SHA1',
@@ -187,7 +187,7 @@ export class UsersService {
     });
     if (user === null) throw new NotFoundException('User not found.');
     if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
-    const isValid = await verifyTOTP(user.totpSecret, otp);
+    const isValid = verifyTOTP(user.totpSecret, otp);
     if (isValid) {
       const result = await this.prisma.users.updateMany({
         where: {

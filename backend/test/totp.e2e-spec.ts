@@ -8,7 +8,7 @@ import { RegisterDto } from 'src/auth/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { apiResponse, LoginResponse } from '@trailertinder/shared';
 import * as OTPAuth from 'otpauth';
-import { decrypt, getMfaKey } from 'src/utils';
+import { decryptTOTPSecret } from 'src/utils/otp.utils';
 
 describe('TOTP MFA (e2e)', () => {
   let app: INestApplication;
@@ -69,7 +69,7 @@ describe('TOTP MFA (e2e)', () => {
 
     expect(user?.totpSecret).not.toBeNull();
 
-    const otp = await generateOtpFromStoredSecret(user!.totpSecret!);
+    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
 
     const response = await userAgent
       .post('/users/mfa/totp/activate')
@@ -122,7 +122,7 @@ describe('TOTP MFA (e2e)', () => {
       },
     });
 
-    const otp = await generateOtpFromStoredSecret(user!.totpSecret!);
+    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
 
     const loginAgent = request.agent(app.getHttpServer());
 
@@ -190,7 +190,7 @@ describe('TOTP MFA (e2e)', () => {
       },
     });
 
-    const otp = await generateOtpFromStoredSecret(user!.totpSecret!);
+    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
 
     await userAgent
       .post('/users/mfa/totp/activate')
@@ -227,15 +227,10 @@ describe('TOTP MFA (e2e)', () => {
     return body.sub;
   }
 
-  async function generateOtpFromStoredSecret(secret: string) {
-    const key = getMfaKey();
-    const [ivHex, encryptedSecret] = secret.split(':');
+  function generateOtpFromStoredSecret(secret: string) {
+    secret = decryptTOTPSecret(secret);
 
-    let iv = Buffer.from(ivHex, 'hex');
-
-    secret = decrypt(encryptedSecret, key, iv);
-
-    let totp = new OTPAuth.TOTP({
+    const totp = new OTPAuth.TOTP({
       algorithm: 'SHA1',
       digits: 6,
       period: 30,
