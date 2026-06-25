@@ -11,11 +11,11 @@ import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { SearchUsersDto, UpdateUserDto } from './dto';
-import { generate, generateSecret, generateURI, verify } from 'otplib';
+import { generateSecret, generateURI } from 'otplib';
 import * as crypto from 'crypto';
-import { decrypt, encrypt, getMfaKey, successResponse } from 'src/utils';
-import { use } from 'passport';
+import { encrypt, getMfaKey, successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
+import QRCode from 'qrcode';
 
 export const ME_SELECT = {
   id: true,
@@ -131,15 +131,15 @@ export class UsersService {
         id: userId,
       },
       select: {
+        username: true,
         totpActive: true,
       },
     });
-    if (user === null) throw new BadRequestException('User not found.');
+    if (user === null) throw new NotFoundException('User not found.');
     if (user.totpActive)
       throw new BadRequestException('TOTP alrady set, remove it first to set a new TOTP.');
 
     const secret = generateSecret();
-    console.log(secret);
 
     const appName = process.env.APP_NAME;
     if (appName === undefined) {
@@ -147,15 +147,15 @@ export class UsersService {
       throw new InternalServerErrorException();
     }
 
-    // Generate QR code URI for authenticator apps
     const uri = generateURI({
       issuer: appName,
-      label: '',
+      label: user.username,
       secret,
       digits: 6,
       period: 30,
     });
-    console.log(uri);
+
+    const qrCode = await this.generateQRCode(uri);
 
     const key = getMfaKey();
     const iv = crypto.randomBytes(16);
@@ -170,8 +170,7 @@ export class UsersService {
         totpSecret: encryptedSecret,
       },
     });
-
-    return uri;
+    return successResponse(qrCode);
   }
 
   async activateTOTP(userId: number, otp: string) {
@@ -184,8 +183,7 @@ export class UsersService {
         totpActive: true,
       },
     });
-    //todo: ist das hier richtig?
-    if (user === null) throw new BadRequestException('User not found.');
+    if (user === null) throw new NotFoundException('User not found.');
     if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
     const isValid = await verifyTOTP(user.totpSecret, otp);
     if (isValid) {
@@ -214,5 +212,15 @@ export class UsersService {
       },
     });
     return successResponse(null, 'TOTP deleted.');
+  }
+
+  async generateQRCode(uri: string) {
+    try {
+      const qrCode = await QRCode.toString(uri, { type: 'svg' });
+      return qrCode;
+    } catch (error) {
+      console.error('Error during QR code generation: ', error);
+      throw new InternalServerErrorException();
+    }
   }
 }

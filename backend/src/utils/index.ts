@@ -1,4 +1,4 @@
 export * from './response.utils';
-export * from './global';
+export * from './global.utils';
 export * from './dto';
 export * from './crypto.utils';
