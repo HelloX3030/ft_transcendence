@@ -93,28 +93,40 @@ export class UsersController {
     return this.usersService.getUser(id);
   }
 
-  //todo: Swigger doc
   @Post('mfa/totp/setup')
-  @ApiOperation({ summary: 'Delete authenticated user account' })
-  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiOperation({ summary: 'Generate TOTP secret for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'TOTP secret generated successfully. Returns QR code and secret.',
+  })
+  @ApiResponse({ status: 400, description: 'TOTP already set' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   createTOTP(@Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.createTOTP(user.sub);
   }
 
   @Post('mfa/totp/activate')
-  @ApiOperation({ summary: 'Delete authenticated user account' })
-  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiOperation({ summary: 'Activate TOTP using verification code' })
+  @ApiResponse({
+    status: 200,
+    description: 'TOTP activated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'No TOTP set or invalid OTP code' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   activateTOTP(@Request() req: ExpressRequest, @Body() dto: otpDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.activateTOTP(user.sub, dto.otp);
   }
 
   @Delete('mfa/totp')
-  @ApiOperation({ summary: 'Delete authenticated user account' })
-  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiOperation({ summary: 'Disable TOTP for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'TOTP disabled successfully',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   deleteTOTP(@Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
