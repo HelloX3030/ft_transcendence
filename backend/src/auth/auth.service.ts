@@ -15,6 +15,7 @@ import type { Response as ExpressResponse, Request as ExpressRequest } from 'exp
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
+import { apiResponse, LoginResponse } from '@trailertinder/shared';
 
 @Injectable()
 export class AuthService {
@@ -50,7 +51,11 @@ export class AuthService {
     }
   }
 
-  async login(req: ExpressRequest, dto: LoginDto, res: ExpressResponse) {
+  async login(
+    req: ExpressRequest,
+    dto: LoginDto,
+    res: ExpressResponse,
+  ): Promise<apiResponse<LoginResponse>> {
     const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
@@ -75,7 +80,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return successResponse(null, 'Login successful');
+    return successResponse({ mfaRequired: false, mfaTyp: 'none' }, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
