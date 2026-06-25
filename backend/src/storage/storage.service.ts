@@ -59,7 +59,7 @@ export class StorageService implements OnModuleInit {
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
     } catch {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket })); //todo:?
       this.logger.log(`Created bucket "${this.bucket}"`);
 
       const policy = JSON.stringify({

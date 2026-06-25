@@ -9,6 +9,7 @@ const mockUsersService = {
   updateMe: jest.fn(),
   deleteMe: jest.fn(),
   getUser: jest.fn(),
+  searchUsers: jest.fn(),
   uploadAvatar: jest.fn(),
 } satisfies Partial<jest.Mocked<UsersService>>;
 
@@ -66,6 +67,24 @@ describe('UsersController', () => {
 
       expect(mockUsersService.deleteMe).toHaveBeenCalledWith(42);
       expect(result).toEqual({ message: 'Account deleted' });
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('delegates to usersService.searchUsers with the JWT subject and query dto', async () => {
+      const dto = { query: 'ali', page: 1, limit: 20 };
+      const response = {
+        page: 1,
+        limit: 20,
+        total: 1,
+        results: [{ id: 7, username: 'alice', image: null }],
+      };
+      mockUsersService.searchUsers.mockResolvedValue(response);
+
+      const result = await controller.searchUsers(mockRequest(42), dto);
+
+      expect(mockUsersService.searchUsers).toHaveBeenCalledWith(42, dto);
+      expect(result).toEqual(response);
     });
   });
 

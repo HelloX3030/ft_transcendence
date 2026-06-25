@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   ForbiddenException,
@@ -9,7 +10,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
-import { UpdateUserDto } from './dto';
+import { SearchUsersDto, UpdateUserDto } from './dto';
 import { generate, generateSecret, generateURI, verify } from 'otplib';
 import * as crypto from 'crypto';
 import { decrypt, encrypt, getMfaKey, successResponse } from 'src/utils';
@@ -92,6 +93,27 @@ export class UsersService {
 
     if (oldKey) await this.storage.delete(oldKey);
     return { message: 'Account deleted' };
+  }
+
+  async searchUsers(requesterId: number, dto: SearchUsersDto) {
+    const { query, page, limit } = dto;
+    const where: Prisma.usersWhereInput = {
+      username: { contains: query, mode: Prisma.QueryMode.insensitive },
+      id: { not: requesterId },
+    };
+
+    const [total, results] = await Promise.all([
+      this.prisma.users.count({ where }),
+      this.prisma.users.findMany({
+        where,
+        select: PUBLIC_SELECT,
+        orderBy: { username: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ]);
+
+    return { page, limit, total, results };
   }
 
   async getUser(userId: number) {
