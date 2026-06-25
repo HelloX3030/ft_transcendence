@@ -74,7 +74,7 @@ export class AuthService {
         console.error('TOTP is enabled, but no totpSecret has been set.');
         throw new InternalServerErrorException();
       }
-      const isValid = await verifyTOTP(user.totpSecret, dto.otp);
+      const isValid = verifyTOTP(user.totpSecret, dto.otp);
       if (!isValid) throw new ForbiddenException('Invalid TOTP');
     }
 
