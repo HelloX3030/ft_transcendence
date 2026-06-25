@@ -6,7 +6,7 @@ import ErrorState from './ErrorState.vue';
 import EmptyState from './EmptyState.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
-import type { TmdbMovie } from '@/lib/tmdb.types';
+import type { TmdbMovie } from '@trailertinder/shared';
 
 withDefaults(defineProps<{ showLabel?: boolean }>(), { showLabel: true });
 

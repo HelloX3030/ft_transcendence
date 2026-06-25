@@ -41,7 +41,8 @@ watch(
 
 watch(isMuted, (muted) => {
   if (!player.value) return;
-  muted ? player.value.mute() : player.value.unMute();
+  if (muted) player.value.mute();
+  else player.value.unMute();
 });
 </script>
 
