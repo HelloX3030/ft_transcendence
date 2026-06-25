@@ -18,6 +18,6 @@ export interface TmdbMovie {
 export interface PaginatedMovies {
   results: TmdbMovie[];
   hasMore: boolean;
-  // TMDB's total match count for the query (unfiltered).
+  // TMDB's total match count for the query (unfiltered — see TmdbService).
   totalResults: number;
 }

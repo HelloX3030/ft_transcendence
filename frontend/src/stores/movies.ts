@@ -1,15 +1,23 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { PaginatedMovies, TmdbMovie } from '@/lib/tmdb.types';
+import type { apiResponse, PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 // Fetches JSON and throws on HTTP errors — otherwise an error body would be
-// parsed as PaginatedMovies and `results: undefined` would crash the views.
+// parsed as the expected type and missing fields would crash the views.
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Request to ${url} failed with status ${res.status}`);
   return (await res.json()) as T;
+}
+
+// Unwraps the backend's apiResponse envelope to the plain PaginatedMovies the
+// feeds expect, throwing when the call did not succeed or carried no data.
+async function fetchMovies(url: string): Promise<PaginatedMovies> {
+  const res = await fetchJson<apiResponse<PaginatedMovies>>(url);
+  if (!res.success || !res.data) throw new Error(res.error ?? `Request to ${url} returned no data`);
+  return res.data;
 }
 
 // A paginated, append-as-you-scroll movie collection. Popular and search are the
@@ -99,7 +107,7 @@ export const useMoviesStore = defineStore('movies', () => {
 
   // Popular list — the default browse state, paginated like search.
   const popularFeed = createMovieFeed((page) =>
-    fetchJson<PaginatedMovies>(`/v1/tmdb/popular?page=${page}&filtered=${filtered.value}`),
+    fetchMovies(`/v1/tmdb/popular?page=${page}&filtered=${filtered.value}`),
   );
 
   // Active search session — the query drives which results the feed fetches.
@@ -107,7 +115,7 @@ export const useMoviesStore = defineStore('movies', () => {
   // TMDB's total match count for the current query (see backend caveat: unfiltered).
   const searchTotal = ref(0);
   const searchFeed = createMovieFeed((page) =>
-    fetchJson<PaginatedMovies>(
+    fetchMovies(
       `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${page}&filtered=${filtered.value}`,
     ),
   );

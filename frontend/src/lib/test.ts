@@ -1,11 +1,3 @@
-export const options = {
-  method: 'GET',
-  headers: {
-    accept: 'application/json',
-    Authorization: 'Bearer ' + import.meta.env.VITE_TMDB_API_KEY,
-  },
-};
-
 export interface Provider {
   name: string;
   logoPath: string;
