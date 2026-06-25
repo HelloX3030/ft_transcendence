@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { apiResponse, PaginatedMovies, TmdbGenre } from '@trailertinder/shared';
+import {
+  apiResponse,
+  MovieWatchProviders,
+  PaginatedMovies,
+  TmdbGenre,
+} from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies } from './movie-filter';
@@ -49,6 +54,20 @@ export class TmdbService {
       filtered,
     );
     return successResponse(movies);
+  }
+
+  async getWatchProviders(movieId: number): Promise<apiResponse<MovieWatchProviders>> {
+    const key = `tmdb:providers:movie:${movieId}`;
+    const cached = await this.redis.get(key);
+    if (cached) return successResponse(JSON.parse(cached) as MovieWatchProviders);
+
+    // TMDB returns { id, results: { <country>: { link, flatrate, rent, buy } } }
+    // which already matches MovieWatchProviders, so it's cached and returned as-is.
+    const response = await this.client.get<MovieWatchProviders>(
+      `/movie/${movieId}/watch/providers`,
+    );
+    await this.redis.set(key, JSON.stringify(response), CACHE_TTL_SECONDS);
+    return successResponse(response);
   }
 
   async getGenres(): Promise<apiResponse<TmdbGenre[]>> {

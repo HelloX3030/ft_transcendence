@@ -3,7 +3,13 @@ import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
 import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
-import { makeGenre, makeGenreListResponse, makeListResponse, makeMovie } from './tmdb.fixtures';
+import {
+  makeGenre,
+  makeGenreListResponse,
+  makeListResponse,
+  makeMovie,
+  makeWatchProviders,
+} from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
@@ -288,6 +294,57 @@ describe('TmdbService', () => {
       const result = await service.getGenres();
 
       expect(result).toEqual(successResponse(genres));
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getWatchProviders — cache miss', () => {
+    it('calls client.get with the movie watch-providers path', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeWatchProviders());
+
+      await service.getWatchProviders(502356);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/502356/watch/providers');
+    });
+
+    it('returns the providers payload as-is', async () => {
+      const providers = makeWatchProviders({ id: 502356 });
+      mockTmdbClient.get.mockResolvedValue(providers);
+
+      const result = await service.getWatchProviders(502356);
+
+      expect(result).toEqual(successResponse(providers));
+    });
+
+    it('caches the payload under a per-movie key with the standard TTL', async () => {
+      const providers = makeWatchProviders({ id: 502356 });
+      mockTmdbClient.get.mockResolvedValue(providers);
+
+      await service.getWatchProviders(502356);
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        'tmdb:providers:movie:502356',
+        JSON.stringify(providers),
+        3600,
+      );
+    });
+
+    it('propagates a TMDB failure without caching anything', async () => {
+      mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
+
+      await expect(service.getWatchProviders(502356)).rejects.toThrow('TMDB request failed');
+      expect(mockRedisClient.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getWatchProviders — cache hit', () => {
+    it('returns the cached payload without calling client.get', async () => {
+      const providers = makeWatchProviders({ id: 502356 });
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(providers));
+
+      const result = await service.getWatchProviders(502356);
+
+      expect(result).toEqual(successResponse(providers));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
