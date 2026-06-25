@@ -45,9 +45,10 @@ const mockRedisClient = {
   set: jest.fn(),
 };
 
-// Asserts the result was cached under `key` with the raw payload and standard TTL.
-function expectCached(key: string, payload: PaginatedMovies): void {
-  expect(mockRedisClient.set).toHaveBeenCalledWith(key, JSON.stringify(payload), 3600);
+// Asserts the result was cached under `key` with the raw payload and given TTL
+// (defaults to the standard 1h used by the paginated movie endpoints).
+function expectCached(key: string, payload: unknown, ttl = 3600): void {
+  expect(mockRedisClient.set).toHaveBeenCalledWith(key, JSON.stringify(payload), ttl);
 }
 
 describe('TmdbService', () => {
@@ -247,11 +248,12 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getGenres — cache miss', () => {
-    const genres: TmdbGenre[] = [makeGenre(), makeGenre({ id: 18, name: 'Drama' })];
+  // Two genres so the "returns the array" assertion is meaningful (order + count).
+  const genres: TmdbGenre[] = [makeGenre(), makeGenre({ id: 18, name: 'Drama' })];
 
+  describe('getGenres — cache miss', () => {
     it('calls client.get with the genre-list endpoint path', async () => {
-      mockTmdbClient.get.mockResolvedValue(makeGenreListResponse());
+      mockTmdbClient.get.mockResolvedValue(makeGenreListResponse({ genres }));
 
       await service.getGenres();
 
@@ -271,11 +273,7 @@ describe('TmdbService', () => {
 
       await service.getGenres();
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:genres',
-        JSON.stringify(genres),
-        86_400,
-      );
+      expectCached('tmdb:genres', genres, 86_400);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -288,7 +286,6 @@ describe('TmdbService', () => {
 
   describe('getGenres — cache hit', () => {
     it('returns the cached genres without calling client.get', async () => {
-      const genres: TmdbGenre[] = [makeGenre()];
       mockRedisClient.get.mockResolvedValue(JSON.stringify(genres));
 
       const result = await service.getGenres();
@@ -298,51 +295,48 @@ describe('TmdbService', () => {
     });
   });
 
+  // Fixture defaults to id 1; the id's only role here is to prove it's
+  // interpolated into the request path and cache key.
+  const providers = makeWatchProviders();
+
   describe('getWatchProviders — cache miss', () => {
     it('calls client.get with the movie watch-providers path', async () => {
-      mockTmdbClient.get.mockResolvedValue(makeWatchProviders());
+      mockTmdbClient.get.mockResolvedValue(providers);
 
-      await service.getWatchProviders(502356);
+      await service.getWatchProviders(providers.id);
 
-      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/502356/watch/providers');
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/1/watch/providers');
     });
 
     it('returns the providers payload as-is', async () => {
-      const providers = makeWatchProviders({ id: 502356 });
       mockTmdbClient.get.mockResolvedValue(providers);
 
-      const result = await service.getWatchProviders(502356);
+      const result = await service.getWatchProviders(providers.id);
 
       expect(result).toEqual(successResponse(providers));
     });
 
     it('caches the payload under a per-movie key with the standard TTL', async () => {
-      const providers = makeWatchProviders({ id: 502356 });
       mockTmdbClient.get.mockResolvedValue(providers);
 
-      await service.getWatchProviders(502356);
+      await service.getWatchProviders(providers.id);
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:providers:movie:502356',
-        JSON.stringify(providers),
-        3600,
-      );
+      expectCached('tmdb:providers:movie:1', providers);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
       mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
 
-      await expect(service.getWatchProviders(502356)).rejects.toThrow('TMDB request failed');
+      await expect(service.getWatchProviders(providers.id)).rejects.toThrow('TMDB request failed');
       expect(mockRedisClient.set).not.toHaveBeenCalled();
     });
   });
 
   describe('getWatchProviders — cache hit', () => {
     it('returns the cached payload without calling client.get', async () => {
-      const providers = makeWatchProviders({ id: 502356 });
       mockRedisClient.get.mockResolvedValue(JSON.stringify(providers));
 
-      const result = await service.getWatchProviders(502356);
+      const result = await service.getWatchProviders(providers.id);
 
       expect(result).toEqual(successResponse(providers));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();

@@ -111,20 +111,21 @@ describe('TmdbController', () => {
   });
 
   describe('getWatchProviders', () => {
-    const mockProvidersResponse = successResponse(makeWatchProviders({ id: 502356 }));
+    const mockProviders = makeWatchProviders();
+    const mockProvidersResponse = successResponse(mockProviders);
 
     it('delegates to tmdbService.getWatchProviders with the movie id', async () => {
       mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
 
-      await controller.getWatchProviders(502356);
+      await controller.getWatchProviders(mockProviders.id);
 
-      expect(mockTmdbService.getWatchProviders).toHaveBeenCalledWith(502356);
+      expect(mockTmdbService.getWatchProviders).toHaveBeenCalledWith(mockProviders.id);
     });
 
     it('returns the providers that tmdbService.getWatchProviders resolves with', async () => {
       mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
 
-      const result = await controller.getWatchProviders(502356);
+      const result = await controller.getWatchProviders(mockProviders.id);
 
       expect(result).toEqual(mockProvidersResponse);
     });
