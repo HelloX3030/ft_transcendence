@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth';
 import { useGenresStore } from '@/stores/genres';
+import { usePeopleStore } from '@/stores/people';
 
 const auth = useAuthStore();
 const genres = useGenresStore();
+const people = usePeopleStore();
 const profile = computed(() => auth.user);
 
 const initials = computed(() =>
@@ -24,17 +26,48 @@ const initials = computed(() =>
 
 const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español' };
 
-// Resolve the user's favorite genre ids to names, dropping any the catalogue
-// doesn't know about (it may still be loading or the id may be stale).
-const favoriteGenres = computed(() =>
-  (profile.value?.genreIds ?? [])
-    .map((id) => genres.genreName(id))
-    .filter((name): name is string => name !== undefined),
-);
+// Map preference id lists to display names, dropping any not yet resolved (the
+// catalogue/people cache may still be loading, or an id may be stale).
+function resolveNames(ids: number[] | undefined, lookup: (id: number) => string | undefined) {
+  return (ids ?? []).map(lookup).filter((name): name is string => name !== undefined);
+}
+
+const preferenceSections = computed(() => [
+  {
+    label: 'Favorite Genres',
+    items: resolveNames(profile.value?.genreIds, genres.genreName),
+    empty: 'No favorite genres yet',
+  },
+  {
+    label: 'Favorite Directors',
+    items: resolveNames(profile.value?.directorIds, people.personName),
+    empty: 'No favorite directors yet',
+  },
+  {
+    label: 'Favorite Actors',
+    items: resolveNames(profile.value?.actorIds, people.personName),
+    empty: 'No favorite actors yet',
+  },
+]);
+
+// The person ids to resolve, recomputed when the profile loads (it may arrive
+// after this view mounts).
+const personIds = computed(() => [
+  ...(profile.value?.directorIds ?? []),
+  ...(profile.value?.actorIds ?? []),
+]);
 
 onMounted(() => {
   void genres.ensureLoaded();
 });
+
+watch(
+  personIds,
+  (ids) => {
+    if (ids.length) void people.ensureLoaded(ids);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -73,30 +106,23 @@ onMounted(() => {
         </CardFooter>
       </Card>
 
-      <Card>
+      <Card v-for="section in preferenceSections" :key="section.label">
         <CardHeader>
-          <CardTitle class="text-muted-foreground text-sm font-medium">Favorite Genres</CardTitle>
+          <CardTitle class="text-muted-foreground text-sm font-medium">{{
+            section.label
+          }}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div v-if="favoriteGenres.length" class="flex flex-wrap gap-2">
+          <div v-if="section.items.length" class="flex flex-wrap gap-2">
             <span
-              v-for="genre in favoriteGenres"
-              :key="genre"
+              v-for="item in section.items"
+              :key="item"
               class="text-primary rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium"
             >
-              {{ genre }}
+              {{ item }}
             </span>
           </div>
-          <p v-else class="text-muted-foreground text-sm">No favorite genres yet</p>
-        </CardContent>
-      </Card>
-
-      <Card v-for="label in ['Favorite Directors', 'Favorite Actors']" :key="label">
-        <CardHeader>
-          <CardTitle class="text-muted-foreground text-sm font-medium">{{ label }}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p class="text-muted-foreground text-sm">Coming soon</p>
+          <p v-else class="text-muted-foreground text-sm">{{ section.empty }}</p>
         </CardContent>
       </Card>
     </template>
