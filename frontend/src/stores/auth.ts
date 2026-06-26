@@ -1,5 +1,11 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
+import type {
+  LoginRequest,
+  RegisterRequest,
+  UpdateUserRequest,
+  UserMeResponse,
+} from '@trailertinder/shared';
 
 async function throwApiError(res: Response): Promise<never> {
   const body = await res.json().catch(() => ({}));
@@ -8,36 +14,10 @@ async function throwApiError(res: Response): Promise<never> {
   throw Object.assign(new Error(message), { status: res.status });
 }
 
-interface AuthUser {
-  id: number;
-  username: string;
-  email: string;
-  image: string | null;
-  language: 'de' | 'en' | 'es';
-  role: 'admin' | 'user';
-  genreIds: number[];
-  actorIds: number[];
-  directorIds: number[];
-}
-
-type UpdateUserPayload = Pick<AuthUser, 'username' | 'email' | 'language'>;
-
-interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-interface RegisterPayload {
-  username: string;
-  email: string;
-  password: string;
-  language: string;
-}
-
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const requiresOnboarding = ref(false);
-  const user = ref<AuthUser | null>(null);
+  const user = ref<UserMeResponse | null>(null);
 
   async function fetchUser() {
     try {
@@ -62,7 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(payload: LoginPayload) {
+  async function login(payload: LoginRequest) {
     const res = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,7 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
-  async function register(payload: RegisterPayload) {
+  async function register(payload: RegisterRequest) {
     const res = await fetch('/v1/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchUser();
   }
 
-  async function updateUser(payload: Partial<UpdateUserPayload>) {
+  async function updateUser(payload: UpdateUserRequest) {
     const res = await fetch('/v1/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
