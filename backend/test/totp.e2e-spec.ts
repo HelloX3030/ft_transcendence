@@ -111,7 +111,7 @@ describe('TOTP MFA (e2e)', () => {
     expect(body.success).toBe(true);
     expect(body.data).toMatchObject({
       mfaRequired: true,
-      mfaTyp: 'totp',
+      mfaType: 'totp',
     });
   });
 
@@ -140,7 +140,7 @@ describe('TOTP MFA (e2e)', () => {
     expect(body.success).toBe(true);
     expect(body.data).toMatchObject({
       mfaRequired: false,
-      mfaTyp: 'none',
+      mfaType: 'none',
     });
 
     checkCookies(response);
