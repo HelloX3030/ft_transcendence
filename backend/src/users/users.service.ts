@@ -13,6 +13,9 @@ export const ME_SELECT = {
   image: true,
   language: true,
   role: true,
+  genreIds: true,
+  actorIds: true,
+  directorIds: true,
 } as const;
 
 export const PUBLIC_SELECT = {
