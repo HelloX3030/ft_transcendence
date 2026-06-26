@@ -1,4 +1,4 @@
-import { TmdbGenre, TmdbMovie } from '@trailertinder/shared';
+import { TmdbGenre, TmdbMovie, TmdbPerson } from '@trailertinder/shared';
 
 export interface TmdbListResponse {
   page: number;
@@ -9,4 +9,12 @@ export interface TmdbListResponse {
 
 export interface TmdbGenreListResponse {
   genres: TmdbGenre[];
+}
+
+// Raw TMDB /person/{id} payload. A superset of the public TmdbPerson; only the
+// fields we expose are typed here.
+export interface TmdbPersonResponse extends TmdbPerson {
+  biography: string;
+  birthday: string | null;
+  popularity: number;
 }

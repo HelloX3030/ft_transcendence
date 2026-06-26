@@ -27,6 +27,14 @@ export interface TmdbGenre {
   name: string;
 }
 
+export interface TmdbPerson {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  // TMDB's primary department, e.g. "Acting" | "Directing".
+  known_for_department: string;
+}
+
 export interface WatchProvider {
   provider_id: number;
   provider_name: string;
