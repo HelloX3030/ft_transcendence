@@ -9,6 +9,11 @@ export interface UpdateUserRequest {
   image?: string;
 }
 
+export interface OnboardingRequest {
+  /** TMDB ids of the movies the user picked during onboarding. */
+  movieIds: number[];
+}
+
 export interface UserMeResponse {
   id: number;
   username: string;
@@ -16,6 +21,7 @@ export interface UserMeResponse {
   language: LanguageCode;
   image: string | null;
   role: UserRole;
+  onboardingCompleted: boolean;
   genreIds: number[];
   actorIds: number[];
   directorIds: number[];
