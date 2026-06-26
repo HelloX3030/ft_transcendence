@@ -31,7 +31,7 @@ export function useWatchProviders(movieId: Ref<number | undefined>) {
       try {
         const data = await fetchData<MovieWatchProviders>(`/v1/tmdb/movies/${id}/providers`);
         if (gen !== generation) return;
-        providers.value = data.results[DEFAULT_REGION]?.flatrate ?? [];
+        providers.value = data.results?.[DEFAULT_REGION]?.flatrate ?? [];
         status.value = 'ready';
       } catch (error) {
         if (gen !== generation) return;
