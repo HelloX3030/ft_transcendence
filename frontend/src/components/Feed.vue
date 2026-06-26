@@ -52,6 +52,7 @@ watch(isFullscreen, (fullscreen) => {
           :genre-ids="trailer.genre_ids"
           :release-date="trailer.release_date"
           :providers="trailer.providers"
+          :show-genres="true"
         />
       </CarouselItem>
     </CarouselContent>
