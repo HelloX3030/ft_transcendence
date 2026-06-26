@@ -1,5 +1,7 @@
 import type { LanguageCode } from "./auth";
 
+export type UserRole = "admin" | "user";
+
 export interface UpdateUserRequest {
   username?: string;
   email?: string;
@@ -13,4 +15,8 @@ export interface UserMeResponse {
   email: string;
   language: LanguageCode;
   image: string | null;
+  role: UserRole;
+  genreIds: number[];
+  actorIds: number[];
+  directorIds: number[];
 }

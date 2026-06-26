@@ -15,6 +15,9 @@ interface AuthUser {
   image: string | null;
   language: 'de' | 'en' | 'es';
   role: 'admin' | 'user';
+  genreIds: number[];
+  actorIds: number[];
+  directorIds: number[];
 }
 
 type UpdateUserPayload = Pick<AuthUser, 'username' | 'email' | 'language'>;
