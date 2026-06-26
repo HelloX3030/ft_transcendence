@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import * as argon2 from 'argon2';
@@ -19,6 +20,8 @@ import { apiResponse, LoginResponse } from '@trailertinder/shared';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -93,7 +96,7 @@ export class AuthService {
       },
     });
     if (session === null) {
-      console.error('could not find the session in the database to issue a new JWT');
+      this.logger.error('could not find the session in the database to issue a new JWT');
       throw new ForbiddenException('Invalid session id');
     }
 
@@ -108,7 +111,7 @@ export class AuthService {
       },
     });
     if (user === null) {
-      console.error('could not find the user in the database to issue a new JWT');
+      this.logger.error('could not find the user in the database to issue a new JWT');
       throw new InternalServerErrorException();
     }
     const tokens = {
@@ -238,7 +241,6 @@ export class AuthService {
 
   @Interval(300000) // every 5 min
   async sessionCleanUp() {
-    console.log('Run session clean up');
     try {
       await this.prisma.sessions.deleteMany({
         where: {
@@ -248,7 +250,7 @@ export class AuthService {
         },
       });
     } catch (error) {
-      console.error(error);
+      this.logger.error('Session cleanup failed', error as Error);
     }
   }
 }

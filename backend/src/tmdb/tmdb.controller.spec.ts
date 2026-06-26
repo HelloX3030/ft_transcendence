@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
+import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
+import { successResponse } from 'src/utils';
 import { makeMovie } from './tmdb.fixtures';
-import { PaginatedMovies, TmdbMovie } from './tmdb.types';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
@@ -13,6 +14,7 @@ const mockTmdbService = {
 const mockMovies: TmdbMovie[] = [makeMovie()];
 
 const mockPage: PaginatedMovies = { results: mockMovies, hasMore: false, totalResults: 1 };
+const mockResponse = successResponse(mockPage);
 
 describe('TmdbController', () => {
   let controller: TmdbController;
@@ -32,7 +34,7 @@ describe('TmdbController', () => {
 
   describe('fetchPopular', () => {
     it('delegates to tmdbService.fetchPopular with dto.page', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
+      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
 
       await controller.fetchPopular({ page: 1, filtered: true });
 
@@ -40,7 +42,7 @@ describe('TmdbController', () => {
     });
 
     it('forwards the requested page to tmdbService.fetchPopular', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
+      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
 
       await controller.fetchPopular({ page: 4, filtered: true });
 
@@ -48,17 +50,17 @@ describe('TmdbController', () => {
     });
 
     it('returns the paginated result that tmdbService.fetchPopular resolves with', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockPage);
+      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
 
       const result = await controller.fetchPopular({ page: 1, filtered: true });
 
-      expect(result).toEqual(mockPage);
+      expect(result).toEqual(mockResponse);
     });
   });
 
   describe('searchMovies', () => {
     it('delegates to tmdbService.searchMovies with dto.query and dto.page', async () => {
-      mockTmdbService.searchMovies.mockResolvedValue(mockPage);
+      mockTmdbService.searchMovies.mockResolvedValue(mockResponse);
       const dto: SearchQueryDto = { query: 'batman', page: 1, filtered: true };
 
       await controller.searchMovies(dto);
@@ -67,7 +69,7 @@ describe('TmdbController', () => {
     });
 
     it('forwards the requested page to tmdbService.searchMovies', async () => {
-      mockTmdbService.searchMovies.mockResolvedValue(mockPage);
+      mockTmdbService.searchMovies.mockResolvedValue(mockResponse);
       const dto: SearchQueryDto = { query: 'batman', page: 3, filtered: true };
 
       await controller.searchMovies(dto);
@@ -76,12 +78,12 @@ describe('TmdbController', () => {
     });
 
     it('returns the paginated result that tmdbService.searchMovies resolves with', async () => {
-      mockTmdbService.searchMovies.mockResolvedValue(mockPage);
+      mockTmdbService.searchMovies.mockResolvedValue(mockResponse);
       const dto: SearchQueryDto = { query: 'batman', page: 1, filtered: true };
 
       const result = await controller.searchMovies(dto);
 
-      expect(result).toEqual(mockPage);
+      expect(result).toEqual(mockResponse);
     });
   });
 });
