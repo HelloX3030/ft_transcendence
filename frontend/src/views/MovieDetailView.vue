@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { severalMovies } from '@/lib/test';
+import { useWatchProviders } from '@/composables/useWatchProviders';
 
 import TrailerModal from '@/components/moviedetails/TrailerModal.vue';
 import MovieHero from '@/components/moviedetails/MovieHero.vue';
@@ -29,7 +30,9 @@ const formattedRuntime = computed(() => {
   return `${h}h ${m}m`;
 });
 const rating = computed(() => movie.value?.vote_average.toFixed(1) ?? '');
-const providers = computed(() => movie.value?.watchProviders.results.DE?.flatrate ?? []);
+
+const movieId = computed(() => Number(route.params.id));
+const { providers } = useWatchProviders(movieId);
 const backdropUrl = computed(() => `https://image.tmdb.org/t/p/w1280${movie.value?.backdrop_path}`);
 const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.poster_path}`);
 </script>
@@ -70,7 +73,7 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
         </div>
         <MovieOverview :overview="movie.overview" />
         <MovieCredits :director="director" :cast="topCast" />
-        <MovieProviders :providers="providers" />
+        <MovieProviders v-if="providers.length" :providers="providers" />
         <SimilarMovies :movies="similarMovies" />
       </div>
 
