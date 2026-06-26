@@ -19,11 +19,19 @@ export const useAuthStore = defineStore('auth', () => {
   const requiresOnboarding = ref(false);
   const user = ref<UserMeResponse | null>(null);
 
+  // Onboarding state is owned by the backend (users.onboardingCompleted). Mirror it
+  // locally whenever we (re)load the user so a page reload or a login from another
+  // device can't bypass onboarding.
+  function syncOnboarding() {
+    requiresOnboarding.value = user.value ? !user.value.onboardingCompleted : false;
+  }
+
   async function fetchUser() {
     try {
       const res = await fetch('/v1/users/me', { credentials: 'same-origin' });
       if (res.ok) {
         user.value = await res.json();
+        syncOnboarding();
       }
     } catch {
       // network error — leave user as-is
@@ -72,13 +80,23 @@ export const useAuthStore = defineStore('auth', () => {
     });
     if (!res.ok) await throwApiError(res);
     isLoggedIn.value = true;
-    requiresOnboarding.value = true;
+    // requiresOnboarding is derived from the fetched user (onboardingCompleted=false
+    // for a new account), so no need to set it manually here.
     await fetchUser();
   }
 
-  async function completeOnboarding() {
-    requiresOnboarding.value = false;
-    await fetchUser();
+  // Sends the movies picked during onboarding to the backend, which marks
+  // onboarding complete and returns the updated user.
+  async function completeOnboarding(movieIds: number[]) {
+    const res = await fetch('/v1/users/me/onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ movieIds }),
+    });
+    if (!res.ok) await throwApiError(res);
+    user.value = await res.json();
+    syncOnboarding();
   }
 
   async function uploadAvatar(file: File) {
@@ -102,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     });
     if (!res.ok) await throwApiError(res);
     user.value = await res.json();
+    syncOnboarding();
   }
 
   return {
