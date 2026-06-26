@@ -65,11 +65,14 @@ export class AuthService {
     if (!isPwMatch) {
       throw new ForbiddenException('Invalid credentials');
     }
-    if (user.totpActive && dto.otp === undefined) {
-      return successResponse({ mfaRequired: true, mfaTyp: 'totp' }, 'TOTP is required for login.');
-    }
 
-    if (user.totpActive && dto.otp !== undefined) {
+    if (user.totpActive) {
+      if (!dto.otp) {
+        return successResponse(
+          { mfaRequired: true, mfaType: 'totp' },
+          'TOTP is required for login.',
+        );
+      }
       if (user.totpSecret === null) {
         console.error('TOTP is enabled, but no totpSecret has been set.');
         throw new InternalServerErrorException();
@@ -80,7 +83,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return successResponse({ mfaRequired: false, mfaTyp: 'none' }, 'Login successful');
+    return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
