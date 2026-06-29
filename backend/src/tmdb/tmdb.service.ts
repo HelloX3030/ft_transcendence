@@ -32,9 +32,18 @@ export class TmdbService {
   ) {}
 
   async discoverMovies(page = 1, filtered = true): Promise<apiResponse<PaginatedMovies>> {
+    // TMDB's /discover/movie is the filterable superset of /movie/popular: with
+    // no filters and sort_by=popularity.desc (its default) it returns the popular
+    // list, but unlike /movie/popular it also accepts genre/sort/date filters.
+    const params = new URLSearchParams({
+      include_adult: 'false',
+      language: 'en-US',
+      sort_by: 'popularity.desc',
+      page: String(page),
+    });
     const movies = await this.getCachedMovies(
-      `tmdb:popular:page:${page}:${filtered ? 'filtered' : 'raw'}`,
-      `/movie/popular?language=en-US&page=${page}`,
+      `tmdb:discover:page:${page}:${filtered ? 'filtered' : 'raw'}`,
+      `/discover/movie?${params}`,
       filtered,
     );
     return successResponse(movies);
