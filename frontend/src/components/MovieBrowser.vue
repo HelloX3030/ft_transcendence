@@ -41,7 +41,7 @@ const loadMoreActive = (): Promise<void> =>
 // Header shows how many results are currently loaded (the total lives in the
 // search box). Discover browsing has no count.
 const sectionLabel = computed(() =>
-  isSearching.value ? `Showing ${resultCount.value}` : 'Popular',
+  isSearching.value ? `Showing ${resultCount.value}` : 'Discover',
 );
 
 // Delay the loading indicator so fast (cached) responses don't flash a
