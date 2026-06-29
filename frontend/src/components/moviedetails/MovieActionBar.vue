@@ -2,6 +2,9 @@
 import { Heart, X, Bookmark } from 'lucide-vue-next';
 import { ref } from 'vue';
 
+// Whether the movie has a playable trailer — drives the trailer button's state.
+defineProps<{ hasTrailer: boolean }>();
+
 //TODO: liked, disliked, saved in DB speichern und beim Laden der Seite abrufen
 const isLiked = ref(false);
 const isDisliked = ref(false);
@@ -38,10 +41,16 @@ function toggleDislike() {
     </div>
 
     <button
-      class="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
+      :disabled="!hasTrailer"
+      class="w-full flex items-center justify-center gap-2 font-semibold px-5 py-3 rounded-full shadow-xl transition-all duration-200"
+      :class="
+        hasTrailer
+          ? 'bg-orange-600 hover:bg-orange-500 text-white'
+          : 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
+      "
       @click="$emit('trailer')"
     >
-      ▶ Trailer
+      {{ hasTrailer ? '▶ Trailer' : 'No trailer' }}
     </button>
   </div>
 </template>

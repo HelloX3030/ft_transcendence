@@ -88,7 +88,7 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
         <SimilarMovies :movies="similarMovies" />
       </div>
 
-      <MovieActionBar @trailer="showTrailer = true" />
+      <MovieActionBar :has-trailer="!!movie.trailerKey" @trailer="showTrailer = true" />
 
       <TrailerModal
         v-if="showTrailer && movie.trailerKey"
