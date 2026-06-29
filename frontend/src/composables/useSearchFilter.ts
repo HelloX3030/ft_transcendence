@@ -7,7 +7,9 @@ const currentYear = new Date().getFullYear();
 const yearFrom = ref<number | undefined>(undefined);
 const yearTo = ref<number | undefined>(currentYear);
 
-const selectedGenres = ref<string[]>([]);
+// TMDB genre ids (not names) — `with_genres` expects ids. Names for display are
+// resolved from the genres store at render time.
+const selectedGenres = ref<number[]>([]);
 
 const sortDirection = ref<'asc' | 'desc'>('desc');
 
@@ -25,13 +27,13 @@ const primaryReleaseDateGte = computed(() => {
 const primaryReleaseDateLte = computed(() => (yearTo.value ? `${yearTo.value}-12-31` : undefined));
 
 export function useSearchFilter() {
-  function toggleGenre(genre: string, checked: boolean) {
-    if (checked) selectedGenres.value.push(genre);
-    else selectedGenres.value = selectedGenres.value.filter((g) => g !== genre);
+  function toggleGenre(genreId: number, checked: boolean) {
+    if (checked) selectedGenres.value.push(genreId);
+    else selectedGenres.value = selectedGenres.value.filter((id) => id !== genreId);
   }
 
-  function removeGenre(genre: string) {
-    selectedGenres.value = selectedGenres.value.filter((g) => g !== genre);
+  function removeGenre(genreId: number) {
+    selectedGenres.value = selectedGenres.value.filter((id) => id !== genreId);
   }
 
   function clearFilters() {
