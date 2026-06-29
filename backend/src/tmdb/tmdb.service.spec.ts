@@ -73,12 +73,14 @@ describe('TmdbService', () => {
   });
 
   describe('discoverMovies — cache miss', () => {
-    it('calls client.get with the popular endpoint path', async () => {
+    it('calls client.get with the discover endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
       await service.discoverMovies();
 
-      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=1');
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=1',
+      );
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
@@ -94,7 +96,7 @@ describe('TmdbService', () => {
 
       await service.discoverMovies();
 
-      expectCached('tmdb:popular:page:1:filtered', expectedMultiPage);
+      expectCached('tmdb:discover:page:1:filtered', expectedMultiPage);
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -110,8 +112,10 @@ describe('TmdbService', () => {
 
       await service.discoverMovies(4);
 
-      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
-      expectCached('tmdb:popular:page:4:filtered', expectedMultiPage);
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4',
+      );
+      expectCached('tmdb:discover:page:4:filtered', expectedMultiPage);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -360,7 +364,7 @@ describe('TmdbService', () => {
       await service.discoverMovies(1, false);
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:1:raw',
+        'tmdb:discover:page:1:raw',
         expect.any(String),
         3600,
       );
