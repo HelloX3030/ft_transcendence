@@ -3,12 +3,15 @@ import MovieSearch from '@/components/MovieSearch.vue';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import MovieCard from '@/components/MovieCard.vue';
+import SearchFilters from '@/components/searchfilter/SearchFilters.vue';
 </script>
 
 <template>
   <div class="flex flex-col gap-6 p-4">
     <MovieSearch />
     <MovieFilterToggle />
+    <!-- Filter bar is rendered and interactive, but not yet wired to results -->
+    <SearchFilters />
 
     <MovieBrowser>
       <template #movie="{ movie }">
