@@ -8,7 +8,7 @@ import {
 } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
-import { filterMovies } from './movie-filter';
+import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
 import { TmdbGenreListResponse, TmdbPersonResponse } from './tmdb.types';
 
@@ -63,6 +63,15 @@ export class TmdbService {
       sort_by: (sortBy ?? 'popularity.desc').replace(/^release_date\./, 'primary_release_date.'),
       page: String(page),
     });
+    // Enforce the quality floor server-side so it runs BEFORE TMDB sorts and
+    // paginates. Otherwise sorts that surface low-quality entries (e.g.
+    // vote_average.desc returns films with a single 10/10 vote) hand back pages
+    // that filterMovies strips almost empty, breaking the feed. filterMovies
+    // still runs to drop posterless results, which TMDB can't filter on.
+    if (filtered) {
+      params.set('vote_count.gte', String(MIN_VOTE_COUNT));
+      params.set('vote_average.gte', String(MIN_VOTE_AVERAGE));
+    }
     if (withGenres) params.set('with_genres', withGenres);
     if (releaseDateGte) params.set('primary_release_date.gte', releaseDateGte);
     if (releaseDateLte) params.set('primary_release_date.lte', releaseDateLte);

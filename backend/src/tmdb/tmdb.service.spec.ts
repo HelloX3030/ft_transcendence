@@ -79,7 +79,7 @@ describe('TmdbService', () => {
       await service.discoverMovies();
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(
-        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=1',
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5',
       );
     });
 
@@ -97,7 +97,7 @@ describe('TmdbService', () => {
       await service.discoverMovies();
 
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:filtered',
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -116,10 +116,10 @@ describe('TmdbService', () => {
       await service.discoverMovies({ page: 4 });
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(
-        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4',
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5',
       );
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4:filtered',
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -212,6 +212,27 @@ describe('TmdbService', () => {
         expect.stringContaining('with_genres=28'),
         expect.any(String),
         expect.any(Number),
+      );
+    });
+
+    it('enforces the quality thresholds server-side when filtered', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ sortBy: 'vote_average.desc' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('vote_count.gte=50'));
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('vote_average.gte=5'),
+      );
+    });
+
+    it('omits the quality thresholds when unfiltered', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ filtered: false });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.not.stringContaining('vote_count.gte'),
       );
     });
   });
