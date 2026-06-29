@@ -92,7 +92,7 @@ export const useMoviesStore = defineStore('movies', () => {
 
   // Popular list — the default browse state, paginated like search.
   const popularFeed = createMovieFeed((page) =>
-    fetchData<PaginatedMovies>(`/v1/tmdb/popular?page=${page}&filtered=${filtered.value}`),
+    fetchData<PaginatedMovies>(`/v1/tmdb/discover?page=${page}&filtered=${filtered.value}`),
   );
 
   // Active search session — the query drives which results the feed fetches.

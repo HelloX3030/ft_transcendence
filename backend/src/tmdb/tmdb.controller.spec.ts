@@ -7,7 +7,7 @@ import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
 const mockTmdbService = {
-  fetchPopular: jest.fn(),
+  discoverMovies: jest.fn(),
   searchMovies: jest.fn(),
   getGenres: jest.fn(),
   getWatchProviders: jest.fn(),
@@ -34,27 +34,27 @@ describe('TmdbController', () => {
     expect(controller).toBeDefined();
   });
 
-  describe('fetchPopular', () => {
-    it('delegates to tmdbService.fetchPopular with dto.page', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
+  describe('discoverMovies', () => {
+    it('delegates to tmdbService.discoverMovies with dto.page', async () => {
+      mockTmdbService.discoverMovies.mockResolvedValue(mockResponse);
 
-      await controller.fetchPopular({ page: 1, filtered: true });
+      await controller.discoverMovies({ page: 1, filtered: true });
 
-      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(1, true);
+      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(1, true);
     });
 
-    it('forwards the requested page to tmdbService.fetchPopular', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
+    it('forwards the requested page to tmdbService.discoverMovies', async () => {
+      mockTmdbService.discoverMovies.mockResolvedValue(mockResponse);
 
-      await controller.fetchPopular({ page: 4, filtered: true });
+      await controller.discoverMovies({ page: 4, filtered: true });
 
-      expect(mockTmdbService.fetchPopular).toHaveBeenCalledWith(4, true);
+      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(4, true);
     });
 
-    it('returns the paginated result that tmdbService.fetchPopular resolves with', async () => {
-      mockTmdbService.fetchPopular.mockResolvedValue(mockResponse);
+    it('returns the paginated result that tmdbService.discoverMovies resolves with', async () => {
+      mockTmdbService.discoverMovies.mockResolvedValue(mockResponse);
 
-      const result = await controller.fetchPopular({ page: 1, filtered: true });
+      const result = await controller.discoverMovies({ page: 1, filtered: true });
 
       expect(result).toEqual(mockResponse);
     });

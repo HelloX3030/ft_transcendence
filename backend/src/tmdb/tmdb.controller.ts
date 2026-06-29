@@ -10,9 +10,9 @@ import { TmdbService } from './tmdb.service';
 export class TmdbController {
   constructor(private readonly tmdbService: TmdbService) {}
 
-  @Get('popular')
-  fetchPopular(@Query() dto: PaginationQueryDto) {
-    return this.tmdbService.fetchPopular(dto.page, dto.filtered);
+  @Get('discover')
+  discoverMovies(@Query() dto: PaginationQueryDto) {
+    return this.tmdbService.discoverMovies(dto.page, dto.filtered);
   }
 
   @Get('search')
