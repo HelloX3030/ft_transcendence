@@ -4,8 +4,12 @@ import { X } from 'lucide-vue-next';
 import { Badge } from '../ui/badge/index.ts';
 
 import { useSearchFilter } from '@/composables/useSearchFilter.ts';
+import { useGenresStore } from '@/stores/genres.ts';
 
 const { sortField, selectedGenres, removeGenre, clearFilters } = useSearchFilter();
+
+// Chips store genre ids; resolve to display names via the shared catalogue.
+const { genreName } = useGenresStore();
 </script>
 
 <template>
@@ -21,13 +25,13 @@ const { sortField, selectedGenres, removeGenre, clearFilters } = useSearchFilter
 
   <template v-if="selectedGenres.length > 0">
     <Badge
-      v-for="genre in selectedGenres"
-      :key="genre"
+      v-for="genreId in selectedGenres"
+      :key="genreId"
       variant="secondary"
       class="flex items-center gap-2 cursor-pointer"
-      @click="removeGenre(genre)"
+      @click="removeGenre(genreId)"
     >
-      {{ genre }}
+      {{ genreName(genreId) }}
       <X />
     </Badge>
 
