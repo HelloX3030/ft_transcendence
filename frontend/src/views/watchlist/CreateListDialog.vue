@@ -5,7 +5,6 @@ import { toast } from 'vue-sonner';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 
-import { useFetch } from '@/composables/useFetch';
 import { useMovieSelection, type Movie } from '@/composables/useMovieSelection';
 
 import { Button } from '@/components/ui/button';
@@ -34,9 +33,13 @@ import MovieCard from '@/components/MovieCard.vue';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 import { createListSchema } from '@/lib/schemas';
-import { Textarea } from '@/components/ui/textarea';
+import { useWatchlist } from '@/composables/useWatchlist';
+import MovieBrowser from '@/components/MovieBrowser.vue';
+import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
+import { useMoviesStore } from '@/stores/movies';
 
-const { searchedMovies } = useFetch();
+const store = useMoviesStore();
+const { createWatchlist, addMovietoWatchlist, isLoading } = useWatchlist();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
 const isOpen = ref(false);
 
@@ -44,16 +47,23 @@ const { handleSubmit, resetForm } = useForm({
   validationSchema: toTypedSchema(createListSchema),
 });
 
-const onSubmit = handleSubmit((values) => {
+const onSubmit = handleSubmit(async (values) => {
   console.log(values);
   console.log(selectedMovies.value);
+
+  const watchlistData = await createWatchlist({ name: values.name });
+  console.log(selectedMovies.value);
+  if (!watchlistData) return; //TODO: IMPROVE
+  for (const movie of selectedMovies.value) {
+    addMovietoWatchlist(watchlistData?.id, { tmdbId: movie.id });
+  }
   toast.success('New List Created Successfully');
   isOpen.value = false;
 });
 
 const resetDialog = () => {
   selectedMovies.value = [];
-  searchedMovies.value = [];
+  store.resetSearch();
   resetForm();
 };
 
@@ -86,7 +96,7 @@ watch(isOpen, (open) => {
             <FormMessage />
           </FormItem>
         </FormField>
-        <FormField v-slot="{ componentField }" name="description">
+        <!-- <FormField v-slot="{ componentField }" name="description">
           <FormItem>
             <FormLabel>Description</FormLabel>
             <FormControl>
@@ -94,7 +104,7 @@ watch(isOpen, (open) => {
             </FormControl>
             <FormMessage />
           </FormItem>
-        </FormField>
+        </FormField> -->
         <FormField name="image" v-slot="{ handleChange }">
           <FormItem>
             <FormLabel>Image</FormLabel>
@@ -110,7 +120,10 @@ watch(isOpen, (open) => {
         </FormField>
         <div class="grid gap-3">
           <Label for="movies">Add Movies</Label>
-          <div class="max-h-40 md:max-h-80 overflow-y-auto" v-show="selectedMovies.length > 0">
+          <div
+            class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary"
+            v-show="selectedMovies.length > 0"
+          >
             <TagsInput
               id="movies"
               v-model="selectedMovies"
@@ -130,18 +143,20 @@ watch(isOpen, (open) => {
             </TagsInput>
           </div>
           <MovieSearch />
-          <div class="max-h-40 md:max-h-80 overflow-y-auto">
-            <div class="grid grid-cols-4 gap-2 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
-              <MovieCard
-                v-for="movie in searchedMovies"
-                :key="movie.id"
-                :title="movie.title"
-                :img="movie.poster_path ?? null"
-                :selected="isSelected(movie.id)"
-                :loading="false"
-                @select="addMovie({ title: movie.title, id: movie.id, img: movie.poster_path })"
-              />
-            </div>
+          <MovieFilterToggle />
+          <div class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary">
+            <MovieBrowser :show-label="false">
+              <template #movie="{ movie }">
+                <MovieCard
+                  :title="movie.title"
+                  :img="movie.poster_path"
+                  :selected="isSelected(movie.id)"
+                  @select="
+                    addMovie({ title: movie.title, id: movie.id, img: movie.poster_path ?? '' })
+                  "
+                />
+              </template>
+            </MovieBrowser>
           </div>
         </div>
         <DialogFooter>

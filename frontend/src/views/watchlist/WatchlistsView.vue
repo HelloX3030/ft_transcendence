@@ -1,17 +1,17 @@
 <script lang="ts" setup>
-import { computed, onMounted } from 'vue';
-import { useFetch } from '@/composables/useFetch.ts';
-import OverviewMobile from '@/components/watchlist/OverviewMobile.vue';
-import OverviewDesktop from '@/components/watchlist/OverviewDesktop.vue';
+import { onMounted } from 'vue';
+import { useWatchlist } from '@/composables/useWatchlist.ts';
 import CreateListDialog from './CreateListDialog.vue';
+import { Spinner } from '@/components/ui/spinner/index.ts';
+import WatchlistOverview from '@/components/watchlist/WatchlistOverview.vue';
 
-const { fetchPopular, popularMovies } = useFetch();
+const { fetchAllWatchlists, watchlists, isLoading } = useWatchlist();
 
-onMounted(fetchPopular);
+onMounted(fetchAllWatchlists);
 
-const posters = computed(() => {
-  return popularMovies.value.map((movie) => ({ img: movie.poster_path })).splice(0, 5);
-});
+// const posters = computed(() => {
+//   return popularMovies.value.map((movie) => ({ img: movie.poster_path })).splice(0, 5);
+// });
 </script>
 
 <template>
@@ -21,28 +21,27 @@ const posters = computed(() => {
         <h1 class="text-3xl mb-6 font-bold">Your lists</h1>
         <CreateListDialog />
       </div>
-      <div class="hidden md:flex md:flex-col gap-4">
-        <OverviewDesktop title="Watch Later" :movies="popularMovies" />
-        <OverviewDesktop title="Likes" :movies="popularMovies" />
-        <OverviewDesktop title="Horror" :movies="popularMovies" />
+
+      <div v-if="isLoading === 'loading'" class="flex items-center justify-center min-h-screen">
+        <Spinner class="size-16" />
+      </div>
+      <div
+        v-if="isLoading === 'finish' && watchlists?.length == 0"
+        class="flex items-center justify-center min-h-screen"
+      >
+        <p class="text-zinc-500">No Watchlist</p>
+      </div>
+      <div v-else-if="isLoading === 'error'" class="flex items-center justify-center min-h-screen">
+        <p class="text-zinc-500">Error can not find Watchlists.</p>
       </div>
 
-      <div class="space-y-4 md:hidden">
-        <OverviewMobile title="Watch Later" :posters="posters" :size="popularMovies.length" />
-        <OverviewMobile
-          title="Favorites 2016"
-          :posters="posters"
-          :size="popularMovies.length"
-          description="Alles was ich 2016 geguckt habe"
+      <div v-else class="flex flex-col">
+        <WatchlistOverview
+          v-for="watchlist in watchlists"
+          :key="watchlist.id"
+          v-bind="watchlist"
+          @edit="openEditDialog"
         />
-
-        <OverviewMobile
-          title="Kino Realeases 2026"
-          :posters="posters"
-          :size="popularMovies.length"
-        />
-
-        <OverviewMobile title="Feel Good" :posters="posters" :size="popularMovies.length" />
       </div>
     </div>
   </section>

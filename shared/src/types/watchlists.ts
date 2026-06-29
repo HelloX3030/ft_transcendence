@@ -3,6 +3,10 @@ export type WatchlistRole = "editor" | "viewer";
 export interface WatchlistMovieRequest {
   tmdbId: number;
 }
+export interface WatchlistMovieResponse {
+  tmdbId: number;
+  name: string;
+}
 
 export interface WatchlistCreateRequest {
   name: string;
@@ -19,7 +23,7 @@ export interface WatchlistResponse {
   name: string;
   image: string | null;
   role: WatchlistRole;
-  createdAt: Date;
+  createdAt: Date | string;
 }
 
 export interface WatchlistUserRequest {

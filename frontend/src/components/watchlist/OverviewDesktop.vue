@@ -8,32 +8,43 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '../ui/carousel/index.ts';
-import type { popular } from '@/lib/test.ts';
 import { Button } from '../ui/button/index.ts';
+import { onMounted, ref } from 'vue';
+import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared/index.ts';
+import { useWatchlist } from '@/composables/useWatchlist.ts';
 
-interface Props {
-  title: string;
-  movies: typeof popular;
-}
+const { getMovieIdsFromWatchlist } = useWatchlist();
 
-defineProps<Props>();
+const props = defineProps<WatchlistResponse>();
+
+const movieIds = ref<WatchlistMovieResponse[] | null | undefined>([]);
+
+onMounted(async () => {
+  movieIds.value = await getMovieIdsFromWatchlist(props.id);
+});
 </script>
 
 <template>
   <div class="group">
     <div class="space-y-2">
-      <div class="flex justify-between">
-        <h2 class="text-xl group-hover:text-primary duration-300 transition-colors ease-in-out">
-          {{ title }}
-        </h2>
+      <div class="flex justify-between items-baseline">
+        <div class="flex justify-between items-baseline space-x-4">
+          <h2 class="text-xl group-hover:text-primary duration-300 transition-colors ease-in-out">
+            {{ name }}
+          </h2>
+          <span class="text-muted-foreground text-xs">{{
+            new Date(createdAt).toLocaleDateString()
+          }}</span>
+        </div>
+
         <div class="flex items-center gap-2">
-          <p class="text-muted-foreground">{{ movies.length }} Films</p>
-          <Button variant="ghost"><Pen /></Button>
+          <p class="text-muted-foreground">{{ movieIds?.length }} Films</p>
+          <Button v-if="role === 'editor'" variant="ghost"><Pen /></Button>
         </div>
       </div>
     </div>
 
-    <Carousel
+    <!-- <Carousel
       :opts="{
         align: 'start',
         slidesToScroll: 1,
@@ -51,6 +62,6 @@ defineProps<Props>();
         </CarouselItem>
       </CarouselContent>
       <CarouselNext variant="default" class="absolute right-0 bg-black z-10 disabled:hidden" />
-    </Carousel>
+    </Carousel> -->
   </div>
 </template>
