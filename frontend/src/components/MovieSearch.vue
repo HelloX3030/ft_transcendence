@@ -5,6 +5,8 @@ import { onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { Spinner } from './ui/spinner';
 import { useMoviesStore } from '@/stores/movies';
+import { X } from '@lucide/vue';
+import { Button } from './ui/button';
 
 const store = useMoviesStore();
 const { searchStatus, searchTotal } = storeToRefs(store);
@@ -25,11 +27,28 @@ onMounted(store.resetSearch);
         </Button>
       </InputGroupAddon>
       <InputGroupInput placeholder="Search..." v-model="inputQuery" />
-      <InputGroupAddon
+      <InputGroupAddon align="inline-end"
         ><Spinner v-if="searchStatus === 'loading'" />
         <span v-else-if="searchStatus === 'ready'" v-show="searchTotal > 0"
-          >{{ searchTotal.toLocaleString() }} results
+          >{{ searchTotal }} results
         </span>
+      </InputGroupAddon>
+      <InputGroupAddon align="inline-end">
+        <Button
+          type="button"
+          :variant="null"
+          class="hover:text-primary"
+          size="icon"
+          :disabled="inputQuery === ''"
+          @click="
+            () => {
+              inputQuery = '';
+              store.resetSearch();
+            }
+          "
+        >
+          <X />
+        </Button>
       </InputGroupAddon>
     </InputGroup>
   </form>

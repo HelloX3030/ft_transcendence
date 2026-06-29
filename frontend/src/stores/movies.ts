@@ -6,7 +6,7 @@ type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 // Fetches JSON and throws on HTTP errors — otherwise an error body would be
 // parsed as PaginatedMovies and `results: undefined` would crash the views.
-async function fetchJson<T>(url: string): Promise<T> {
+export async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Request to ${url} failed with status ${res.status}`);
   return (await res.json()) as T;

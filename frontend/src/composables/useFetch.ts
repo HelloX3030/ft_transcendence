@@ -1,11 +1,33 @@
 import { options, popular } from '@/lib/test';
+import type {
+  apiResponse as ApiResponse,
+  WatchlistCreateRequest,
+  WatchlistMovieRequest,
+  WatchlistResponse,
+} from '@trailertinder/shared';
 import { ref } from 'vue';
 
 const popularMovies = ref<typeof popular>([]);
 const searchedMovies = ref<typeof popular>([]);
 const isLoading = ref<'loading' | 'pending' | 'finish' | 'error'>('pending');
 
+enum Method {
+  GET = 'GET',
+  POST = 'POST',
+  PUT = 'PUT',
+  DELETE = 'DELETE',
+}
+
 export function useFetch() {
+  async function fetchBackend<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
+    const response = await fetch(url, {
+      credentials: 'include',
+      ...options,
+    });
+
+    return response.json();
+  }
+
   async function fetchPopular() {
     try {
       isLoading.value = 'loading';
@@ -18,7 +40,6 @@ export function useFetch() {
 
       const data = await res.json();
       isLoading.value = 'finish';
-      console.log(data.results);
       popularMovies.value = data.results;
     } catch (error) {
       console.error(error);
@@ -45,5 +66,50 @@ export function useFetch() {
     }
   }
 
-  return { fetchPopular, searchMovies, popularMovies, searchedMovies, isLoading };
+  async function fetchAllWatchlists() {
+    try {
+      isLoading.value = 'loading';
+      const data = await fetchBackend<WatchlistResponse[]>('http://localhost:3000/v1/watchlists');
+      console.log(data);
+      isLoading.value = 'finish';
+      return data.data;
+    } catch (error) {
+      isLoading.value = 'error';
+      console.log(error);
+    }
+  }
+
+  async function createWatchlist(watchlist: WatchlistCreateRequest) {
+    try {
+      isLoading.value = 'loading';
+      const data = await fetchBackend('http://localhost:3000/v1/watchlists', { method: 'POST' });
+      console.log(data);
+      isLoading.value = 'finish';
+    } catch (error) {}
+  }
+
+  async function addMovietoWatchlist(movie: WatchlistMovieRequest) {
+    try {
+      isLoading.value = 'loading';
+      const data = await fetchBackend(
+        `http://localhost:3000/v1/watchlists/${movie.tmdbId}/movies`,
+        {
+          method: 'POST',
+        },
+      );
+      console.log(data);
+      isLoading.value = 'finish';
+    } catch (error) {}
+  }
+
+  return {
+    fetchPopular,
+    searchMovies,
+    fetchAllWatchlists,
+    createWatchlist,
+    addMovietoWatchlist,
+    popularMovies,
+    searchedMovies,
+    isLoading,
+  };
 }
