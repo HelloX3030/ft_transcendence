@@ -22,6 +22,18 @@ const GENRES_CACHE_TTL_SECONDS = 86_400;
 // A person's name/photo changes very rarely, so cache each one for a week.
 const PERSON_CACHE_TTL_SECONDS = 604_800;
 
+// Inputs for the discover feed. Structurally matched by DiscoverQueryDto, so the
+// controller can forward the validated DTO straight through. All optional: an
+// empty object yields the popular list (sort_by=popularity.desc, no filters).
+export interface DiscoverFilters {
+  page?: number;
+  filtered?: boolean;
+  sortBy?: string;
+  withGenres?: string;
+  releaseDateGte?: string;
+  releaseDateLte?: string;
+}
+
 @Injectable()
 export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
@@ -31,18 +43,34 @@ export class TmdbService {
     private readonly redis: RedisService,
   ) {}
 
-  async discoverMovies(page = 1, filtered = true): Promise<apiResponse<PaginatedMovies>> {
+  async discoverMovies(filters: DiscoverFilters = {}): Promise<apiResponse<PaginatedMovies>> {
+    const {
+      page = 1,
+      filtered = true,
+      sortBy,
+      withGenres,
+      releaseDateGte,
+      releaseDateLte,
+    } = filters;
+
     // TMDB's /discover/movie is the filterable superset of /movie/popular: with
     // no filters and sort_by=popularity.desc (its default) it returns the popular
     // list, but unlike /movie/popular it also accepts genre/sort/date filters.
     const params = new URLSearchParams({
       include_adult: 'false',
       language: 'en-US',
-      sort_by: 'popularity.desc',
+      // `release_date.*` is the UI's name for TMDB's `primary_release_date.*`.
+      sort_by: (sortBy ?? 'popularity.desc').replace(/^release_date\./, 'primary_release_date.'),
       page: String(page),
     });
+    if (withGenres) params.set('with_genres', withGenres);
+    if (releaseDateGte) params.set('primary_release_date.gte', releaseDateGte);
+    if (releaseDateLte) params.set('primary_release_date.lte', releaseDateLte);
+
+    // The full query string is the cache key, so every distinct filter
+    // combination (and page) maps to its own entry and never collides.
     const movies = await this.getCachedMovies(
-      `tmdb:discover:page:${page}:${filtered ? 'filtered' : 'raw'}`,
+      `tmdb:discover:${params.toString()}:${filtered ? 'filtered' : 'raw'}`,
       `/discover/movie?${params}`,
       filtered,
     );

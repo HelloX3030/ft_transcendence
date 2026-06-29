@@ -35,20 +35,29 @@ describe('TmdbController', () => {
   });
 
   describe('discoverMovies', () => {
-    it('delegates to tmdbService.discoverMovies with dto.page', async () => {
+    it('forwards the whole query dto to tmdbService.discoverMovies', async () => {
       mockTmdbService.discoverMovies.mockResolvedValue(mockResponse);
+      const dto = { page: 1, filtered: true };
 
-      await controller.discoverMovies({ page: 1, filtered: true });
+      await controller.discoverMovies(dto);
 
-      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(1, true);
+      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(dto);
     });
 
-    it('forwards the requested page to tmdbService.discoverMovies', async () => {
+    it('forwards the filter params untouched', async () => {
       mockTmdbService.discoverMovies.mockResolvedValue(mockResponse);
+      const dto = {
+        page: 4,
+        filtered: true,
+        sortBy: 'vote_average.desc',
+        withGenres: '28,12',
+        releaseDateGte: '2000-01-01',
+        releaseDateLte: '2010-12-31',
+      };
 
-      await controller.discoverMovies({ page: 4, filtered: true });
+      await controller.discoverMovies(dto);
 
-      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(4, true);
+      expect(mockTmdbService.discoverMovies).toHaveBeenCalledWith(dto);
     });
 
     it('returns the paginated result that tmdbService.discoverMovies resolves with', async () => {
