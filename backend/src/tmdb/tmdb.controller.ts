@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { DiscoverQueryDto } from './dto/discover-query.dto';
 import { PeopleQueryDto } from './dto/people-query.dto';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { TmdbService } from './tmdb.service';
@@ -11,8 +11,8 @@ export class TmdbController {
   constructor(private readonly tmdbService: TmdbService) {}
 
   @Get('discover')
-  discoverMovies(@Query() dto: PaginationQueryDto) {
-    return this.tmdbService.discoverMovies(dto.page, dto.filtered);
+  discoverMovies(@Query() dto: DiscoverQueryDto) {
+    return this.tmdbService.discoverMovies(dto);
   }
 
   @Get('search')

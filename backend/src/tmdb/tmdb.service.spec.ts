@@ -96,7 +96,10 @@ describe('TmdbService', () => {
 
       await service.discoverMovies();
 
-      expectCached('tmdb:discover:page:1:filtered', expectedMultiPage);
+      expectCached(
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:filtered',
+        expectedMultiPage,
+      );
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -110,12 +113,15 @@ describe('TmdbService', () => {
     it('uses the requested page in the TMDB path and cache key', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      await service.discoverMovies(4);
+      await service.discoverMovies({ page: 4 });
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(
         '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4',
       );
-      expectCached('tmdb:discover:page:4:filtered', expectedMultiPage);
+      expectCached(
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4:filtered',
+        expectedMultiPage,
+      );
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -148,6 +154,65 @@ describe('TmdbService', () => {
 
       expect(result).toEqual(successResponse(expectedMultiPage));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('discoverMovies — filters', () => {
+    it('appends with_genres, sort_by and the release-date bounds when provided', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({
+        sortBy: 'vote_average.desc',
+        withGenres: '28,12',
+        releaseDateGte: '2000-01-01',
+        releaseDateLte: '2009-12-31',
+      });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('sort_by=vote_average.desc'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('with_genres=28%2C12'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('primary_release_date.gte=2000-01-01'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('primary_release_date.lte=2009-12-31'),
+      );
+    });
+
+    it('maps the UI release_date sort to TMDB primary_release_date', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ sortBy: 'release_date.asc' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('sort_by=primary_release_date.asc'),
+      );
+    });
+
+    it('omits optional params that are not provided', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ withGenres: '28' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('with_genres=28'));
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.not.stringContaining('primary_release_date'),
+      );
+    });
+
+    it('folds the filters into the cache key so combinations never collide', async () => {
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
+
+      await service.discoverMovies({ withGenres: '28', sortBy: 'revenue.desc' });
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        expect.stringContaining('with_genres=28'),
+        expect.any(String),
+        expect.any(Number),
+      );
     });
   });
 
@@ -361,10 +426,10 @@ describe('TmdbService', () => {
     it('caches under a distinct ":raw" key so it never collides with filtered', async () => {
       mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
-      await service.discoverMovies(1, false);
+      await service.discoverMovies({ page: 1, filtered: false });
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:discover:page:1:raw',
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
         expect.any(String),
         3600,
       );
