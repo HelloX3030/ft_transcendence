@@ -4,13 +4,19 @@ import {
   MovieWatchProviders,
   PaginatedMovies,
   TmdbGenre,
+  TmdbMovieDetail,
   TmdbPerson,
 } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
-import { TmdbGenreListResponse, TmdbPersonResponse } from './tmdb.types';
+import {
+  TmdbGenreListResponse,
+  TmdbMovieDetailResponse,
+  TmdbPersonResponse,
+  TmdbVideo,
+} from './tmdb.types';
 
 const CACHE_TTL_SECONDS = 3600;
 
@@ -32,6 +38,17 @@ export interface DiscoverFilters {
   withGenres?: string;
   releaseDateGte?: string;
   releaseDateLte?: string;
+}
+
+// Picks the single trailer key to embed: the first official YouTube trailer,
+// then any YouTube trailer, then a YouTube teaser, else null (no trailer).
+function pickTrailerKey(videos: TmdbVideo[]): string | null {
+  const youtube = videos.filter((v) => v.site === 'YouTube');
+  const trailer =
+    youtube.find((v) => v.type === 'Trailer' && v.official) ??
+    youtube.find((v) => v.type === 'Trailer') ??
+    youtube.find((v) => v.type === 'Teaser');
+  return trailer?.key ?? null;
 }
 
 @Injectable()
@@ -120,6 +137,45 @@ export class TmdbService {
     );
     await this.redis.set(key, JSON.stringify(response), CACHE_TTL_SECONDS);
     return successResponse(response);
+  }
+
+  // Full detail for one movie. A single TMDB request bundles credits, videos and
+  // similar via append_to_response; we reshape it to TmdbMovieDetail — picking a
+  // single trailer key and flattening the paginated similar list — so the client
+  // doesn't have to. Similar movies pass through filterMovies for consistency.
+  async getMovieDetail(movieId: number): Promise<apiResponse<TmdbMovieDetail>> {
+    const key = `tmdb:movie:${movieId}`;
+    const cached = await this.redis.get(key);
+    if (cached) return successResponse(JSON.parse(cached) as TmdbMovieDetail);
+
+    const response = await this.client.get<TmdbMovieDetailResponse>(
+      `/movie/${movieId}?language=en-US&append_to_response=credits,videos,similar`,
+    );
+
+    const detail: TmdbMovieDetail = {
+      id: response.id,
+      title: response.title,
+      original_title: response.original_title,
+      overview: response.overview,
+      poster_path: response.poster_path,
+      backdrop_path: response.backdrop_path,
+      release_date: response.release_date,
+      vote_average: response.vote_average,
+      vote_count: response.vote_count,
+      popularity: response.popularity,
+      original_language: response.original_language,
+      adult: response.adult,
+      video: response.video,
+      genres: response.genres,
+      runtime: response.runtime,
+      tagline: response.tagline,
+      credits: { cast: response.credits.cast, crew: response.credits.crew },
+      trailerKey: pickTrailerKey(response.videos.results),
+      similar: filterMovies(response.similar.results),
+    };
+
+    await this.redis.set(key, JSON.stringify(detail), CACHE_TTL_SECONDS);
+    return successResponse(detail);
   }
 
   async getGenres(): Promise<apiResponse<TmdbGenre[]>> {

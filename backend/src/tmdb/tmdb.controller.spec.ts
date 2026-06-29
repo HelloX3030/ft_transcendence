@@ -10,6 +10,7 @@ const mockTmdbService = {
   discoverMovies: jest.fn(),
   searchMovies: jest.fn(),
   getGenres: jest.fn(),
+  getMovieDetail: jest.fn(),
   getWatchProviders: jest.fn(),
 } satisfies Partial<jest.Mocked<TmdbService>>;
 
@@ -116,6 +117,18 @@ describe('TmdbController', () => {
       const result = await controller.getGenres();
 
       expect(result).toEqual(mockGenresResponse);
+    });
+  });
+
+  describe('getMovieDetail', () => {
+    it('delegates to tmdbService.getMovieDetail with the movie id', async () => {
+      const detailResponse = successResponse({ id: 5 } as never);
+      mockTmdbService.getMovieDetail.mockResolvedValue(detailResponse);
+
+      const result = await controller.getMovieDetail(5);
+
+      expect(mockTmdbService.getMovieDetail).toHaveBeenCalledWith(5);
+      expect(result).toEqual(detailResponse);
     });
   });
 

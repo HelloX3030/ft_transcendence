@@ -30,6 +30,11 @@ export class TmdbController {
     return this.tmdbService.getPeople(dto.ids);
   }
 
+  @Get('movies/:movieId')
+  getMovieDetail(@Param('movieId', ParseIntPipe) movieId: number) {
+    return this.tmdbService.getMovieDetail(movieId);
+  }
+
   @Get('movies/:movieId/providers')
   getWatchProviders(@Param('movieId', ParseIntPipe) movieId: number) {
     return this.tmdbService.getWatchProviders(movieId);

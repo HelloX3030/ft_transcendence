@@ -1,5 +1,5 @@
 import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@trailertinder/shared';
-import { TmdbGenreListResponse, TmdbListResponse } from './tmdb.types';
+import { TmdbGenreListResponse, TmdbListResponse, TmdbMovieDetailResponse } from './tmdb.types';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a
@@ -50,6 +50,41 @@ export function makeGenreListResponse(
   overrides: Partial<TmdbGenreListResponse> = {},
 ): TmdbGenreListResponse {
   return { genres: [makeGenre()], ...overrides };
+}
+
+/**
+ * Test-only factory: builds a raw TMDB /movie/{id} detail response (with credits,
+ * videos and similar appended). Defaults include one official YouTube trailer and
+ * a director in the crew. Override per test.
+ */
+export function makeMovieDetailResponse(
+  overrides: Partial<TmdbMovieDetailResponse> = {},
+): TmdbMovieDetailResponse {
+  return {
+    ...makeMovie(),
+    genres: [makeGenre()],
+    runtime: 140,
+    tagline: 'Why so serious?',
+    credits: {
+      cast: [{ id: 11, name: 'Christian Bale', character: 'Bruce Wayne', profile_path: '/cb.jpg' }],
+      crew: [
+        {
+          id: 12,
+          name: 'Christopher Nolan',
+          job: 'Director',
+          department: 'Directing',
+          profile_path: '/cn.jpg',
+        },
+      ],
+    },
+    videos: {
+      results: [
+        { key: 'trailerKey1', site: 'YouTube', type: 'Trailer', official: true, name: 'Trailer' },
+      ],
+    },
+    similar: makeListResponse(),
+    ...overrides,
+  };
 }
 
 /** Test-only factory: builds a WatchProvider with valid defaults. */
