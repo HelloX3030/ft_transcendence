@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { fetchData } from '@/lib/api';
+import { useSearchFilter } from '@/composables/useSearchFilter';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -90,10 +91,26 @@ export const useMoviesStore = defineStore('movies', () => {
   // by both feeds and part of each request URL (user toggle).
   const filtered = ref(true);
 
-  // Popular list — the default browse state, paginated like search.
-  const popularFeed = createMovieFeed((page) =>
-    fetchData<PaginatedMovies>(`/v1/tmdb/discover?page=${page}&filtered=${filtered.value}`),
-  );
+  // The discover filter bar (sort/genre/year). Its values are read when a page is
+  // fetched, so the feed always reflects the current selection.
+  const { sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte } = useSearchFilter();
+
+  // Builds the discover request from pagination, the quality toggle and the
+  // active filter bar, omitting any filter that isn't set.
+  function discoverUrl(page: number): string {
+    const params = new URLSearchParams({
+      page: String(page),
+      filtered: String(filtered.value),
+    });
+    if (sortBy.value) params.set('sortBy', sortBy.value);
+    if (withGenres.value) params.set('withGenres', withGenres.value);
+    if (primaryReleaseDateGte.value) params.set('releaseDateGte', primaryReleaseDateGte.value);
+    if (primaryReleaseDateLte.value) params.set('releaseDateLte', primaryReleaseDateLte.value);
+    return `/v1/tmdb/discover?${params}`;
+  }
+
+  // Popular/discover list — the default browse state, paginated like search.
+  const popularFeed = createMovieFeed((page) => fetchData<PaginatedMovies>(discoverUrl(page)));
 
   // Active search session — the query drives which results the feed fetches.
   const searchQuery = ref('');
