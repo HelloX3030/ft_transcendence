@@ -14,9 +14,14 @@ const selectedGenres = ref<number[]>([]);
 const sortDirection = ref<'asc' | 'desc'>('desc');
 
 const sortField = ref<(typeof sortOptions)[number] | 'default'>('default');
-const sortBy = computed(() =>
-  sortField.value === 'default' ? undefined : `${sortField.value}.${sortDirection.value}`,
-);
+// With no explicit field chosen, fall back to `popularity` so the asc/desc
+// toggle still reorders the (popularity-sorted) default list instead of being a
+// no-op. popularity.desc matches the backend default, so this changes nothing
+// until the direction is flipped.
+const sortBy = computed(() => {
+  const field = sortField.value === 'default' ? 'popularity' : sortField.value;
+  return `${field}.${sortDirection.value}`;
+});
 const withGenres = computed(() =>
   selectedGenres.value.length > 0 ? `${selectedGenres.value.join(',')}` : undefined,
 );
