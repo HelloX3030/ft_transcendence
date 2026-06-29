@@ -31,7 +31,7 @@ export class TmdbService {
     private readonly redis: RedisService,
   ) {}
 
-  async fetchPopular(page = 1, filtered = true): Promise<apiResponse<PaginatedMovies>> {
+  async discoverMovies(page = 1, filtered = true): Promise<apiResponse<PaginatedMovies>> {
     const movies = await this.getCachedMovies(
       `tmdb:popular:page:${page}:${filtered ? 'filtered' : 'raw'}`,
       `/movie/popular?language=en-US&page=${page}`,

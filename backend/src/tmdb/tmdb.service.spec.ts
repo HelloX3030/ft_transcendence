@@ -72,11 +72,11 @@ describe('TmdbService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('fetchPopular — cache miss', () => {
+  describe('discoverMovies — cache miss', () => {
     it('calls client.get with the popular endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
-      await service.fetchPopular();
+      await service.discoverMovies();
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=1');
     });
@@ -84,7 +84,7 @@ describe('TmdbService', () => {
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedMultiPage));
     });
@@ -92,7 +92,7 @@ describe('TmdbService', () => {
     it('stores the result in Redis with the correct key and TTL', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      await service.fetchPopular();
+      await service.discoverMovies();
 
       expectCached('tmdb:popular:page:1:filtered', expectedMultiPage);
     });
@@ -100,7 +100,7 @@ describe('TmdbService', () => {
     it('returns an empty result set when client.get resolves with no results', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedEmpty));
     });
@@ -108,7 +108,7 @@ describe('TmdbService', () => {
     it('uses the requested page in the TMDB path and cache key', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      await service.fetchPopular(4);
+      await service.discoverMovies(4);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
       expectCached('tmdb:popular:page:4:filtered', expectedMultiPage);
@@ -117,7 +117,7 @@ describe('TmdbService', () => {
     it('propagates a TMDB failure without caching anything', async () => {
       mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
 
-      await expect(service.fetchPopular()).rejects.toThrow('TMDB request failed');
+      await expect(service.discoverMovies()).rejects.toThrow('TMDB request failed');
       expect(mockRedisClient.set).not.toHaveBeenCalled();
     });
 
@@ -130,17 +130,17 @@ describe('TmdbService', () => {
         }),
       );
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result.data?.results).toEqual(mockMovies);
     });
   });
 
-  describe('fetchPopular — cache hit', () => {
+  describe('discoverMovies — cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedMultiPage));
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedMultiPage));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
@@ -357,7 +357,7 @@ describe('TmdbService', () => {
     it('caches under a distinct ":raw" key so it never collides with filtered', async () => {
       mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
-      await service.fetchPopular(1, false);
+      await service.discoverMovies(1, false);
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         'tmdb:popular:page:1:raw',
