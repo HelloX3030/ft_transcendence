@@ -494,6 +494,18 @@ describe('TmdbService', () => {
       expect(result.data?.similar).toEqual(mockMovies);
     });
 
+    it('tolerates a response missing the appended sections', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({ credits: undefined, videos: undefined, similar: undefined }),
+      );
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data?.credits).toEqual({ cast: [], crew: [] });
+      expect(result.data?.trailerKey).toBeNull();
+      expect(result.data?.similar).toEqual([]);
+    });
+
     it('caches the reshaped detail under the movie key', async () => {
       mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
 

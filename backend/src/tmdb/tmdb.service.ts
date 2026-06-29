@@ -169,9 +169,12 @@ export class TmdbService {
       genres: response.genres,
       runtime: response.runtime,
       tagline: response.tagline,
-      credits: { cast: response.credits.cast, crew: response.credits.crew },
-      trailerKey: pickTrailerKey(response.videos.results),
-      similar: filterMovies(response.similar.results),
+      credits: {
+        cast: response.credits?.cast ?? [],
+        crew: response.credits?.crew ?? [],
+      },
+      trailerKey: pickTrailerKey(response.videos?.results ?? []),
+      similar: filterMovies(response.similar?.results ?? []),
     };
 
     await this.redis.set(key, JSON.stringify(detail), CACHE_TTL_SECONDS);
