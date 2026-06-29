@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { fetchData } from '@/lib/api';
@@ -166,6 +166,16 @@ export const useMoviesStore = defineStore('movies', () => {
     filtered.value = value;
     refresh();
   }
+
+  // Rebuild the discover feed from page 1 whenever the filter bar changes, so the
+  // browse list always reflects the current selection (this also covers "clear
+  // all", which resets the filter refs). Skipped until the feed has first loaded:
+  // an unvisited feed reads the live filters when it eventually loads, and search
+  // results are unaffected (TMDB search takes no filters) but the refreshed
+  // discover list is ready underneath for when the search is cleared.
+  watch([sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte], () => {
+    if (popularFeed.status.value !== 'idle') void loadPopular();
+  });
 
   return {
     // Popular feed
