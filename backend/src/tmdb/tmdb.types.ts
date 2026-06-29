@@ -29,9 +29,11 @@ export interface TmdbMovieDetailResponse extends Omit<TmdbMovie, 'genre_ids'> {
   genres: TmdbGenre[];
   runtime: number | null;
   tagline: string;
-  credits: { cast: TmdbCastMember[]; crew: TmdbCrewMember[] };
-  videos: { results: TmdbVideo[] };
-  similar: TmdbListResponse;
+  // Appended via append_to_response; optional because TMDB may omit a section
+  // (e.g. a movie with no videos), and a partial response must not crash us.
+  credits?: { cast: TmdbCastMember[]; crew: TmdbCrewMember[] };
+  videos?: { results: TmdbVideo[] };
+  similar?: TmdbListResponse;
 }
 
 export interface TmdbGenreListResponse {
