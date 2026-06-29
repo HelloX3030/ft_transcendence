@@ -18,12 +18,7 @@ const { sortOptions, sortField } = useSearchFilter();
       <SelectValue placeholder="Sort by" />
     </SelectTrigger>
     <SelectContent>
-      <SelectItem
-        v-for="option in sortOptions"
-        :key="option"
-        :value="option"
-        @click="sortField = option"
-      >
+      <SelectItem v-for="option in sortOptions" :key="option" :value="option">
         {{ option.replace('_', ' ').toUpperCase() }}
       </SelectItem>
     </SelectContent>
