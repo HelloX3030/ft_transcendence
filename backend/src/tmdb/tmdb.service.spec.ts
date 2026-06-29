@@ -8,6 +8,7 @@ import {
   makeGenreListResponse,
   makeListResponse,
   makeMovie,
+  makeMovieDetailResponse,
   makeWatchProviders,
 } from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
@@ -429,6 +430,87 @@ describe('TmdbService', () => {
       const result = await service.getWatchProviders(providers.id);
 
       expect(result).toEqual(successResponse(providers));
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMovieDetail — cache miss', () => {
+    it('requests the detail with credits, videos and similar appended', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      await service.getMovieDetail(42);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/movie/42?language=en-US&append_to_response=credits,videos,similar',
+      );
+    });
+
+    it('reshapes the response to TmdbMovieDetail (genres, runtime, credits, trailer)', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data).toMatchObject({
+        id: 1,
+        runtime: 140,
+        tagline: 'Why so serious?',
+        trailerKey: 'trailerKey1',
+        genres: [{ id: 28, name: 'Action' }],
+      });
+      expect(result.data?.credits.crew[0]?.job).toBe('Director');
+    });
+
+    it('prefers an official YouTube trailer and falls back to a teaser, else null', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({
+          videos: {
+            results: [
+              { key: 'teaser', site: 'YouTube', type: 'Teaser', official: true, name: 'Teaser' },
+            ],
+          },
+        }),
+      );
+
+      const teaserOnly = await service.getMovieDetail(1);
+      expect(teaserOnly.data?.trailerKey).toBe('teaser');
+
+      jest.clearAllMocks();
+      mockRedisClient.get.mockResolvedValue(null);
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse({ videos: { results: [] } }));
+
+      const none = await service.getMovieDetail(2);
+      expect(none.data?.trailerKey).toBeNull();
+    });
+
+    it('runs the similar list through the quality filter', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({
+          similar: makeListResponse({ results: [...mockMovies, junkMovie], total_results: 2 }),
+        }),
+      );
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data?.similar).toEqual(mockMovies);
+    });
+
+    it('caches the reshaped detail under the movie key', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      await service.getMovieDetail(7);
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:movie:7', expect.any(String), 3600);
+    });
+  });
+
+  describe('getMovieDetail — cache hit', () => {
+    it('returns the cached detail without calling client.get', async () => {
+      const cached = { id: 1, title: 'Cached', trailerKey: null, similar: [] };
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(cached));
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data).toEqual(cached);
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
     });
   });
