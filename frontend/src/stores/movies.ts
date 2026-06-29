@@ -109,8 +109,8 @@ export const useMoviesStore = defineStore('movies', () => {
     return `/v1/tmdb/discover?${params}`;
   }
 
-  // Popular/discover list — the default browse state, paginated like search.
-  const popularFeed = createMovieFeed((page) => fetchData<PaginatedMovies>(discoverUrl(page)));
+  // Discover list — the default browse state, paginated like search.
+  const discoverFeed = createMovieFeed((page) => fetchData<PaginatedMovies>(discoverUrl(page)));
 
   // Active search session — the query drives which results the feed fetches.
   const searchQuery = ref('');
@@ -125,12 +125,12 @@ export const useMoviesStore = defineStore('movies', () => {
   const isSearching = computed(() => searchQuery.value !== '');
   const resultCount = computed(() => searchFeed.items.value.length);
 
-  function loadPopular(): Promise<unknown> {
-    return popularFeed.load();
+  function loadDiscover(): Promise<unknown> {
+    return discoverFeed.load();
   }
 
   // Ends the active search session and clears its results — views fall back to
-  // the popular list.
+  // the discover list.
   function resetSearch(): void {
     searchQuery.value = '';
     searchTotal.value = 0;
@@ -153,10 +153,10 @@ export const useMoviesStore = defineStore('movies', () => {
   }
 
   // Retries the current view after a failure: re-runs the active search (from
-  // page 1) when searching, otherwise reloads the popular list.
+  // page 1) when searching, otherwise reloads the discover list.
   function refresh(): void {
     if (isSearching.value) void search(searchQuery.value);
-    else void loadPopular();
+    else void loadDiscover();
   }
 
   // Toggles the result filter and rebuilds the currently shown view (from page 1)
@@ -174,16 +174,16 @@ export const useMoviesStore = defineStore('movies', () => {
   // results are unaffected (TMDB search takes no filters) but the refreshed
   // discover list is ready underneath for when the search is cleared.
   watch([sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte], () => {
-    if (popularFeed.status.value !== 'idle') void loadPopular();
+    if (discoverFeed.status.value !== 'idle') void loadDiscover();
   });
 
   return {
-    // Popular feed
-    popular: popularFeed.items,
-    popularStatus: popularFeed.status,
-    popularHasMore: popularFeed.hasMore,
-    loadPopular,
-    loadMorePopular: popularFeed.loadMore,
+    // Discover feed
+    discover: discoverFeed.items,
+    discoverStatus: discoverFeed.status,
+    discoverHasMore: discoverFeed.hasMore,
+    loadDiscover,
+    loadMoreDiscover: discoverFeed.loadMore,
     // Search feed
     searchResults: searchFeed.items,
     searchPage: searchFeed.page,
