@@ -8,6 +8,7 @@ import { Friend } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey, JwtAccessPayload } from 'src/types';
+import { NotifyService } from 'src/notify/notify.service';
 
 export const FRIENDS_SELECT = {
   friendsA: true,
@@ -16,7 +17,10 @@ export const FRIENDS_SELECT = {
 
 @Injectable()
 export class FriendsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifyService: NotifyService,
+  ) {}
 
   async getFriends(payload: JwtAccessPayload) {
     const user = await this.prisma.users.findUnique({
@@ -59,6 +63,7 @@ export class FriendsService {
         status: 'pending',
       },
     });
+    this.notifyService.sendNotify('You goat a friendship request from ', id);
     return successResponse(null, 'friendship request created');
   }
 
