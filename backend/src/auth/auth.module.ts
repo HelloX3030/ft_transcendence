@@ -11,5 +11,6 @@ import { ScheduleModule } from '@nestjs/schedule';
   imports: [JwtModule.register({}), ScheduleModule.forRoot()],
   controllers: [AuthController],
   providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy, JwtAccessGuard, JwtRefreshGuard],
+  exports: [JwtModule],
 })
 export class AuthModule {}

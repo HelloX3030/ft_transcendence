@@ -15,6 +15,7 @@ import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
+import { NotifyGateway } from 'src/notify/notify.gateway';
 
 @Injectable()
 export class AuthService {
@@ -62,7 +63,6 @@ export class AuthService {
     if (!isPwMatch) {
       throw new ForbiddenException('Invalid credentials');
     }
-
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
     return successResponse(null, 'Login successful');

@@ -13,7 +13,8 @@ import { TmdbModule } from './tmdb/tmdb.module';
 import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
-import { NotificationsGateway } from './notify/notify.gateway';
+import { NotifyGateway } from './notify/notify.gateway';
+import { NotifyModule } from './notify/notify.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { NotificationsGateway } from './notify/notify.gateway';
     UsersModule,
     WatchlistsModule,
     TmdbModule,
+    NotifyModule,
   ],
   controllers: [AppController],
   providers: [
@@ -51,7 +53,7 @@ import { NotificationsGateway } from './notify/notify.gateway';
       provide: APP_GUARD,
       useClass: JwtAccessGuard,
     },
-    NotificationsGateway,
+    NotifyGateway,
   ],
 })
 export class AppModule {}
