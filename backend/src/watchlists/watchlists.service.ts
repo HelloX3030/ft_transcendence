@@ -6,11 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { watchlistCreateDto, watchlistDto, watchlistUpdateDto } from './dto';
+import { watchlistCreateDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import { successResponse } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
+import { WatchlistResponse } from '@trailertinder/shared';
 
 export const WATCHLIST_SELECT = {
   role: true,
@@ -26,14 +27,16 @@ export class WatchlistsService {
   // -------------------------
 
   async findAll(userId: number) {
-    const watchlists = (
-      await this.prisma.watchlist_users.findMany({
-        where: {
-          userId,
-        },
-        select: WATCHLIST_SELECT,
-      })
-    ).map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist));
+    const watchlistUsers = await this.prisma.watchlist_users.findMany({
+      where: {
+        userId,
+      },
+      select: WATCHLIST_SELECT,
+    });
+
+    const watchlists = await Promise.all(
+      watchlistUsers.map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist)),
+    );
     return successResponse(watchlists);
   }
 
@@ -45,7 +48,7 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
+    const watchlist = await this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
     return successResponse(watchlist);
   }
 
@@ -66,7 +69,7 @@ export class WatchlistsService {
       },
     });
     const userWatchlist = watchlist.watchlistUsers[0];
-    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
+    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -83,7 +86,7 @@ export class WatchlistsService {
         ...(dto.image !== undefined && { image: dto.image }),
       },
     });
-    return successResponse(this.toWatchlistDto(watchlistUser.role, watchlist));
+    return successResponse(await this.toWatchlistDto(watchlistUser.role, watchlist));
   }
 
   async remove(id: number, currentUserId: number) {
@@ -251,12 +254,24 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  toWatchlistDto(role: watchlist_role, watchlistDb: watchlists): watchlistDto {
-    const watchlist: watchlistDto = {
+  async toWatchlistDto(role: watchlist_role, watchlistDb: watchlists): Promise<WatchlistResponse> {
+    const editors: number[] = (
+      await this.prisma.watchlist_users.findMany({
+        where: {
+          watchlistId: watchlistDb.id,
+          role: 'editor',
+        },
+        select: {
+          userId: true,
+        },
+      })
+    ).map((editor) => editor.userId);
+    const watchlist: WatchlistResponse = {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
       role: role,
+      editorIds: editors,
       createdAt: watchlistDb.createdAt,
     };
     return watchlist;
