@@ -1,11 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { watchlist_role } from '@prisma/client';
-import {
-  WatchlistCreateRequest,
-  WatchlistResponse,
-  WatchlistUpdateRequest,
-} from '@trailertinder/shared';
-import { IsDateString, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { WatchlistCreateRequest, WatchlistUpdateRequest } from '@trailertinder/shared';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class watchlistCreateDto implements WatchlistCreateRequest {
   @ApiProperty({ example: 'action movies' })
@@ -29,26 +24,4 @@ export class watchlistUpdateDto implements WatchlistUpdateRequest {
   @IsString()
   @IsOptional()
   image?: string;
-}
-
-export class watchlistDto implements WatchlistResponse {
-  @IsNumber()
-  @IsNotEmpty()
-  id!: number;
-
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @IsString()
-  @IsOptional()
-  image!: string | null;
-
-  @IsString()
-  @IsNotEmpty()
-  role!: watchlist_role;
-
-  @IsDateString()
-  @IsNotEmpty()
-  createdAt!: Date;
 }

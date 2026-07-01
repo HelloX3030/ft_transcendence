@@ -23,6 +23,7 @@ export interface WatchlistResponse {
   name: string;
   image: string | null;
   role: WatchlistRole;
+  editorIds: number[];
   createdAt: Date | string;
 }
 
