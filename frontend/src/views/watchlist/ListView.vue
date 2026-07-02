@@ -1,40 +1,88 @@
 <script setup lang="ts">
-import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieCard from '@/components/MovieCard.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import Spinner from '@/components/ui/spinner/Spinner.vue';
+import { useWatchlist } from '@/composables/useWatchlist';
 
+import { computed, ref } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
+const route = useRoute();
 
+const { watchlist, watchlistLoading, watchlistError, movieIds, movieIdsLoading, editors } =
+  useWatchlist(Number(route.params.id));
 
+const movies = computed(() => {
+  const real =
+    movieIds.value?.map((movie) => ({
+      ...movie,
+      poster_path: '/1E5baAaEse26fej7uHcjOgEE2t2.jpg', //TODO: replace hardcoded poster_path
+    })) ?? [];
+
+  return real;
+});
+
+const editors2 = ref([
+  { id: 1, username: 'philipp', image: null },
+  { id: 2, username: 'urbi', image: null },
+]);
 </script>
 
 <template>
   <section class="flex-1 w-5/6 mx-auto p-8">
-    <div>
-      <h1 class="font-bold text-3xl">Best Movies</h1>
-      <div class="flex items-center">
-        <p class="text-md">List by</p>
-        <Button variant="link">
-          <Avatar>
-            <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-            <AvatarFallback>CN</AvatarFallback>
-          </Avatar>
-          <p class="text-md">Philipp</p>
-        </Button>
-      </div>
-      <p class="text-muted-foreground">Updated/Published 22 days ago</p>
+    <div
+      v-if="watchlistLoading || movieIdsLoading"
+      class="flex items-center justify-center min-h-screen"
+    >
+      <Spinner class="size-16" />
     </div>
-    <p class="my-6">
-      Lorem ipsum dolor sit amet consectetur adipisicing elit. Error, laudantium similique nobis
-      quia expedita aliquid. Perspiciatis quidem deleniti facilis saepe dicta repudiandae?
-      Voluptatum, impedit ad quia minima id eum officia. Lorem ipsum dolor sit amet consectetur
-      adipisicing elit. Rerum laboriosam, sapiente itaque sint, voluptatem accusantium quia sit
-      iusto distinctio harum reiciendis modi enim, quisquam ducimus ea labore odio. Porro, pariatur?
-    </p>
-    <MovieBrowser :show-label="false">
-      <template #movie="{ movie }">
-        <MovieCard :title="movie.title" :img="movie.poster_path" :selected="false" />
-      </template>
-    </MovieBrowser>
+
+    <div v-else-if="watchlist && movieIds && editors">
+      <div class="flex flex-col gap-1 mb-8">
+        <h1 class="font-bold text-2xl md:text-3xl xl:text-4xl mb-4">{{ watchlist?.name }}</h1>
+
+        <div class="flex flex-wrap items-center gap-2 md:text-xl">
+          <span class="text-muted-foreground">List by</span>
+          <div class="flex items-center gap-2">
+            <template v-for="(user, idx) in editors2" :key="user.id">
+              <RouterLink
+                :to="`/profile/${user.id}`"
+                class="flex items-center gap-1.5 hover:text-primary transition-colors text-muted-foreground"
+              >
+                <Avatar>
+                  <AvatarImage v-if="user.image" :src="user.image" />
+                  <AvatarFallback class="bg-secondary">
+                    {{ user.username.slice(0, 2).toUpperCase() }}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{{ user.username }}</span>
+              </RouterLink>
+              <span v-if="idx < editors2.length - 1" class="text-muted-foreground">·</span>
+            </template>
+          </div>
+          <span class="text-muted-foreground hidden sm:inline">·</span>
+          <span class="text-muted-foreground">
+            {{ new Date(watchlist.createdAt).toLocaleDateString() }}
+          </span>
+        </div>
+      </div>
+
+      <div v-if="movies?.length == 0" class="flex items-center justify-center py-32">
+        <p class="text-zinc-500">No Movies in Watchlist.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8 my-8">
+        <MovieCard
+          v-for="movie in movies"
+          :key="movie.tmdbId"
+          :title="movie.name"
+          :img="movie.poster_path"
+          :selected="false"
+        />
+      </div>
+    </div>
+
+    <div v-else-if="watchlistError" class="flex items-center justify-center min-h-screen">
+      <p class="text-zinc-500">Couldn't load watchlist: {{ (watchlistError as Error).message }}</p>
+    </div>
   </section>
 </template>

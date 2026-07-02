@@ -14,3 +14,13 @@ export interface UserMeResponse {
   language: LanguageCode;
   image: string | null;
 }
+
+export interface GetUserRequest {
+  id: number;
+}
+
+export interface GetUserResponse {
+  id: number;
+  image: string | null;
+  username: string;
+}

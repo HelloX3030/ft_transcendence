@@ -18,6 +18,10 @@ export interface WatchlistUpdateRequest {
   image?: string;
 }
 
+export interface WatchlistRequest {
+  watchlistId: number;
+}
+
 export interface WatchlistResponse {
   id: number;
   name: string;
@@ -27,7 +31,16 @@ export interface WatchlistResponse {
   createdAt: Date | string;
 }
 
+export interface WatchlistUserCreateRequest {
+  userId: number;
+  role: WatchlistRole;
+}
+
 export interface WatchlistUserRequest {
+  watchlistId: number;
+}
+
+export interface WatchlistUserResponse {
   userId: number;
   role: WatchlistRole;
 }
