@@ -33,13 +33,12 @@ import MovieCard from '@/components/MovieCard.vue';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 import { createListSchema } from '@/lib/schemas';
-import { useWatchlist } from '@/composables/useWatchlist';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
+import { watchlistApi } from '@/api';
 
 const store = useMoviesStore();
-const { createWatchlist, addMovietoWatchlist, isLoading } = useWatchlist();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
 const isOpen = ref(false);
 
@@ -48,14 +47,10 @@ const { handleSubmit, resetForm } = useForm({
 });
 
 const onSubmit = handleSubmit(async (values) => {
-  console.log(values);
-  console.log(selectedMovies.value);
-
-  const watchlistData = await createWatchlist({ name: values.name });
-  console.log(selectedMovies.value);
+  const watchlistData = await watchlistApi.create({ name: values.name });
   if (!watchlistData) return; //TODO: IMPROVE
   for (const movie of selectedMovies.value) {
-    addMovietoWatchlist(watchlistData?.id, { tmdbId: movie.id });
+    watchlistApi.addMovie(watchlistData?.id, { tmdbId: movie.id });
   }
   toast.success('New List Created Successfully');
   isOpen.value = false;
@@ -96,28 +91,7 @@ watch(isOpen, (open) => {
             <FormMessage />
           </FormItem>
         </FormField>
-        <!-- <FormField v-slot="{ componentField }" name="description">
-          <FormItem>
-            <FormLabel>Description</FormLabel>
-            <FormControl>
-              <Textarea v-bind="componentField" placeholder="Description..." />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField> -->
-        <FormField name="image" v-slot="{ handleChange }">
-          <FormItem>
-            <FormLabel>Image</FormLabel>
-            <FormControl>
-              <Input
-                type="file"
-                accept="image/png"
-                @change="(e: Event) => handleChange((e.target as HTMLInputElement).files?.[0])"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+
         <div class="grid gap-3">
           <Label for="movies">Add Movies</Label>
           <div

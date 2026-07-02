@@ -1,17 +1,15 @@
 <script lang="ts" setup>
-import { onMounted } from 'vue';
-import { useWatchlist } from '@/composables/useWatchlist.ts';
-import CreateListDialog from './CreateListDialog.vue';
+import { useWatchlists } from '@/composables/useWatchlists';
 import { Spinner } from '@/components/ui/spinner/index.ts';
 import WatchlistOverview from '@/components/watchlist/WatchlistOverview.vue';
+import CreateListDialog from '@/components/watchlist/CreateListDialog.vue';
 
-const { fetchAllWatchlists, watchlists, isLoading } = useWatchlist();
-
-onMounted(fetchAllWatchlists);
-
-// const posters = computed(() => {
-//   return popularMovies.value.map((movie) => ({ img: movie.poster_path })).splice(0, 5);
-// });
+const {
+  watchlists,
+  watchlistsLoading: isLoading,
+  watchlistsReady: isReady,
+  watchlistsError: error,
+} = useWatchlists();
 </script>
 
 <template>
@@ -22,26 +20,22 @@ onMounted(fetchAllWatchlists);
         <CreateListDialog />
       </div>
 
-      <div v-if="isLoading === 'loading'" class="flex items-center justify-center min-h-screen">
+      <div v-if="isLoading" class="flex items-center justify-center min-h-screen">
         <Spinner class="size-16" />
       </div>
       <div
-        v-if="isLoading === 'finish' && watchlists?.length == 0"
+        v-if="isReady && watchlists?.length == 0"
         class="flex items-center justify-center min-h-screen"
       >
         <p class="text-zinc-500">No Watchlist</p>
       </div>
-      <div v-else-if="isLoading === 'error'" class="flex items-center justify-center min-h-screen">
-        <p class="text-zinc-500">Error can not find Watchlists.</p>
+      <div v-else-if="error" class="flex items-center justify-center min-h-screen">
+        <p class="text-zinc-500">Couldn't load watchlists: {{ (error as Error).message }}</p>
       </div>
 
       <div v-else class="flex flex-col">
-        <WatchlistOverview
-          v-for="watchlist in watchlists"
-          :key="watchlist.id"
-          v-bind="watchlist"
-          @edit="openEditDialog"
-        />
+        <WatchlistOverview v-for="watchlist in watchlists" :key="watchlist.id" v-bind="watchlist" />
+        <!-- @edit="openEditDialog" -->
       </div>
     </div>
   </section>
