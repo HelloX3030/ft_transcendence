@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "embla-carousel-vue": "^8.6.0",
     "lucide-vue-next": "^1.0.0",
+    "markdown-it": "^14.3.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.10",
     "tailwind-merge": "^3.5.0",
@@ -36,7 +37,9 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "@tsconfig/node24": "^24.0.4",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^24.12.2",
     "@types/youtube": "^0.2.0",
     "@vitejs/plugin-vue": "^6.0.6",
