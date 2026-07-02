@@ -7,6 +7,7 @@ import HomeView from '@/views/HomeView.vue';
 import MovieDetailView from '@/views/MovieDetailView.vue';
 import TermsView from '@/views/TermsView.vue';
 import PrivacyView from '@/views/PrivacyView.vue';
+import HelpView from '@/views/HelpView.vue';
 
 import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
@@ -90,6 +91,11 @@ const router = createRouter({
       path: '/privacy',
       component: PrivacyView,
       meta: { requiresAuth: false, title: 'Privacy Policy' },
+    },
+    {
+      path: '/help',
+      component: HelpView,
+      meta: { requiresAuth: true, title: 'Help' },
     },
   ],
 });
