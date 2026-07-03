@@ -1,7 +1,8 @@
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { fetchData } from '@/lib/api';
+import { useSearchFilter } from '@/composables/useSearchFilter';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -90,10 +91,26 @@ export const useMoviesStore = defineStore('movies', () => {
   // by both feeds and part of each request URL (user toggle).
   const filtered = ref(true);
 
-  // Popular list — the default browse state, paginated like search.
-  const popularFeed = createMovieFeed((page) =>
-    fetchData<PaginatedMovies>(`/v1/tmdb/popular?page=${page}&filtered=${filtered.value}`),
-  );
+  // The discover filter bar (sort/genre/year). Its values are read when a page is
+  // fetched, so the feed always reflects the current selection.
+  const { sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte } = useSearchFilter();
+
+  // Builds the discover request from pagination, the quality toggle and the
+  // active filter bar, omitting any filter that isn't set.
+  function discoverUrl(page: number): string {
+    const params = new URLSearchParams({
+      page: String(page),
+      filtered: String(filtered.value),
+    });
+    if (sortBy.value) params.set('sortBy', sortBy.value);
+    if (withGenres.value) params.set('withGenres', withGenres.value);
+    if (primaryReleaseDateGte.value) params.set('releaseDateGte', primaryReleaseDateGte.value);
+    if (primaryReleaseDateLte.value) params.set('releaseDateLte', primaryReleaseDateLte.value);
+    return `/v1/tmdb/discover?${params}`;
+  }
+
+  // Discover list — the default browse state, paginated like search.
+  const discoverFeed = createMovieFeed((page) => fetchData<PaginatedMovies>(discoverUrl(page)));
 
   // Active search session — the query drives which results the feed fetches.
   const searchQuery = ref('');
@@ -108,12 +125,12 @@ export const useMoviesStore = defineStore('movies', () => {
   const isSearching = computed(() => searchQuery.value !== '');
   const resultCount = computed(() => searchFeed.items.value.length);
 
-  function loadPopular(): Promise<unknown> {
-    return popularFeed.load();
+  function loadDiscover(): Promise<unknown> {
+    return discoverFeed.load();
   }
 
   // Ends the active search session and clears its results — views fall back to
-  // the popular list.
+  // the discover list.
   function resetSearch(): void {
     searchQuery.value = '';
     searchTotal.value = 0;
@@ -136,10 +153,10 @@ export const useMoviesStore = defineStore('movies', () => {
   }
 
   // Retries the current view after a failure: re-runs the active search (from
-  // page 1) when searching, otherwise reloads the popular list.
+  // page 1) when searching, otherwise reloads the discover list.
   function refresh(): void {
     if (isSearching.value) void search(searchQuery.value);
-    else void loadPopular();
+    else void loadDiscover();
   }
 
   // Toggles the result filter and rebuilds the currently shown view (from page 1)
@@ -150,13 +167,23 @@ export const useMoviesStore = defineStore('movies', () => {
     refresh();
   }
 
+  // Rebuild the discover feed from page 1 whenever the filter bar changes, so the
+  // browse list always reflects the current selection (this also covers "clear
+  // all", which resets the filter refs). Skipped until the feed has first loaded:
+  // an unvisited feed reads the live filters when it eventually loads, and search
+  // results are unaffected (TMDB search takes no filters) but the refreshed
+  // discover list is ready underneath for when the search is cleared.
+  watch([sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte], () => {
+    if (discoverFeed.status.value !== 'idle') void loadDiscover();
+  });
+
   return {
-    // Popular feed
-    popular: popularFeed.items,
-    popularStatus: popularFeed.status,
-    popularHasMore: popularFeed.hasMore,
-    loadPopular,
-    loadMorePopular: popularFeed.loadMore,
+    // Discover feed
+    discover: discoverFeed.items,
+    discoverStatus: discoverFeed.status,
+    discoverHasMore: discoverFeed.hasMore,
+    loadDiscover,
+    loadMoreDiscover: discoverFeed.loadMore,
     // Search feed
     searchResults: searchFeed.items,
     searchPage: searchFeed.page,
