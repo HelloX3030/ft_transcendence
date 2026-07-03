@@ -18,7 +18,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
-import { SearchUsersDto, UpdateUserDto } from './dto';
+import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -42,6 +42,16 @@ export class UsersController {
   updateMe(@Request() req: ExpressRequest, @Body() dto: UpdateUserDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.updateMe(user.sub, dto);
+  }
+
+  @Post('me/onboarding')
+  @ApiOperation({ summary: 'Complete onboarding for the authenticated user' })
+  @ApiResponse({ status: 201, description: 'Updated user profile with onboarding completed' })
+  @ApiResponse({ status: 400, description: 'Invalid onboarding payload' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  completeOnboarding(@Request() req: ExpressRequest, @Body() dto: OnboardingDto) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.completeOnboarding(user.sub, dto);
   }
 
   @Post('me/avatar')

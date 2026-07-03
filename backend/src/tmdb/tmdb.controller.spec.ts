@@ -1,14 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
-import { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
+import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
-import { makeMovie } from './tmdb.fixtures';
+import { makeGenre, makeMovie, makeWatchProviders } from './tmdb.fixtures';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
 const mockTmdbService = {
   fetchPopular: jest.fn(),
   searchMovies: jest.fn(),
+  getGenres: jest.fn(),
+  getWatchProviders: jest.fn(),
 } satisfies Partial<jest.Mocked<TmdbService>>;
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
@@ -84,6 +86,48 @@ describe('TmdbController', () => {
       const result = await controller.searchMovies(dto);
 
       expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getGenres', () => {
+    const mockGenres: TmdbGenre[] = [makeGenre()];
+    const mockGenresResponse = successResponse(mockGenres);
+
+    it('delegates to tmdbService.getGenres', async () => {
+      mockTmdbService.getGenres.mockResolvedValue(mockGenresResponse);
+
+      await controller.getGenres();
+
+      expect(mockTmdbService.getGenres).toHaveBeenCalled();
+    });
+
+    it('returns the genre list that tmdbService.getGenres resolves with', async () => {
+      mockTmdbService.getGenres.mockResolvedValue(mockGenresResponse);
+
+      const result = await controller.getGenres();
+
+      expect(result).toEqual(mockGenresResponse);
+    });
+  });
+
+  describe('getWatchProviders', () => {
+    const mockProviders = makeWatchProviders();
+    const mockProvidersResponse = successResponse(mockProviders);
+
+    it('delegates to tmdbService.getWatchProviders with the movie id', async () => {
+      mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
+
+      await controller.getWatchProviders(mockProviders.id);
+
+      expect(mockTmdbService.getWatchProviders).toHaveBeenCalledWith(mockProviders.id);
+    });
+
+    it('returns the providers that tmdbService.getWatchProviders resolves with', async () => {
+      mockTmdbService.getWatchProviders.mockResolvedValue(mockProvidersResponse);
+
+      const result = await controller.getWatchProviders(mockProviders.id);
+
+      expect(result).toEqual(mockProvidersResponse);
     });
   });
 });

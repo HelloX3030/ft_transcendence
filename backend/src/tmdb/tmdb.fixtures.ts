@@ -1,5 +1,5 @@
-import { TmdbMovie } from '@trailertinder/shared';
-import { TmdbListResponse } from './tmdb.types';
+import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@trailertinder/shared';
+import { TmdbGenreListResponse, TmdbListResponse } from './tmdb.types';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a
@@ -36,6 +36,40 @@ export function makeListResponse(overrides: Partial<TmdbListResponse> = {}): Tmd
     page: 1,
     total_pages: 1,
     total_results: 1,
+    ...overrides,
+  };
+}
+
+/** Test-only factory: builds a TmdbGenre with valid defaults. */
+export function makeGenre(overrides: Partial<TmdbGenre> = {}): TmdbGenre {
+  return { id: 28, name: 'Action', ...overrides };
+}
+
+/** Test-only factory: builds a TMDB genre-list response with one genre by default. */
+export function makeGenreListResponse(
+  overrides: Partial<TmdbGenreListResponse> = {},
+): TmdbGenreListResponse {
+  return { genres: [makeGenre()], ...overrides };
+}
+
+/** Test-only factory: builds a WatchProvider with valid defaults. */
+export function makeWatchProvider(overrides: Partial<WatchProvider> = {}): WatchProvider {
+  return {
+    provider_id: 8,
+    provider_name: 'Netflix',
+    logo_path: '/netflix.jpg',
+    display_priority: 0,
+    ...overrides,
+  };
+}
+
+/** Test-only factory: builds a movie watch-providers response with one DE flatrate provider. */
+export function makeWatchProviders(
+  overrides: Partial<MovieWatchProviders> = {},
+): MovieWatchProviders {
+  return {
+    id: 1,
+    results: { DE: { link: 'https://tmdb.org/movie/1/watch', flatrate: [makeWatchProvider()] } },
     ...overrides,
   };
 }
