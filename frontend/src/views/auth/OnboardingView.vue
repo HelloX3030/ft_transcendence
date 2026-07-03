@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
@@ -16,9 +17,20 @@ const { selectedMovies } = storeToRefs(selection);
 const auth = useAuthStore();
 const router = useRouter();
 
-function completeOnboarding() {
-  auth.completeOnboarding();
-  router.push('/');
+const submitting = ref(false);
+const error = ref('');
+
+async function completeOnboarding() {
+  submitting.value = true;
+  error.value = '';
+  try {
+    await auth.completeOnboarding(selectedMovies.value.map((movie) => movie.id));
+    router.push('/');
+  } catch (e) {
+    error.value = (e as Error)?.message ?? 'Something went wrong. Please try again.';
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
@@ -32,7 +44,10 @@ function completeOnboarding() {
     </div>
     <MovieSearch />
     <MovieFilterToggle />
-    <Button :disabled="selectedMovies.length < 10" @click="completeOnboarding">Next</Button>
+    <Button :disabled="selectedMovies.length < 10 || submitting" @click="completeOnboarding">
+      {{ submitting ? 'Saving…' : 'Next' }}
+    </Button>
+    <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
     <div class="flex items-center justify-between">
       <span>Selected({{ selectedMovies.length }}/10)</span>
       <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />

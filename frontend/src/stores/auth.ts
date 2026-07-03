@@ -1,5 +1,11 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
+import type {
+  LoginRequest,
+  RegisterRequest,
+  UpdateUserRequest,
+  UserMeResponse,
+} from '@trailertinder/shared';
 
 async function throwApiError(res: Response): Promise<never> {
   const body = await res.json().catch(() => ({}));
@@ -8,39 +14,24 @@ async function throwApiError(res: Response): Promise<never> {
   throw Object.assign(new Error(message), { status: res.status });
 }
 
-interface AuthUser {
-  id: number;
-  username: string;
-  email: string;
-  image: string | null;
-  language: 'de' | 'en' | 'es';
-  role: 'admin' | 'user';
-}
-
-type UpdateUserPayload = Pick<AuthUser, 'username' | 'email' | 'language'>;
-
-interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-interface RegisterPayload {
-  username: string;
-  email: string;
-  password: string;
-  language: string;
-}
-
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const requiresOnboarding = ref(false);
-  const user = ref<AuthUser | null>(null);
+  const user = ref<UserMeResponse | null>(null);
+
+  // Onboarding state is owned by the backend (users.onboardingCompleted). Mirror it
+  // locally whenever we (re)load the user so a page reload or a login from another
+  // device can't bypass onboarding.
+  function syncOnboarding() {
+    requiresOnboarding.value = user.value ? !user.value.onboardingCompleted : false;
+  }
 
   async function fetchUser() {
     try {
       const res = await fetch('/v1/users/me', { credentials: 'same-origin' });
       if (res.ok) {
         user.value = await res.json();
+        syncOnboarding();
       }
     } catch {
       // network error — leave user as-is
@@ -59,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(payload: LoginPayload) {
+  async function login(payload: LoginRequest) {
     const res = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,7 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
-  async function register(payload: RegisterPayload) {
+  async function register(payload: RegisterRequest) {
     const res = await fetch('/v1/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -89,13 +80,23 @@ export const useAuthStore = defineStore('auth', () => {
     });
     if (!res.ok) await throwApiError(res);
     isLoggedIn.value = true;
-    requiresOnboarding.value = true;
+    // requiresOnboarding is derived from the fetched user (onboardingCompleted=false
+    // for a new account), so no need to set it manually here.
     await fetchUser();
   }
 
-  async function completeOnboarding() {
-    requiresOnboarding.value = false;
-    await fetchUser();
+  // Sends the movies picked during onboarding to the backend, which marks
+  // onboarding complete and returns the updated user.
+  async function completeOnboarding(movieIds: number[]) {
+    const res = await fetch('/v1/users/me/onboarding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ movieIds }),
+    });
+    if (!res.ok) await throwApiError(res);
+    user.value = await res.json();
+    syncOnboarding();
   }
 
   async function uploadAvatar(file: File) {
@@ -110,7 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchUser();
   }
 
-  async function updateUser(payload: Partial<UpdateUserPayload>) {
+  async function updateUser(payload: UpdateUserRequest) {
     const res = await fetch('/v1/users/me', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -119,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     });
     if (!res.ok) await throwApiError(res);
     user.value = await res.json();
+    syncOnboarding();
   }
 
   return {
