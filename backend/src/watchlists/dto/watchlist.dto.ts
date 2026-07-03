@@ -63,6 +63,9 @@ export class watchlistDto implements WatchlistResponse {
   @IsOptional()
   image!: string | null;
 
+  @IsString({ each: true })
+  posterPaths!: string[];
+
   @IsString()
   @IsNotEmpty()
   role!: watchlist_role;

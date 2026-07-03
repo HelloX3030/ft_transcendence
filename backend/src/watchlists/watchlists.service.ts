@@ -13,9 +13,22 @@ import { watchlistMovieDto } from './dto/movie.dto';
 import { successResponse } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 
+// Number of movie posters stitched into a watchlist's mosaic cover.
+export const WATCHLIST_COVER_LIMIT = 4;
+
+// Pulls just enough movie posters to build the mosaic cover. Ordered by movieId
+// (watchlist_movies has no timestamp) so the cover is stable between requests.
+const COVER_INCLUDE = {
+  watchlistMovies: {
+    take: WATCHLIST_COVER_LIMIT,
+    orderBy: { movieId: 'asc' },
+    select: { movie: { select: { posterPath: true } } },
+  },
+} as const;
+
 export const WATCHLIST_SELECT = {
   role: true,
-  watchlist: true,
+  watchlist: { include: COVER_INCLUDE },
 } as const;
 
 @Injectable()
@@ -34,7 +47,9 @@ export class WatchlistsService {
         },
         select: WATCHLIST_SELECT,
       })
-    ).map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist));
+    ).map(({ role, watchlist }) =>
+      this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+    );
     return successResponse(watchlists);
   }
 
@@ -46,7 +61,11 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
+    const watchlist = this.toWatchlistDto(
+      userWatchlist.role,
+      userWatchlist.watchlist,
+      this.extractPosterPaths(userWatchlist.watchlist.watchlistMovies),
+    );
     return successResponse(watchlist);
   }
 
@@ -67,7 +86,8 @@ export class WatchlistsService {
       },
     });
     const userWatchlist = watchlist.watchlistUsers[0];
-    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist));
+    // A freshly created watchlist has no movies yet, so the mosaic is empty.
+    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist, []));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -83,8 +103,15 @@ export class WatchlistsService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.image !== undefined && { image: dto.image }),
       },
+      include: COVER_INCLUDE,
     });
-    return successResponse(this.toWatchlistDto(watchlistUser.role, watchlist));
+    return successResponse(
+      this.toWatchlistDto(
+        watchlistUser.role,
+        watchlist,
+        this.extractPosterPaths(watchlist.watchlistMovies),
+      ),
+    );
   }
 
   async remove(id: number, currentUserId: number) {
@@ -122,11 +149,12 @@ export class WatchlistsService {
       },
     });
     if (movie === null) {
-      const movieTitel = await this.getMovieTitel(dto.tmdbId);
+      const meta = await this.getMovieMeta(dto.tmdbId);
       movie = await this.prisma.movies.create({
         data: {
           tmdbId: dto.tmdbId,
-          name: movieTitel,
+          name: meta.name,
+          posterPath: meta.posterPath,
         },
       });
     }
@@ -253,18 +281,29 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  toWatchlistDto(role: watchlist_role, watchlistDb: watchlists): watchlistDto {
+  toWatchlistDto(
+    role: watchlist_role,
+    watchlistDb: watchlists,
+    posterPaths: string[],
+  ): watchlistDto {
     const watchlist: watchlistDto = {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
+      posterPaths,
       role: role,
       createdAt: watchlistDb.createdAt,
     };
     return watchlist;
   }
 
-  async getMovieTitel(tmdbId: number) {
+  extractPosterPaths(watchlistMovies: { movie: { posterPath: string | null } }[]): string[] {
+    return watchlistMovies
+      .map(({ movie }) => movie.posterPath)
+      .filter((path): path is string => path !== null);
+  }
+
+  async getMovieMeta(tmdbId: number): Promise<{ name: string; posterPath: string | null }> {
     const url = 'https://api.themoviedb.org/3/movie/' + tmdbId;
     const options = {
       method: 'GET',
@@ -288,7 +327,10 @@ export class WatchlistsService {
         throw new Error('Invalid TMDB API response.');
       }
 
-      return json.original_title;
+      const posterPath =
+        'poster_path' in json && typeof json.poster_path === 'string' ? json.poster_path : null;
+
+      return { name: json.original_title, posterPath };
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException();

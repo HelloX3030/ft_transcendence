@@ -16,9 +16,9 @@ defineSlots<{ movie(props: { movie: TmdbMovie }): unknown }>();
 
 const store = useMoviesStore();
 const {
-  popular,
-  popularStatus,
-  popularHasMore,
+  discover,
+  discoverStatus,
+  discoverHasMore,
   searchResults,
   searchHasMore,
   searchStatus,
@@ -26,22 +26,22 @@ const {
   resultCount,
 } = storeToRefs(store);
 
-// Show one collection at a time: search results when searching, else popular.
+// Show one collection at a time: search results when searching, else discover.
 // The view only ever talks to the "active" feed, so infinite scroll, the
 // end-of-list footer and retry all work the same regardless of which is shown.
-const displayMovies = computed(() => (isSearching.value ? searchResults.value : popular.value));
+const displayMovies = computed(() => (isSearching.value ? searchResults.value : discover.value));
 const displayStatus = computed(() =>
-  isSearching.value ? searchStatus.value : popularStatus.value,
+  isSearching.value ? searchStatus.value : discoverStatus.value,
 );
 const activeHasMore = computed(() =>
-  isSearching.value ? searchHasMore.value : popularHasMore.value,
+  isSearching.value ? searchHasMore.value : discoverHasMore.value,
 );
 const loadMoreActive = (): Promise<void> =>
-  isSearching.value ? store.loadMore() : store.loadMorePopular();
+  isSearching.value ? store.loadMore() : store.loadMoreDiscover();
 // Header shows how many results are currently loaded (the total lives in the
-// search box). Popular browsing has no count.
+// search box). Discover browsing has no count.
 const sectionLabel = computed(() =>
-  isSearching.value ? `Showing ${resultCount.value}` : 'Popular',
+  isSearching.value ? `Showing ${resultCount.value}` : 'Discover',
 );
 
 // Delay the loading indicator so fast (cached) responses don't flash a
@@ -77,10 +77,10 @@ const sentinelVisible = ref(false);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
-  // The popular feed lives in the store and survives navigation, so only fetch
+  // The discover feed lives in the store and survives navigation, so only fetch
   // it the first time it's needed — remounting (e.g. returning to this view)
   // keeps the already-loaded pages and scroll position instead of resetting.
-  if (popularStatus.value === 'idle') store.loadPopular();
+  if (discoverStatus.value === 'idle') store.loadDiscover();
   observer = new IntersectionObserver(
     (entries) => {
       sentinelVisible.value = entries[0]?.isIntersecting ?? false;

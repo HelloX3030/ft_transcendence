@@ -8,6 +8,7 @@ import {
   makeGenreListResponse,
   makeListResponse,
   makeMovie,
+  makeMovieDetailResponse,
   makeWatchProviders,
 } from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
@@ -72,19 +73,21 @@ describe('TmdbService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('fetchPopular — cache miss', () => {
-    it('calls client.get with the popular endpoint path', async () => {
+  describe('discoverMovies — cache miss', () => {
+    it('calls client.get with the discover endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
-      await service.fetchPopular();
+      await service.discoverMovies();
 
-      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=1');
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5',
+      );
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedMultiPage));
     });
@@ -92,15 +95,18 @@ describe('TmdbService', () => {
     it('stores the result in Redis with the correct key and TTL', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      await service.fetchPopular();
+      await service.discoverMovies();
 
-      expectCached('tmdb:popular:page:1:filtered', expectedMultiPage);
+      expectCached(
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
+        expectedMultiPage,
+      );
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedEmpty));
     });
@@ -108,16 +114,21 @@ describe('TmdbService', () => {
     it('uses the requested page in the TMDB path and cache key', async () => {
       mockTmdbClient.get.mockResolvedValue(multiPageResponse);
 
-      await service.fetchPopular(4);
+      await service.discoverMovies({ page: 4 });
 
-      expect(mockTmdbClient.get).toHaveBeenCalledWith('/movie/popular?language=en-US&page=4');
-      expectCached('tmdb:popular:page:4:filtered', expectedMultiPage);
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5',
+      );
+      expectCached(
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
+        expectedMultiPage,
+      );
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
       mockTmdbClient.get.mockRejectedValue(new Error('TMDB request failed'));
 
-      await expect(service.fetchPopular()).rejects.toThrow('TMDB request failed');
+      await expect(service.discoverMovies()).rejects.toThrow('TMDB request failed');
       expect(mockRedisClient.set).not.toHaveBeenCalled();
     });
 
@@ -130,20 +141,100 @@ describe('TmdbService', () => {
         }),
       );
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result.data?.results).toEqual(mockMovies);
     });
   });
 
-  describe('fetchPopular — cache hit', () => {
+  describe('discoverMovies — cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedMultiPage));
 
-      const result = await service.fetchPopular();
+      const result = await service.discoverMovies();
 
       expect(result).toEqual(successResponse(expectedMultiPage));
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('discoverMovies — filters', () => {
+    it('appends with_genres, sort_by and the release-date bounds when provided', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({
+        sortBy: 'vote_average.desc',
+        withGenres: '28,12',
+        releaseDateGte: '2000-01-01',
+        releaseDateLte: '2009-12-31',
+      });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('sort_by=vote_average.desc'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('with_genres=28%2C12'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('primary_release_date.gte=2000-01-01'),
+      );
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('primary_release_date.lte=2009-12-31'),
+      );
+    });
+
+    it('maps the UI release_date sort to TMDB primary_release_date', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ sortBy: 'release_date.asc' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('sort_by=primary_release_date.asc'),
+      );
+    });
+
+    it('omits optional params that are not provided', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ withGenres: '28' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('with_genres=28'));
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.not.stringContaining('primary_release_date'),
+      );
+    });
+
+    it('folds the filters into the cache key so combinations never collide', async () => {
+      mockTmdbClient.get.mockResolvedValue(multiPageResponse);
+
+      await service.discoverMovies({ withGenres: '28', sortBy: 'revenue.desc' });
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        expect.stringContaining('with_genres=28'),
+        expect.any(String),
+        expect.any(Number),
+      );
+    });
+
+    it('enforces the quality thresholds server-side when filtered', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ sortBy: 'vote_average.desc' });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('vote_count.gte=50'));
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.stringContaining('vote_average.gte=5'),
+      );
+    });
+
+    it('omits the quality thresholds when unfiltered', async () => {
+      mockTmdbClient.get.mockResolvedValue(emptyResponse);
+
+      await service.discoverMovies({ filtered: false });
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        expect.not.stringContaining('vote_count.gte'),
+      );
     });
   });
 
@@ -343,6 +434,99 @@ describe('TmdbService', () => {
     });
   });
 
+  describe('getMovieDetail — cache miss', () => {
+    it('requests the detail with credits, videos and similar appended', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      await service.getMovieDetail(42);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith(
+        '/movie/42?language=en-US&append_to_response=credits,videos,similar',
+      );
+    });
+
+    it('reshapes the response to TmdbMovieDetail (genres, runtime, credits, trailer)', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data).toMatchObject({
+        id: 1,
+        runtime: 140,
+        tagline: 'Why so serious?',
+        trailerKey: 'trailerKey1',
+        genres: [{ id: 28, name: 'Action' }],
+      });
+      expect(result.data?.credits.crew[0]?.job).toBe('Director');
+    });
+
+    it('prefers an official YouTube trailer and falls back to a teaser, else null', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({
+          videos: {
+            results: [
+              { key: 'teaser', site: 'YouTube', type: 'Teaser', official: true, name: 'Teaser' },
+            ],
+          },
+        }),
+      );
+
+      const teaserOnly = await service.getMovieDetail(1);
+      expect(teaserOnly.data?.trailerKey).toBe('teaser');
+
+      jest.clearAllMocks();
+      mockRedisClient.get.mockResolvedValue(null);
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse({ videos: { results: [] } }));
+
+      const none = await service.getMovieDetail(2);
+      expect(none.data?.trailerKey).toBeNull();
+    });
+
+    it('runs the similar list through the quality filter', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({
+          similar: makeListResponse({ results: [...mockMovies, junkMovie], total_results: 2 }),
+        }),
+      );
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data?.similar).toEqual(mockMovies);
+    });
+
+    it('tolerates a response missing the appended sections', async () => {
+      mockTmdbClient.get.mockResolvedValue(
+        makeMovieDetailResponse({ credits: undefined, videos: undefined, similar: undefined }),
+      );
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data?.credits).toEqual({ cast: [], crew: [] });
+      expect(result.data?.trailerKey).toBeNull();
+      expect(result.data?.similar).toEqual([]);
+    });
+
+    it('caches the reshaped detail under the movie key', async () => {
+      mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
+
+      await service.getMovieDetail(7);
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:movie:7', expect.any(String), 3600);
+    });
+  });
+
+  describe('getMovieDetail — cache hit', () => {
+    it('returns the cached detail without calling client.get', async () => {
+      const cached = { id: 1, title: 'Cached', trailerKey: null, similar: [] };
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(cached));
+
+      const result = await service.getMovieDetail(1);
+
+      expect(result.data).toEqual(cached);
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
   describe('filtered = false', () => {
     it('returns raw TMDB results without applying the filter', async () => {
       mockTmdbClient.get.mockResolvedValue(
@@ -357,10 +541,10 @@ describe('TmdbService', () => {
     it('caches under a distinct ":raw" key so it never collides with filtered', async () => {
       mockTmdbClient.get.mockResolvedValue(lastPageResponse);
 
-      await service.fetchPopular(1, false);
+      await service.discoverMovies({ page: 1, filtered: false });
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:popular:page:1:raw',
+        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
         expect.any(String),
         3600,
       );

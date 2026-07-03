@@ -3,10 +3,11 @@ import { ref } from 'vue';
 import { ArrowLeft } from 'lucide-vue-next';
 import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
-import type { Provider, severalMovies } from '@/lib/test';
+import type { TmdbMovieDetail } from '@trailertinder/shared';
+import type { Provider } from '@/lib/test';
 
 defineProps<{
-  movie: (typeof severalMovies)[0];
+  movie: TmdbMovieDetail;
   providers: Provider[];
 }>();
 
@@ -40,7 +41,7 @@ function handleMouseMove() {
 
     <VideoPlayer
       :title="movie.title"
-      :videoId="movie.trailerKey"
+      :videoId="movie.trailerKey ?? ''"
       :active="true"
       :genreIds="movie.genres.map((g) => g.id)"
       :releaseDate="movie.release_date"

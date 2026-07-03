@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { severalMovies } from '@/lib/test';
+import { useMovieDetail } from '@/composables/useMovieDetail';
 import { useWatchProviders } from '@/composables/useWatchProviders';
 
 import TrailerModal from '@/components/moviedetails/TrailerModal.vue';
@@ -17,9 +17,13 @@ const route = useRoute();
 
 const showTrailer = ref(false);
 
-const movie = computed(() => severalMovies.find((m) => m.id === Number(route.params.id)));
-const similarMovies = computed(() => severalMovies.filter((m) => m.id !== movie.value?.id));
-const director = 'Unkown';
+const movieId = computed(() => Number(route.params.id));
+const { movie, status } = useMovieDetail(movieId);
+
+const similarMovies = computed(() => movie.value?.similar ?? []);
+const director = computed(
+  () => movie.value?.credits.crew.find((c) => c.job === 'Director')?.name ?? 'Unknown',
+);
 const topCast = computed(() => movie.value?.credits.cast.slice(0, 3) ?? []);
 const releaseYear = computed(() => movie.value?.release_date.slice(0, 4) ?? '');
 const formattedRuntime = computed(() => {
@@ -31,7 +35,6 @@ const formattedRuntime = computed(() => {
 });
 const rating = computed(() => movie.value?.vote_average.toFixed(1) ?? '');
 
-const movieId = computed(() => Number(route.params.id));
 const { providers } = useWatchProviders(movieId);
 const backdropUrl = computed(() => `https://image.tmdb.org/t/p/w1280${movie.value?.backdrop_path}`);
 const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.poster_path}`);
@@ -39,9 +42,17 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
 
 <template>
   <div class="min-h-screen bg-black text-white">
-    <!-- Fallback -->
-    <div v-if="!movie" class="flex items-center justify-center min-h-screen">
-      <p class="text-zinc-500">Movie not found.</p>
+    <!-- Loading / error / not-found fallbacks -->
+    <div
+      v-if="status === 'loading' || status === 'idle'"
+      class="flex items-center justify-center min-h-screen"
+    >
+      <p class="text-zinc-500">Loading…</p>
+    </div>
+    <div v-else-if="!movie" class="flex items-center justify-center min-h-screen">
+      <p class="text-zinc-500">
+        {{ status === 'notFound' ? 'Movie not found.' : 'Couldn’t load this movie.' }}
+      </p>
     </div>
 
     <div v-else>
@@ -77,10 +88,10 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
         <SimilarMovies :movies="similarMovies" />
       </div>
 
-      <MovieActionBar @trailer="showTrailer = true" />
+      <MovieActionBar :has-trailer="!!movie.trailerKey" @trailer="showTrailer = true" />
 
       <TrailerModal
-        v-if="showTrailer"
+        v-if="showTrailer && movie.trailerKey"
         :movie="movie"
         :providers="[]"
         @close="showTrailer = false"
