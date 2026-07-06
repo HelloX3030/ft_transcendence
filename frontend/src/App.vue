@@ -12,10 +12,12 @@ const route = useRoute();
 
 <template>
   <template v-if="!route.meta.hideLayout">
-    <SidebarProvider>
+    <SidebarProvider class="p-0">
       <AppSidebar />
       <SidebarInset>
-        <Header />
+        <div class="sticky top-0 z-50 bg-background">
+          <Header />
+        </div>
         <main class="flex flex-col flex-1">
           <RouterView :key="$route.fullPath" />
         </main>

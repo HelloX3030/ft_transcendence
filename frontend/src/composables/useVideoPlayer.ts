@@ -51,7 +51,8 @@ export function useVideoPlayer(
   // Play/Pause
   function togglePlay() {
     if (!player.value) return;
-    isPlaying.value ? player.value.pauseVideo() : player.value.playVideo();
+    if (isPlaying.value) player.value.pauseVideo();
+    else player.value.playVideo();
   }
 
   // Fullscreen

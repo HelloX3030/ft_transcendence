@@ -1,7 +1,7 @@
 import { BadGatewayException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { TmdbMovie } from '@trailertinder/shared';
 import { makeMovie } from './tmdb.fixtures';
-import { TmdbMovie } from './tmdb.types';
 import { TmdbClient } from './tmdb.client';
 
 process.env.TMDB_API_KEY = 'test-api-key';

@@ -1,7 +1,7 @@
 <!-- src/components/videoPlayer/VideoInfo.vue -->
 <script setup lang="ts">
-import { computed } from 'vue';
-import { MOVIE_GENRES } from '../../lib/genre';
+import { computed, onMounted } from 'vue';
+import { useGenresStore } from '@/stores/genres';
 import type { Provider } from '@/lib/test.ts';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,9 +17,12 @@ const props = defineProps<PropsType>();
 
 const releaseYear = computed(() => new Date(props.releaseDate).getFullYear());
 
+const genres = useGenresStore();
+onMounted(() => void genres.ensureLoaded());
+
 const genreNames = computed(() =>
   props.genreIds
-    .map((id) => MOVIE_GENRES[id])
+    .map((id) => genres.genreName(id))
     .filter(Boolean)
     .slice(0, 3),
 );

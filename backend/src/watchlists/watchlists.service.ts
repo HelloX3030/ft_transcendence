@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -11,11 +12,24 @@ import { watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import { successResponse } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
+
+// Number of movie posters stitched into a watchlist's mosaic cover.
+export const WATCHLIST_COVER_LIMIT = 4;
+
+// Pulls just enough movie posters to build the mosaic cover. Ordered by movieId
+// (watchlist_movies has no timestamp) so the cover is stable between requests.
+const COVER_INCLUDE = {
+  watchlistMovies: {
+    take: WATCHLIST_COVER_LIMIT,
+    orderBy: { movieId: 'asc' },
+    select: { movie: { select: { posterPath: true } } },
+  },
+} as const;
 import { WatchlistResponse } from '@trailertinder/shared';
 
 export const WATCHLIST_SELECT = {
   role: true,
-  watchlist: true,
+  watchlist: { include: COVER_INCLUDE },
 } as const;
 
 @Injectable()
@@ -35,7 +49,9 @@ export class WatchlistsService {
     });
 
     const watchlists = await Promise.all(
-      watchlistUsers.map(({ role, watchlist }) => this.toWatchlistDto(role, watchlist)),
+      watchlistUsers.map(({ role, watchlist }) =>
+        this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+      ),
     );
     return successResponse(watchlists);
   }
@@ -48,7 +64,11 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = await this.toWatchlistDto(userWatchlist.role, userWatchlist.watchlist);
+    const watchlist = await this.toWatchlistDto(
+      userWatchlist.role,
+      userWatchlist.watchlist,
+      this.extractPosterPaths(userWatchlist.watchlist.watchlistMovies),
+    );
     return successResponse(watchlist);
   }
 
@@ -69,7 +89,8 @@ export class WatchlistsService {
       },
     });
     const userWatchlist = watchlist.watchlistUsers[0];
-    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist));
+    // A freshly created watchlist has no movies yet, so the mosaic is empty.
+    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist, []));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -85,8 +106,15 @@ export class WatchlistsService {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.image !== undefined && { image: dto.image }),
       },
+      include: COVER_INCLUDE,
     });
-    return successResponse(await this.toWatchlistDto(watchlistUser.role, watchlist));
+    return successResponse(
+      await this.toWatchlistDto(
+        watchlistUser.role,
+        watchlist,
+        this.extractPosterPaths(watchlist.watchlistMovies),
+      ),
+    );
   }
 
   async remove(id: number, currentUserId: number) {
@@ -124,11 +152,12 @@ export class WatchlistsService {
       },
     });
     if (movie === null) {
-      const movieTitel = await this.getMovieTitel(dto.tmdbId);
+      const meta = await this.getMovieMeta(dto.tmdbId);
       movie = await this.prisma.movies.create({
         data: {
           tmdbId: dto.tmdbId,
-          name: movieTitel,
+          name: meta.name,
+          posterPath: meta.posterPath,
         },
       });
     }
@@ -209,9 +238,22 @@ export class WatchlistsService {
   }
 
   async removeUser(id: number, userId: number, currentUserId: number) {
-    if (userId != currentUserId) {
+    if (userId == currentUserId) {
+      const watchlistUsers = await this.prisma.watchlist_users.findMany({
+        where: {
+          watchlistId: id,
+          role: 'editor',
+        },
+      });
+      if (watchlistUsers.length === 1 && watchlistUsers[0].userId == userId) {
+        throw new ConflictException(
+          'The last editor cannot be removed. Delete the watchlist instead.',
+        );
+      }
+    } else {
       await this.checkUserAccess(id, currentUserId);
     }
+
     await this.prisma.watchlist_users.delete({
       where: {
         watchlistId_userId: {
@@ -220,19 +262,7 @@ export class WatchlistsService {
         },
       },
     });
-    const watchlistUsers = await this.prisma.watchlist_users.findMany({
-      where: {
-        watchlistId: id,
-        role: 'editor',
-      },
-    });
-    if (watchlistUsers.length === 0) {
-      await this.prisma.watchlists.delete({
-        where: {
-          id,
-        },
-      });
-    }
+
     return successResponse(null);
   }
 
@@ -254,7 +284,11 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  async toWatchlistDto(role: watchlist_role, watchlistDb: watchlists): Promise<WatchlistResponse> {
+  async toWatchlistDto(
+    role: watchlist_role,
+    watchlistDb: watchlists,
+    posterPaths: string[],
+  ): Promise<WatchlistResponse> {
     const editors: number[] = (
       await this.prisma.watchlist_users.findMany({
         where: {
@@ -270,6 +304,7 @@ export class WatchlistsService {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
+      posterPaths,
       role: role,
       editorIds: editors,
       createdAt: watchlistDb.createdAt,
@@ -277,7 +312,13 @@ export class WatchlistsService {
     return watchlist;
   }
 
-  async getMovieTitel(tmdbId: number) {
+  extractPosterPaths(watchlistMovies: { movie: { posterPath: string | null } }[]): string[] {
+    return watchlistMovies
+      .map(({ movie }) => movie.posterPath)
+      .filter((path): path is string => path !== null);
+  }
+
+  async getMovieMeta(tmdbId: number): Promise<{ name: string; posterPath: string | null }> {
     const url = 'https://api.themoviedb.org/3/movie/' + tmdbId;
     const options = {
       method: 'GET',
@@ -301,7 +342,10 @@ export class WatchlistsService {
         throw new Error('Invalid TMDB API response.');
       }
 
-      return json.original_title;
+      const posterPath =
+        'poster_path' in json && typeof json.poster_path === 'string' ? json.poster_path : null;
+
+      return { name: json.original_title, posterPath };
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException();
