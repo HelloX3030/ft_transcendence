@@ -9,6 +9,7 @@ export async function backendClient<T>(path: string, options?: RequestInit): Pro
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
+    console.log('backendClient error:', error);
     throw new Error(error?.message ?? `Request failed: ${response.status}`);
   }
 

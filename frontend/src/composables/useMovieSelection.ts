@@ -1,15 +1,10 @@
+import type { TmdbMovie } from '@trailertinder/shared';
 import { ref } from 'vue';
 
-export interface Movie {
-  id: number;
-  title: string;
-  img: string;
-} //TODO: Richtigen Type erstellen
-
 export function useMovieSelection() {
-  const selectedMovies = ref<Movie[]>([]);
+  const selectedMovies = ref<TmdbMovie[]>([]);
 
-  const addMovie = (movie: Movie) => {
+  const addMovie = (movie: TmdbMovie) => {
     if (selectedMovies.value.some((m) => m.id === movie.id)) {
       removeMovie(movie.id);
       return;

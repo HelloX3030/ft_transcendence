@@ -5,7 +5,7 @@ import { toast } from 'vue-sonner';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 
-import { useMovieSelection, type Movie } from '@/composables/useMovieSelection';
+import { useMovieSelection } from '@/composables/useMovieSelection';
 
 import { Button } from '@/components/ui/button';
 
@@ -37,6 +37,7 @@ import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { watchlistApi } from '@/api';
+import type { TmdbMovie } from '@trailertinder/shared';
 
 const store = useMoviesStore();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
@@ -48,7 +49,7 @@ const { handleSubmit, resetForm } = useForm({
 
 const onSubmit = handleSubmit(async (values) => {
   const watchlistData = await watchlistApi.create({ name: values.name });
-  if (!watchlistData) return; //TODO: IMPROVE
+  if (!watchlistData) return; //TODO: Improve with error message and status for user
   for (const movie of selectedMovies.value) {
     watchlistApi.addMovie(watchlistData?.id, { tmdbId: movie.id });
   }
@@ -102,7 +103,7 @@ watch(isOpen, (open) => {
               id="movies"
               v-model="selectedMovies"
               class=""
-              :display-value="(value) => (value as Movie).title"
+              :display-value="(value) => (value as TmdbMovie).title"
             >
               <TagsInputItem
                 v-for="item in selectedMovies"
@@ -125,9 +126,7 @@ watch(isOpen, (open) => {
                   :title="movie.title"
                   :img="movie.poster_path"
                   :selected="isSelected(movie.id)"
-                  @select="
-                    addMovie({ title: movie.title, id: movie.id, img: movie.poster_path ?? '' })
-                  "
+                  @select="addMovie(movie)"
                 />
               </template>
             </MovieBrowser>

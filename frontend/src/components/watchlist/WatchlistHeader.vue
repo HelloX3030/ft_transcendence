@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Pencil, UserIcon } from '@lucide/vue';
-import { Button } from '@/components/ui/button';
-import type { GetUserResponse, WatchlistResponse } from '@trailertinder/shared';
+import { UserIcon } from '@lucide/vue';
+import type {
+  GetUserResponse,
+  WatchlistMovieResponse,
+  WatchlistResponse,
+} from '@trailertinder/shared';
 import { computed, ref } from 'vue';
 import { Skeleton } from '../ui/skeleton';
+import EditListDialog from './EditListDialog.vue';
 
 interface PropsType {
   watchlist: WatchlistResponse;
+  movies: WatchlistMovieResponse[];
   editors: GetUserResponse[];
   editorsLoading: boolean;
 }
@@ -40,9 +45,7 @@ const formattedDate = computed(() => {
   <div class="flex flex-col gap-1 mb-8">
     <div class="flex items-start justify-between">
       <h1 class="font-bold text-2xl md:text-3xl xl:text-4xl">{{ watchlist.name }}</h1>
-      <Button variant="ghost" size="icon">
-        <Pencil class="size-4" />
-      </Button>
+      <EditListDialog :name="watchlist.name" :movies="movies" :watchlist-id="watchlist.id" />
     </div>
 
     <div class="flex flex-wrap items-center gap-2 md:text-xl">
