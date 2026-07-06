@@ -45,6 +45,7 @@ const editors2 = ref([
     <div class="h-full flex flex-col" v-else-if="watchlist && movies && editors">
       <WatchlistHeader
         v-bind:watchlist="watchlist"
+        v-bind:movies="movies"
         :editors="editors2"
         :editors-loading="editorsLoading"
       />

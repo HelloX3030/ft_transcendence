@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { Pencil, ChevronRight } from 'lucide-vue-next';
+import { ChevronRight } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Button } from '../ui/button';
-
 import type { WatchlistResponse } from '@trailertinder/shared';
 
 const props = defineProps<WatchlistResponse>();
@@ -60,9 +58,6 @@ function goToWatchlist() {
       </p>
     </div>
 
-    <Button variant="ghost" size="icon" class="shrink-0" @click.stop="$emit('edit', id)">
-      <Pencil class="size-4" />
-    </Button>
     <ChevronRight class="size-4 text-muted-foreground shrink-0" />
   </div>
 </template>

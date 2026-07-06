@@ -5,6 +5,7 @@ import type {
   WatchlistMovieResponse,
   WatchlistRequest,
   WatchlistResponse,
+  WatchlistUpdateRequest,
 } from '@trailertinder/shared';
 
 export const watchlistApi = {
@@ -21,7 +22,17 @@ export const watchlistApi = {
       body: JSON.stringify(data),
     }),
 
-  //   delete: (id: number) => backendClient<void>(`/watchlists/${id}`, { method: 'DELETE' }),
+  delete: (id: number, movieId: number) =>
+    backendClient<void>(`/watchlists/${id}/movies/${movieId}`, { method: 'DELETE' }),
+
+  update: (id: number, data: WatchlistUpdateRequest) =>
+    backendClient<WatchlistResponse>(`/watchlists/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }),
 
   addMovie: (id: number, movie: WatchlistMovieRequest) =>
     backendClient(`/watchlists/${id}/movies`, {

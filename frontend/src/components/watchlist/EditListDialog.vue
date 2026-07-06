@@ -5,7 +5,7 @@ import { toast } from 'vue-sonner';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 
-import { useMovieSelection, type Movie } from '@/composables/useMovieSelection';
+import { useMovieSelection } from '@/composables/useMovieSelection';
 
 import { Button } from '@/components/ui/button';
 
@@ -32,27 +32,59 @@ import MovieSearch from '@/components/MovieSearch.vue';
 import MovieCard from '@/components/MovieCard.vue';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
-import { createListSchema } from '@/lib/schemas';
+import { updateListSchema } from '@/lib/schemas';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { watchlistApi } from '@/api';
+import { Pencil } from '@lucide/vue';
+import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
 
-const store = useMoviesStore();
+const props = defineProps<{
+  name: string;
+  watchlistId: number;
+  movies: WatchlistMovieResponse[];
+}>();
+
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
+
+const deletedMovies = ref<WatchlistMovieResponse[]>([]);
+
 const isOpen = ref(false);
+watch(isOpen, (open) => {
+  if (open) {
+    deletedMovies.value = [...props.movies];
+  } else {
+    resetDialog();
+  }
+});
+const store = useMoviesStore();
 
 const { handleSubmit, resetForm } = useForm({
-  validationSchema: toTypedSchema(createListSchema),
+  validationSchema: toTypedSchema(updateListSchema),
 });
 
+function removeFromList(movieId: number) {
+  deletedMovies.value = deletedMovies.value.filter((m) => m.id !== movieId);
+}
+
 const onSubmit = handleSubmit(async (values) => {
-  const watchlistData = await watchlistApi.create({ name: values.name });
-  if (!watchlistData) return; //TODO: IMPROVE
-  for (const movie of selectedMovies.value) {
-    watchlistApi.addMovie(watchlistData?.id, { tmdbId: movie.id });
+  const moviesToDelete = props.movies.filter(
+    (m) => !deletedMovies.value.some((d) => d.id === m.id),
+  );
+
+  for (const movie of moviesToDelete) {
+    await watchlistApi.delete(props.watchlistId, movie.id);
   }
-  toast.success('New List Created Successfully');
+
+  for (const movie of selectedMovies.value) {
+    await watchlistApi.addMovie(props.watchlistId, { tmdbId: movie.id });
+  }
+
+  if (values.name && values.name !== props.name) {
+    await watchlistApi.update(props.watchlistId, { name: values.name });
+  }
+  toast.success('Edit Successfully');
   isOpen.value = false;
 });
 
@@ -61,21 +93,21 @@ const resetDialog = () => {
   store.resetSearch();
   resetForm();
 };
-
-watch(isOpen, (open) => {
-  if (!open) resetDialog();
-});
 </script>
 
 <template>
   <Dialog v-model:open="isOpen">
     <DialogTrigger as-child>
-      <Button variant="outline" class="md:text-xl">+ New</Button>
+      <Button variant="ghost" size="icon" class="shrink-0">
+        <Pencil class="size-4" />
+      </Button>
     </DialogTrigger>
     <DialogContent class="sm:max-w-5/6">
       <DialogHeader>
-        <DialogTitle>Create New List</DialogTitle>
-        <DialogDescription> Create a new movie list. To share with your friends.</DialogDescription>
+        <DialogTitle>Edit: {{ name }}</DialogTitle>
+        <DialogDescription>
+          Rename your list, add new movies or remove existing ones.
+        </DialogDescription>
       </DialogHeader>
       <form @submit.prevent="onSubmit" class="space-y-4">
         <FormField v-slot="{ componentField }" name="name">
@@ -85,7 +117,7 @@ watch(isOpen, (open) => {
               <Input
                 :model-value="componentField.modelValue"
                 @update:model-value="(value) => componentField['onUpdate:modelValue']?.(value)"
-                placeholder="My List..."
+                :placeholder="name"
               />
             </FormControl>
             <FormMessage />
@@ -93,6 +125,26 @@ watch(isOpen, (open) => {
         </FormField>
 
         <div class="grid gap-3">
+          <Label for="delete-movies">Remove Movies</Label>
+          <div class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary">
+            <TagsInput
+              id="delete-movies"
+              v-model="deletedMovies"
+              class=""
+              :display-value="(value) => (value as WatchlistMovieResponse).name"
+            >
+              <TagsInputItem
+                v-for="item in deletedMovies"
+                :key="item.id"
+                :value="item"
+                class="flex items-center gap-1 min-w-0"
+              >
+                <TagsInputItemText class="truncate" />
+                <TagsInputItemDelete @click="removeFromList(item.id)" class="shrink-0" />
+              </TagsInputItem>
+              <TagsInputInput placeholder="" disabled />
+            </TagsInput>
+          </div>
           <Label for="movies">Add Movies</Label>
           <div
             class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary"
@@ -102,7 +154,7 @@ watch(isOpen, (open) => {
               id="movies"
               v-model="selectedMovies"
               class=""
-              :display-value="(value) => (value as Movie).title"
+              :display-value="(value) => (value as TmdbMovie).title"
             >
               <TagsInputItem
                 v-for="item in selectedMovies"
@@ -125,9 +177,7 @@ watch(isOpen, (open) => {
                   :title="movie.title"
                   :img="movie.poster_path"
                   :selected="isSelected(movie.id)"
-                  @select="
-                    addMovie({ title: movie.title, id: movie.id, img: movie.poster_path ?? '' })
-                  "
+                  @select="addMovie(movie)"
                 />
               </template>
             </MovieBrowser>
@@ -137,7 +187,7 @@ watch(isOpen, (open) => {
           <DialogClose as-child>
             <Button variant="outline" type="button"> Cancel </Button>
           </DialogClose>
-          <Button type="submit"> Create List </Button>
+          <Button type="submit"> Edit </Button>
         </DialogFooter>
       </form>
     </DialogContent>
