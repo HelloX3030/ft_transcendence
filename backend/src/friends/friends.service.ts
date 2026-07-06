@@ -95,6 +95,9 @@ export class FriendsService {
       },
     });
 
+    this.notifyService.addUserToOnlineStatus(payload.sub, id);
+    this.notifyService.addUserToOnlineStatus(id, payload.sub);
+
     return successResponse(null, 'friendship status updated');
   }
 
@@ -105,6 +108,8 @@ export class FriendsService {
         userAId_userBId: friendsKey,
       },
     });
+    this.notifyService.rmUserFromOnlineStatus(payload.sub, id);
+    this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
     return successResponse(null, 'friendship deleted');
   }
 

@@ -8,6 +8,8 @@ export const notifyStore = defineStore('notify', () => {
   const socket = io('http://localhost:3000/notify', { withCredentials: true }); // todo global url
 
   function init() {
+    socket.removeAllListeners();
+    console.log('Notify init...');
     socket.on('connect', () => {
       console.log('Verbunden:', socket.id);
     });
@@ -16,6 +18,22 @@ export const notifyStore = defineStore('notify', () => {
       count.value++;
       console.log(msg, count.value);
     });
+
+    watchFriendsOnlineStatus();
+  }
+
+  function watchFriendsOnlineStatus() {
+    socket.off('watch-friends-status');
+    socket.on('watch-friends-status', (data) => {
+      const tmp = data as { id: number; isOnline: boolean }[];
+      for (const user of tmp) {
+        socket.off(`online-status:${user.id}`);
+        socket.on(`online-status:${user.id}`, (msg) => {
+          console.log(msg);
+        });
+      }
+    });
+    socket.emit('watch-friends-status', 'init');
   }
 
   //   async function login(payload: LoginPayload) {
