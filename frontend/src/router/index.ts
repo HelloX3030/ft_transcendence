@@ -10,7 +10,6 @@ import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import UserProfileView from '@/views/UserProfileView.vue';
 import EditProfileView from '@/views/EditProfileView.vue';
-import WatchlistView from '@/views/WatchlistView.vue';
 import { useAuthStore } from '@/stores/auth';
 import { storeToRefs } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -42,7 +41,7 @@ const router = createRouter({
     },
     {
       path: '/watchlist',
-      meta: { requiresAuth: true, title: 'Watchlist' },
+      meta: { requiresAuth: true, title: 'Watchlists' },
       children: [
         { path: '', component: WatchlistsView },
         { path: ':id', component: ListView },

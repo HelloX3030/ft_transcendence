@@ -108,6 +108,7 @@ export class WatchlistsService {
       },
       include: COVER_INCLUDE,
     });
+    if (watchlist === null) throw new InternalServerErrorException();
     return successResponse(
       await this.toWatchlistDto(
         watchlistUser.role,

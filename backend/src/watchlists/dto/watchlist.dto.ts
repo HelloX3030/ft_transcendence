@@ -16,8 +16,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { WatchlistCreateRequest, WatchlistUpdateRequest } from '@trailertinder/shared';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class watchlistCreateDto implements WatchlistCreateRequest {
   @ApiProperty({ example: 'action movies' })
@@ -47,32 +45,4 @@ export class watchlistUpdateDto implements WatchlistUpdateRequest {
   @IsUrl()
   @IsOptional()
   image?: string;
-}
-
-export class watchlistDto implements WatchlistResponse {
-  @IsNumber()
-  @IsNotEmpty()
-  @Min(0)
-  id!: number;
-
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(DEFAULT_MAX_LENGTH)
-  name!: string;
-
-  @MaxLength(DEFAULT_MAX_LENGTH)
-  @IsUrl()
-  @IsOptional()
-  image!: string | null;
-
-  @IsString({ each: true })
-  posterPaths!: string[];
-
-  @IsString()
-  @IsNotEmpty()
-  role!: watchlist_role;
-
-  @IsDateString()
-  @IsNotEmpty()
-  createdAt!: Date;
 }
