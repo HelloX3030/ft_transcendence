@@ -26,6 +26,7 @@ export interface WatchlistResponse {
   id: number;
   name: string;
   image: string | null;
+  posterPaths: string[];
   role: WatchlistRole;
   editorIds: number[];
   createdAt: Date | string;
@@ -34,6 +35,13 @@ export interface WatchlistResponse {
 export interface WatchlistUserCreateRequest {
   userId: number;
   role: WatchlistRole;
+}
+
+export interface WatchlistMovieResponse {
+  id: number;
+  tmdbId: number;
+  name: string;
+  posterPath: string | null;
 }
 
 export interface WatchlistUserRequest {

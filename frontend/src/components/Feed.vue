@@ -38,11 +38,7 @@ watch(isFullscreen, (fullscreen) => {
 </script>
 
 <template>
-  <Carousel
-    orientation="vertical"
-    class="w-full h-full border-0 outline-0 md:max-w-5/6 md:mx-auto"
-    @init-api="setApi"
-  >
+  <Carousel orientation="vertical" class="w-full h-full border-0 outline-0" @init-api="setApi">
     <CarouselContent class="h-full">
       <CarouselItem v-for="(trailer, index) in popular" :key="trailer.key" class="h-full">
         <VideoPlayer
@@ -52,6 +48,7 @@ watch(isFullscreen, (fullscreen) => {
           :genre-ids="trailer.genre_ids"
           :release-date="trailer.release_date"
           :providers="trailer.providers"
+          :show-genres="true"
         />
       </CarouselItem>
     </CarouselContent>

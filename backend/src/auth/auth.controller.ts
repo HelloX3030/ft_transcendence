@@ -31,8 +31,6 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('register request');
-
     return this.authService.register(req, dto, res);
   }
 
@@ -48,7 +46,6 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('login request');
     return this.authService.login(req, dto, res);
   }
 
@@ -71,7 +68,6 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('refresh request');
     if (req.user === undefined) throw new BadRequestException();
     return this.authService.refresh(req.user as JwtRefreshPayload, res);
   }
@@ -83,7 +79,6 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User logout successful' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token signature' })
   logout(@Request() req: ExpressRequest, @Response({ passthrough: true }) res: ExpressResponse) {
-    console.log('logout request');
     if (req.user === undefined) throw new BadRequestException();
     return this.authService.logout(req.user as JwtRefreshPayload, res);
   }

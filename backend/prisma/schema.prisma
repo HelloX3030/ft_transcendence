@@ -23,9 +23,10 @@ model friends {
 }
 
 model movies {
-  id     Int    @id @default(autoincrement())
-  tmdbId Int    @unique @map("tmdb_id")
-  name   String @db.VarChar(255)
+  id         Int     @id @default(autoincrement())
+  tmdbId     Int     @unique @map("tmdb_id")
+  name       String  @db.VarChar(255)
+  posterPath String? @map("poster_path") @db.VarChar(255)
 
   ratings         ratings[]
   watchlistMovies watchlist_movies[]
@@ -37,6 +38,8 @@ model ratings {
 
   trailerRating reaction_type @map("trailer_rating")
   movieRating   Int           @default(0) @map("movie_rating") @db.SmallInt
+
+  watchTime Int? @map("watch_time") @db.SmallInt
 
   createdAt DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
@@ -67,6 +70,15 @@ model users {
 
   language language_code
   role     user_role
+
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+
+  featureVector Float[]   @map("feature_vector")
+  featVecUpdatedAt DateTime?  @map("feat_vec_updated_at")
+
+  genreIds    Int[] @map("genre_ids")
+  actorIds    Int[] @map("actor_ids")
+  directorIds Int[] @map("director_ids")
 
   createdAt DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
