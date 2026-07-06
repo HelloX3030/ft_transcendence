@@ -2,6 +2,9 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Bell } from 'lucide-vue-next';
 import Separator from './ui/separator/Separator.vue';
+import { notifyStore } from '@/stores/notify.ts';
+
+const notify = notifyStore();
 </script>
 
 <template>
@@ -24,6 +27,7 @@ import Separator from './ui/separator/Separator.vue';
 
       <!-- Rechts: Bell -->
       <div class="flex justify-end">
+        <h1>{{ notify.count }}</h1>
         <RouterLink
           to="/notifications"
           class="hover:text-primary transition-colors"
