@@ -32,7 +32,7 @@ export const watchlistApi = {
       body: JSON.stringify(movie),
     }),
 
-  getMovieIdsById: async (id: number) =>
+  getMoviesById: async (id: number) =>
     backendClient<WatchlistMovieResponse[]>(`/watchlists/${id}/movies`, {
       method: 'GET',
     }),
