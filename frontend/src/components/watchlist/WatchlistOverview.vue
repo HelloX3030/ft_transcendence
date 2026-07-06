@@ -11,18 +11,14 @@ const props = defineProps<WatchlistResponse>();
 
 const { movieIds, movieIdsLoading } = useWatchlist(props.id);
 
+//TODO: remove 4 with constant
 const posters = computed(() => {
-  const real =
-    movieIds.value?.slice(0, 3).map((movie) => ({
-      ...movie,
-      poster_path: '/1E5baAaEse26fej7uHcjOgEE2t2.jpg', //TODO: replace hardcoded poster_path
-    })) ?? [];
-  const placeholders = Array.from({ length: 3 - real.length }, () => null);
-  return [...real, ...placeholders];
+  const placeholders = Array.from({ length: 4 - props.posterPaths.length }, () => null);
+  return [...props.posterPaths, ...placeholders];
 });
 
 const remainingCount = computed(() =>
-  movieIds.value ? Math.max(movieIds.value.length - 3, 0) : 0,
+  movieIds.value ? Math.max(movieIds.value.length - 4, 0) : 0,
 );
 
 const formattedDate = computed(() => {
@@ -54,14 +50,14 @@ function goToWatchlist() {
       </template>
       <template v-else>
         <div
-          v-for="(movie, idx) in posters"
+          v-for="(poster_path, idx) in posters"
           :key="idx"
           :style="{ zIndex: posters.length - idx }"
           class="w-12 h-18 sm:w-16 sm:h-24 lg:w-20 lg:h-30 xl:w-24 xl:h-36 -mr-4 sm:-mr-5 lg:-mr-6 xl:-mr-8 last:mr-0 overflow-hidden filter-[drop-shadow(6px_2px_6px_rgba(0,0,0,0.55))] shrink-0"
         >
           <img
-            v-if="movie"
-            :src="`https://image.tmdb.org/t/p/w500${movie.poster_path}`"
+            v-if="poster_path"
+            :src="`https://image.tmdb.org/t/p/w500${poster_path}`"
             class="w-full h-full object-cover"
           />
           <div v-else class="w-full h-full bg-popover border" />
