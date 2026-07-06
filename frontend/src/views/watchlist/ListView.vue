@@ -4,22 +4,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
 import { useWatchlist } from '@/composables/useWatchlist';
 
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 const route = useRoute();
 
-const { watchlist, watchlistLoading, watchlistError, movieIds, movieIdsLoading, editors } =
+const { watchlist, watchlistLoading, watchlistError, movies, moviesLoading, editors } =
   useWatchlist(Number(route.params.id));
-
-const movies = computed(() => {
-  const real =
-    movieIds.value?.map((movie) => ({
-      ...movie,
-      poster_path: '/1E5baAaEse26fej7uHcjOgEE2t2.jpg', //TODO: replace hardcoded poster_path
-    })) ?? [];
-
-  return real;
-});
 
 const editors2 = ref([
   { id: 1, username: 'philipp', image: null },
@@ -30,13 +20,13 @@ const editors2 = ref([
 <template>
   <section class="flex-1 w-5/6 mx-auto p-8">
     <div
-      v-if="watchlistLoading || movieIdsLoading"
+      v-if="watchlistLoading || moviesLoading"
       class="flex items-center justify-center min-h-screen"
     >
       <Spinner class="size-16" />
     </div>
 
-    <div v-else-if="watchlist && movieIds && editors">
+    <div v-else-if="watchlist && movies && editors">
       <div class="flex flex-col gap-1 mb-8">
         <h1 class="font-bold text-2xl md:text-3xl xl:text-4xl mb-4">{{ watchlist?.name }}</h1>
 
@@ -75,7 +65,7 @@ const editors2 = ref([
           v-for="movie in movies"
           :key="movie.tmdbId"
           :title="movie.name"
-          :img="movie.poster_path"
+          :img="movie.posterPath"
           :selected="false"
         />
       </div>

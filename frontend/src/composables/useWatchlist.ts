@@ -5,10 +5,10 @@ import { watch } from 'vue';
 
 export function useWatchlist(watchlistId: number) {
   const {
-    state: movieIds,
-    isLoading: movieIdsLoading,
-    error: movieIdsError,
-  } = useAsyncState(() => watchlistApi.getMovieIdsById(watchlistId), []);
+    state: movies,
+    isLoading: moviesLoading,
+    error: moviesError,
+  } = useAsyncState(() => watchlistApi.getMoviesById(watchlistId), []);
 
   const {
     state: watchlist,
@@ -36,9 +36,9 @@ export function useWatchlist(watchlistId: number) {
     watchlist,
     watchlistLoading,
     watchlistError,
-    movieIds,
-    movieIdsLoading,
-    movieIdsError,
+    movies,
+    moviesLoading,
+    moviesError,
     editors,
     editorsLoading,
     editorsError,
