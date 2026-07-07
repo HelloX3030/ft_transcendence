@@ -16,6 +16,7 @@ interface WatchlistResponse {
   id: number;
   name: string;
   image: string | null;
+  posterPaths: string[];
   role: 'editor' | 'viewer';
   createdAt: string;
 }
@@ -24,6 +25,7 @@ interface MovieResponse {
   id: number;
   tmdbId: number;
   name: string;
+  posterPath: string | null;
 }
 
 describe('Watchlists (e2e)', () => {
@@ -80,6 +82,7 @@ describe('Watchlists (e2e)', () => {
       id: created.id,
       name: created.name,
       image: created.image,
+      posterPaths: [],
       role: 'editor',
     });
   });

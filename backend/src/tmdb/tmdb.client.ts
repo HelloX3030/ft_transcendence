@@ -8,7 +8,7 @@ const TIMEOUT_MS = 5000;
 export class TmdbClient {
   private readonly logger = new Logger(TmdbClient.name);
 
-  async get(path: string): Promise<TmdbListResponse> {
+  async get<T = TmdbListResponse>(path: string): Promise<T> {
     const headers = {
       accept: 'application/json',
       Authorization: `Bearer ${process.env.TMDB_API_KEY!}`,
@@ -30,6 +30,6 @@ export class TmdbClient {
       throw new BadGatewayException('TMDB request failed');
     }
 
-    return (await res.json()) as TmdbListResponse;
+    return (await res.json()) as T;
   }
 }
