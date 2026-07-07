@@ -27,13 +27,25 @@ const notify = notifyStore();
 
       <!-- Rechts: Bell -->
       <div class="flex justify-end">
-        <h1>{{ notify.count }}</h1>
         <RouterLink
           to="/notifications"
           class="hover:text-primary transition-colors"
           active-class="text-primary"
         >
-          <Bell class="size-6" />
+          <!-- <div>
+            <h1>{{ notify.count }}</h1>
+            <Bell class="size-6" />
+          </div> -->
+          <div class="relative inline-block">
+            <Bell class="size-6" />
+
+            <span
+              v-if="notify.count > 0"
+              class="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+            >
+              {{ notify.count }}
+            </span>
+          </div>
         </RouterLink>
       </div>
     </div>
