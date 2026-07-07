@@ -46,6 +46,11 @@ export const notifyStore = defineStore('notify', () => {
     socket.emit('watch-friends-status', 'init');
   }
 
+  function clearAllNotifications() {
+    notifyMsg.value = [];
+    count.value = 0;
+  }
+
   //   async function login(payload: LoginPayload) {
   // 	const res = await fetch('/v1/auth/login', {
   // 	  method: 'POST',
@@ -57,5 +62,5 @@ export const notifyStore = defineStore('notify', () => {
   // 	await fetchUser();
   //   }
 
-  return { count, notifyMsg, init };
+  return { count, notifyMsg, init, clearAllNotifications };
 });
