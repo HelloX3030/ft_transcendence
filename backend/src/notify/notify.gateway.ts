@@ -61,39 +61,48 @@ export class NotifyGateway {
     });
   }
 
-  @SubscribeMessage('message')
-  handleMessage(@MessageBody() message: string, @ConnectedSocket() client: Socket): void {
-    this.server.emit<'message'>('message', message);
-  }
-
+  // -------------------------
+  // User online Status
+  // -------------------------
   @SubscribeMessage('watch-friends-status')
   async userStatus(@MessageBody() msg: string, @ConnectedSocket() client: Socket) {
     if (msg === 'init') {
       const friendIds = await this.notifyService.getFreinds(client.data.user);
-      const friendsStatus: { id: number; isOnline: boolean }[] = [];
       for (const userId of friendIds) {
-        friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
         this.addClientToStatusUpdate(client, userId);
       }
-      this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
     }
   }
 
   addClientToStatusUpdate(client: Socket, userId: number) {
+    const friendsStatus: { id: number; isOnline: boolean }[] = [];
+    friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
     client.join(`online-status:${userId}`);
+    this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
     console.log(`Add user to online-status:${userId}`);
   }
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
     client.leave(`online-status:${userId}`);
+    const friendsStatus: { id: number; isOnline: boolean }[] = [];
+    friendsStatus.push({ id: userId, isOnline: false });
+    this.server.to(`user:${client.data.user}`).emit('watch-friends-status-rm', friendsStatus);
     console.log(`Removed user from online-status:${userId}`);
   }
 
+  // -------------------------
+  // Send Notifications
+  // -------------------------
   sendMessage(message: string, userId: number) {
     console.log(message);
 
     this.server.to(`user:${userId}`).emit('message', message);
 
     // this.server.emit('message', message);
+  }
+
+  @SubscribeMessage('message')
+  handleMessage(@MessageBody() message: string, @ConnectedSocket() client: Socket): void {
+    this.server.emit<'message'>('message', message);
   }
 }

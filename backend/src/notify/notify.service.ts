@@ -14,6 +14,9 @@ export class NotifyService {
     private readonly prisma: PrismaService,
   ) {}
 
+  // -------------------------
+  // User online Status
+  // -------------------------
   setUserAsActive(userId: number, client: Socket) {
     const cSocketSet = this.userStatus.get(userId) ?? new Set();
     cSocketSet.add(client);
@@ -32,10 +35,6 @@ export class NotifyService {
     console.log('User ' + userId + ' set to InActive ');
   }
 
-  sendNotify(message: string, userId: number) {
-    this.notifyGateway.sendMessage(message, userId);
-  }
-
   addUserToOnlineStatus(monitoringUser: number, userIdToMonitor: number) {
     const userClient = this.userStatus.get(monitoringUser);
     if (userClient === undefined) return;
@@ -50,12 +49,18 @@ export class NotifyService {
     for (const client of userClient) {
       this.notifyGateway.rmClientFromStatusUpdate(client, userIdToMonitor);
     }
-    // todo: add remove also to the client
   }
 
   isOnline(userId: number) {
     if (this.userStatus.get(userId) !== undefined) return true;
     else return false;
+  }
+
+  // -------------------------
+  // Send Notifications
+  // -------------------------
+  sendNotify(message: string, userId: number) {
+    this.notifyGateway.sendMessage(message, userId);
   }
 
   async getFreinds(userId: number): Promise<number[]> {
