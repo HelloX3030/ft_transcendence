@@ -4,18 +4,20 @@ import { io } from 'socket.io-client';
 
 export const notifyStore = defineStore('notify', () => {
   const count = ref<number>(0);
-  const notifyMsg = ref<string[]>([]);
+  const nofiyId = ref<number>(0);
+  const notifyMsg = ref<{ id: number; titel: string; msg: string }[]>([]);
   const socket = io('http://localhost:3000/notify', { withCredentials: true }); // todo global url
 
   function init() {
-    socket.removeAllListeners();
     console.log('Notify init...');
+    socket.removeAllListeners();
     socket.on('connect', () => {
-      console.log('Verbunden:', socket.id);
+      console.log('Verbunden:', socket.id); // todo: error msg if no connection
     });
 
     socket.on('message', (msg) => {
       count.value++;
+      notifyMsg.value.push({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg });
       console.log(msg, count.value);
     });
 
@@ -55,5 +57,5 @@ export const notifyStore = defineStore('notify', () => {
   // 	await fetchUser();
   //   }
 
-  return { count, init };
+  return { count, notifyMsg, init };
 });

@@ -2,6 +2,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Socket } from 'socket.io';
+import { NotifyMsg } from '@trailertinder/shared';
 
 @Injectable()
 export class NotifyService {
@@ -59,8 +60,8 @@ export class NotifyService {
   // -------------------------
   // Send Notifications
   // -------------------------
-  sendNotify(message: string, userId: number) {
-    this.notifyGateway.sendMessage(message, userId);
+  sendNotify(userId: number, message: NotifyMsg) {
+    this.notifyGateway.sendMessage(userId, message);
   }
 
   async getFreinds(userId: number): Promise<number[]> {

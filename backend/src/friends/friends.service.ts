@@ -5,7 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Friend } from '@trailertinder/shared';
-import { successResponse } from 'src/utils';
+import {
+  FRIEND_REMOVED,
+  FRIEND_REQUEST_ACCEPTED,
+  FRIENDS_TITEL,
+  NEW_FRIEND_REQUEST,
+  successResponse,
+  UserUtils,
+} from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey, JwtAccessPayload } from 'src/types';
 import { NotifyService } from 'src/notify/notify.service';
@@ -20,6 +27,7 @@ export class FriendsService {
   constructor(
     private prisma: PrismaService,
     private notifyService: NotifyService,
+    private userUtils: UserUtils,
   ) {}
 
   async getFriends(payload: JwtAccessPayload) {
@@ -63,7 +71,11 @@ export class FriendsService {
         status: 'pending',
       },
     });
-    this.notifyService.sendNotify('You goat a friendship request from ' + id, id);
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg: NEW_FRIEND_REQUEST(username),
+    });
     return successResponse(null, 'friendship request created');
   }
 
@@ -98,6 +110,12 @@ export class FriendsService {
     this.notifyService.addUserToOnlineStatus(payload.sub, id);
     this.notifyService.addUserToOnlineStatus(id, payload.sub);
 
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg: FRIEND_REQUEST_ACCEPTED(username),
+    });
+
     return successResponse(null, 'friendship status updated');
   }
 
@@ -110,6 +128,13 @@ export class FriendsService {
     });
     this.notifyService.rmUserFromOnlineStatus(payload.sub, id);
     this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
+
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg: FRIEND_REMOVED(username),
+    });
+
     return successResponse(null, 'friendship deleted');
   }
 

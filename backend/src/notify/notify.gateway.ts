@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject } from '@nestjs/common';
+import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -75,7 +76,7 @@ export class NotifyGateway {
   }
 
   addClientToStatusUpdate(client: Socket, userId: number) {
-    const friendsStatus: { id: number; isOnline: boolean }[] = [];
+    const friendsStatus: FriendsStatus[] = [];
     friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
     client.join(`online-status:${userId}`);
     this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
@@ -84,7 +85,7 @@ export class NotifyGateway {
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
     client.leave(`online-status:${userId}`);
-    const friendsStatus: { id: number; isOnline: boolean }[] = [];
+    const friendsStatus: FriendsStatus[] = [];
     friendsStatus.push({ id: userId, isOnline: false });
     this.server.to(`user:${client.data.user}`).emit('watch-friends-status-rm', friendsStatus);
     console.log(`Removed user from online-status:${userId}`);
@@ -93,12 +94,9 @@ export class NotifyGateway {
   // -------------------------
   // Send Notifications
   // -------------------------
-  sendMessage(message: string, userId: number) {
+  sendMessage(userId: number, message: NotifyMsg) {
     console.log(message);
-
     this.server.to(`user:${userId}`).emit('message', message);
-
-    // this.server.emit('message', message);
   }
 
   @SubscribeMessage('message')
