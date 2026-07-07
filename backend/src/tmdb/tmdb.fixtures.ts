@@ -1,5 +1,5 @@
-import { TmdbMovie } from '@trailertinder/shared';
-import { TmdbListResponse } from './tmdb.types';
+import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@trailertinder/shared';
+import { TmdbGenreListResponse, TmdbListResponse, TmdbMovieDetailResponse } from './tmdb.types';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a
@@ -36,6 +36,75 @@ export function makeListResponse(overrides: Partial<TmdbListResponse> = {}): Tmd
     page: 1,
     total_pages: 1,
     total_results: 1,
+    ...overrides,
+  };
+}
+
+/** Test-only factory: builds a TmdbGenre with valid defaults. */
+export function makeGenre(overrides: Partial<TmdbGenre> = {}): TmdbGenre {
+  return { id: 28, name: 'Action', ...overrides };
+}
+
+/** Test-only factory: builds a TMDB genre-list response with one genre by default. */
+export function makeGenreListResponse(
+  overrides: Partial<TmdbGenreListResponse> = {},
+): TmdbGenreListResponse {
+  return { genres: [makeGenre()], ...overrides };
+}
+
+/**
+ * Test-only factory: builds a raw TMDB /movie/{id} detail response (with credits,
+ * videos and similar appended). Defaults include one official YouTube trailer and
+ * a director in the crew. Override per test.
+ */
+export function makeMovieDetailResponse(
+  overrides: Partial<TmdbMovieDetailResponse> = {},
+): TmdbMovieDetailResponse {
+  return {
+    ...makeMovie(),
+    genres: [makeGenre()],
+    runtime: 140,
+    tagline: 'Why so serious?',
+    credits: {
+      cast: [{ id: 11, name: 'Christian Bale', character: 'Bruce Wayne', profile_path: '/cb.jpg' }],
+      crew: [
+        {
+          id: 12,
+          name: 'Christopher Nolan',
+          job: 'Director',
+          department: 'Directing',
+          profile_path: '/cn.jpg',
+        },
+      ],
+    },
+    videos: {
+      results: [
+        { key: 'trailerKey1', site: 'YouTube', type: 'Trailer', official: true, name: 'Trailer' },
+      ],
+    },
+    similar: makeListResponse(),
+    ...overrides,
+  };
+}
+
+/** Test-only factory: builds a WatchProvider with valid defaults. */
+export function makeWatchProvider(overrides: Partial<WatchProvider> = {}): WatchProvider {
+  return {
+    provider_id: 8,
+    provider_name: 'Netflix',
+    logo_path: '/netflix.jpg',
+    display_priority: 0,
+    ...overrides,
+  };
+}
+
+/** Test-only factory: builds a movie watch-providers response with one DE flatrate provider. */
+export function makeWatchProviders(
+  overrides: Partial<MovieWatchProviders> = {},
+): MovieWatchProviders {
+  return {
+    id: 1,
+    results: { DE: { link: 'https://tmdb.org/movie/1/watch', flatrate: [makeWatchProvider()] } },
     ...overrides,
   };
 }
