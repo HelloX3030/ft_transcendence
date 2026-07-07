@@ -48,12 +48,12 @@ const props = defineProps<{
 
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
 
-const deletedMovies = ref<WatchlistMovieResponse[]>([]);
-
 const isOpen = ref(false);
 watch(isOpen, (open) => {
   if (open) {
-    deletedMovies.value = [...props.movies];
+    for (const m of props.movies) {
+      addMovie(m);
+    }
   } else {
     resetDialog();
   }
@@ -64,27 +64,39 @@ const { handleSubmit, resetForm } = useForm({
   validationSchema: toTypedSchema(updateListSchema),
 });
 
-function removeFromList(movieId: number) {
-  deletedMovies.value = deletedMovies.value.filter((m) => m.id !== movieId);
-}
-
 const onSubmit = handleSubmit(async (values) => {
-  const moviesToDelete = props.movies.filter(
-    (m) => !deletedMovies.value.some((d) => d.id === m.id),
-  );
+  try {
+    const moviesToDelete = props.movies.filter(
+      (m) => !selectedMovies.value.some((d) => d.id === m.tmdbId),
+    );
 
-  for (const movie of moviesToDelete) {
-    await watchlistApi.delete(props.watchlistId, movie.id);
+    const moviesToAdd = selectedMovies.value.filter(
+      (m) => !props.movies.some((d) => d.tmdbId === m.id),
+    );
+
+    const results = await Promise.allSettled([
+      ...moviesToDelete.map((m) => watchlistApi.delete(props.watchlistId, m.id)),
+      ...moviesToAdd.map((m) => watchlistApi.addMovie(props.watchlistId, { tmdbId: m.id })),
+    ]);
+
+    const failed = results.filter((r) => r.status === 'rejected');
+
+    if (failed.length > 0) {
+      toast.error(`${failed.length} action(s) failed`);
+    }
+
+    if (values.name && values.name !== props.name) {
+      await watchlistApi.update(props.watchlistId, { name: values.name });
+    }
+
+    if (failed.length === 0) {
+      toast.success('Edit Successfully');
+    }
+  } catch (error) {
+    console.log(error);
+    toast.error('Something went wrong');
   }
 
-  for (const movie of selectedMovies.value) {
-    await watchlistApi.addMovie(props.watchlistId, { tmdbId: movie.id });
-  }
-
-  if (values.name && values.name !== props.name) {
-    await watchlistApi.update(props.watchlistId, { name: values.name });
-  }
-  toast.success('Edit Successfully');
   isOpen.value = false;
 });
 
@@ -125,26 +137,6 @@ const resetDialog = () => {
         </FormField>
 
         <div class="grid gap-3">
-          <Label for="delete-movies">Remove Movies</Label>
-          <div class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary">
-            <TagsInput
-              id="delete-movies"
-              v-model="deletedMovies"
-              class=""
-              :display-value="(value) => (value as WatchlistMovieResponse).name"
-            >
-              <TagsInputItem
-                v-for="item in deletedMovies"
-                :key="item.id"
-                :value="item"
-                class="flex items-center gap-1 min-w-0"
-              >
-                <TagsInputItemText class="truncate" />
-                <TagsInputItemDelete @click="removeFromList(item.id)" class="shrink-0" />
-              </TagsInputItem>
-              <TagsInputInput placeholder="" disabled />
-            </TagsInput>
-          </div>
           <Label for="movies">Add Movies</Label>
           <div
             class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary"

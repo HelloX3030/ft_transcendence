@@ -1,16 +1,28 @@
-import type { TmdbMovie } from '@trailertinder/shared';
+import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
 import { ref } from 'vue';
 
-export function useMovieSelection() {
-  const selectedMovies = ref<TmdbMovie[]>([]);
+interface SelectedMovie {
+  id: number; // tmdbId
+  title: string;
+  poster_path: string | null;
+}
 
-  const addMovie = (movie: TmdbMovie) => {
-    if (selectedMovies.value.some((m) => m.id === movie.id)) {
-      removeMovie(movie.id);
+export function useMovieSelection() {
+  const selectedMovies = ref<SelectedMovie[]>([]);
+
+  const addMovie = (movie: TmdbMovie | WatchlistMovieResponse) => {
+    const tmdbId = 'tmdbId' in movie ? movie.tmdbId : movie.id;
+
+    if (selectedMovies.value.some((m) => m.id === tmdbId)) {
+      removeMovie(tmdbId);
       return;
     }
 
-    selectedMovies.value.push(movie);
+    selectedMovies.value.push({
+      id: tmdbId,
+      title: 'title' in movie ? movie.title : movie.name,
+      poster_path: 'poster_path' in movie ? movie.poster_path : movie.posterPath,
+    });
   };
 
   const removeMovie = (id: number) => {
