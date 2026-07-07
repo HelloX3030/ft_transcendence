@@ -10,14 +10,14 @@ This Privacy Policy explains how **CineMates – a student project at 42 Heilbro
 
 CineMates is a non-commercial student project developed as part of the 42 School Common Core curriculum (ft_transcendence). For any privacy-related questions or requests, you can contact us at:
 
-📧 **privacy@cinemates.example**
+📧 **cwolf@student.42heilbronn.de**
 
 ## 2. What Data We Collect
 
 | Category | Examples | Source |
 | --- | --- | --- |
 | **Account & Identity** | Name, email, profile picture/avatar, OAuth ID (Google or 42) | Provided by you / OAuth provider |
-| **Preferences** | Favorite genres, directors, actors, top 5 favorite movies | Onboarding, Settings |
+| **Preferences** | Favorite genres, directors, actors, movies | Onboarding, Settings |
 | **Behavioral Data** | Likes/dislikes/saves, watch/view duration, skip speed, comments, shares | Generated as you use the Service |
 | **Social Data** | Friends list, online status, chat messages (1:1) | Generated as you use the Service |
 | **Movie Night Data** | Session participation, real-time swipes within a session | Generated when joining a Movie Night session |
@@ -73,7 +73,7 @@ As a user based in the EU (or wherever GDPR-equivalent rights apply), you have t
 - **Restriction/Objection** — object to or restrict certain processing (e.g., recommendation personalization).
 - **Complaint** — lodge a complaint with your local data protection authority if you believe your data is being mishandled.
 
-To exercise the export or deletion right, you can use the corresponding option in your account Settings, or email us at **privacy@cinemates.example**.
+To exercise the export or deletion right, you can use the corresponding option in your account Settings, or email us at **cwolf@student.42heilbronn.de**.
 
 ## 9. Account Deletion
 
@@ -103,7 +103,7 @@ We may update this Privacy Policy as the project evolves (e.g., new features, ev
 
 For any questions, data requests, or concerns about this Privacy Policy, contact us at:
 
-📧 **privacy@cinemates.example**
+📧 **cwolf@student.42heilbronn.de**
 
 ---
 

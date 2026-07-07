@@ -77,7 +77,7 @@ These Terms are governed by the laws of **Germany**, without regard to conflict-
 
 ## 12. Contact
 
-Questions about these Terms? Reach out to **privacy@cinemates.example**.
+Questions about these Terms? Reach out to **cwolf@student.42heilbronn.de**.
 
 ---
 
