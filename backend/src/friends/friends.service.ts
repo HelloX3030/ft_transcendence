@@ -63,7 +63,7 @@ export class FriendsService {
         status: 'pending',
       },
     });
-    this.notifyService.sendNotify('You goat a friendship request from ', id);
+    this.notifyService.sendNotify('You goat a friendship request from ' + id, id);
     return successResponse(null, 'friendship request created');
   }
 

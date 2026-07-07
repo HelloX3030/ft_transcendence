@@ -31,6 +31,14 @@ export const notifyStore = defineStore('notify', () => {
         socket.on(`online-status:${user.id}`, (msg) => {
           console.log(msg);
         });
+        console.log('add watch user Id: ' + user.id);
+      }
+    });
+    socket.on('watch-friends-status-rm', (data) => {
+      const tmp = data as { id: number; isOnline: boolean }[];
+      for (const user of tmp) {
+        socket.off(`online-status:${user.id}`);
+        console.log('removed watch user Id: ' + user.id);
       }
     });
     socket.emit('watch-friends-status', 'init');
