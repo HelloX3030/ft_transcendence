@@ -24,6 +24,12 @@ _TMDB_MOVIE_URL = "https://api.themoviedb.org/3/movie"
 _DETAIL_CAST_LIMIT = 5
 
 
+def _auth_headers(token: str) -> dict[str, str]:
+    """TMDB_API_KEY holds a v4 read access token — sent as a Bearer header,
+    same as the NestJS TmdbClient. The v3 api_key query param does not accept it."""
+    return {"accept": "application/json", "Authorization": f"Bearer {token}"}
+
+
 class TranslatableProfile(Protocol):
     """The slice of a user profile the translation reads. Structural — any
     object with these fields works (concrete type: content_based.UserProfile)."""
@@ -151,7 +157,8 @@ async def fetch_movie_detail(
     async def _run(client: httpx.AsyncClient) -> MovieMetadata:
         response = await client.get(
             f"{_TMDB_MOVIE_URL}/{movie_id}",
-            params={"api_key": key, "append_to_response": "keywords,credits"},
+            params={"append_to_response": "keywords,credits"},
+            headers=_auth_headers(key),
             timeout=10.0,
         )
         response.raise_for_status()
@@ -203,7 +210,8 @@ async def _fetch_page(
     """Fetch one Discover page. Returns MovieMetadata for each result."""
     response = await client.get(
         _TMDB_DISCOVER_URL,
-        params={**params, "page": page, "api_key": api_key},
+        params={**params, "page": page},
+        headers=_auth_headers(api_key),
         timeout=10.0,
     )
     response.raise_for_status()

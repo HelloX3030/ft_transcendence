@@ -37,10 +37,6 @@ class UserProfile:
     # Running average vote_average of liked films — Discover lower-bound filter.
     avg_vote: float = 0.0
 
-    # Serialization handle for DB persistence (future). None until first interaction.
-    # Not used in content_score — genre_weights / liked_overviews are the live state.
-    feature_vector: np.ndarray | None = None
-
     last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -118,19 +114,22 @@ class ContentBasedFilter:
                 for gid in metadata.genre_ids:
                     profile.genre_weights[gid] = profile.genre_weights.get(gid, 0.0) - 0.5
 
-            # Mark profile as initialised for the DB serialisation path.
-            if profile.genre_weights:
-                profile.feature_vector = np.ones(1)
-
         self._profiles[user_id] = profile
 
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def load(self, db) -> None:  # type: ignore[type-arg]
-        """Populate the in-RAM cache from DB on service startup. TODO: implement once schema is confirmed."""
-        pass
+    def has_profile(self, user_id: str) -> bool:
+        return user_id in self._profiles
+
+    def load_profiles(self, profiles: list[UserProfile]) -> None:
+        """Populate the in-RAM cache — DB rows decoded by db.py on startup, or a
+        single late-registered user loaded on their first request. Existing cache
+        entries win: they carry in-RAM-only state (liked_overviews) that a DB
+        round-trip would erase."""
+        for profile in profiles:
+            self._profiles.setdefault(profile.user_id, profile)
 
     # ------------------------------------------------------------------
     # Scoring helpers

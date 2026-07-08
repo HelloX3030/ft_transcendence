@@ -1,26 +1,27 @@
+import logging
+import os
 from contextlib import asynccontextmanager
 
-import numpy as np
 from fastapi import FastAPI, HTTPException
 
+from .collaborative import CollaborativeFilter
 from .config import DEFAULT_CONFIG
 from .content_based import ContentBasedFilter
+from .db import Database
 from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
-from .tmdb_bridge import profile_to_params
+from .tmdb_bridge import TMDBBridgeImpl, profile_to_params
+
+# uvicorn only configures its own loggers — without this, the service's INFO
+# lines (profile-load count, DB fallback warnings) never reach the console.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s — %(message)s")
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Inline stubs — replaced module by module as real implementations land.
 # ---------------------------------------------------------------------------
-
-
-class _CollabStub:
-    """Returns zeros for all candidates. Replaced by collaborative.py."""
-
-    def predict(self, user_id: str, candidate_ids: list[int]) -> np.ndarray:
-        return np.zeros(len(candidate_ids))
 
 
 class _TMDBStub:
@@ -66,20 +67,46 @@ class _TMDBStub:
 # ---------------------------------------------------------------------------
 
 _engine: RecommenderEngine | None = None
+_content: ContentBasedFilter | None = None
+_db: Database | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
-    global _engine
+    global _engine, _content, _db
+
+    _content = ContentBasedFilter()
+
+    dsn = os.environ.get("DATABASE_URL", "")
+    if dsn:
+        db = Database(dsn)
+        try:
+            await db.connect()
+            _db = db
+            profiles = await db.load_all_profiles()
+            _content.load_profiles(profiles)
+            logger.info("loaded %d user profiles from DB", len(profiles))
+        except Exception:
+            logger.exception("DB unavailable — running in-RAM only, no persistence")
+    else:
+        logger.warning("DATABASE_URL not set — running in-RAM only, no persistence")
+
+    # TMDB_API_KEY present → real Discover/detail calls; otherwise fixed stub pool.
+    tmdb = TMDBBridgeImpl() if os.environ.get("TMDB_API_KEY") else _TMDBStub()
+
     _engine = RecommenderEngine(
-        content_filter=ContentBasedFilter(),
-        collab_filter=_CollabStub(),
+        content_filter=_content,
+        collab_filter=CollaborativeFilter(model_dir=os.environ.get("MODEL_DIR", "./models")),
         engagement_tracker=EngagementTracker(),
         diversifier=Diversifier(),
-        tmdb_bridge=_TMDBStub(),
+        tmdb_bridge=tmdb,
         config=DEFAULT_CONFIG,
     )
     yield
+
+    if _db is not None:
+        await _db.close()
+        _db = None
 
 
 app = FastAPI(title="CineMatch Recommender", version="0.1.0", lifespan=lifespan)
@@ -89,6 +116,20 @@ def _get_engine() -> RecommenderEngine:
     if _engine is None:
         raise HTTPException(status_code=503, detail="Engine not initialised")
     return _engine
+
+
+async def _ensure_profile(user_id: str) -> None:
+    """Users who registered after startup miss the bulk load — fetch their row
+    (stored vector and/or onboarding prefs) on first contact."""
+    if _db is None or _content is None or _content.has_profile(user_id):
+        return
+    try:
+        profile = await _db.load_profile(user_id)
+    except Exception:
+        logger.exception("profile load failed for user %s", user_id)
+        return
+    if profile is not None:
+        _content.load_profiles([profile])
 
 
 # ---------------------------------------------------------------------------
@@ -103,18 +144,35 @@ async def health() -> HealthResponse:
 
 @app.post("/feed", response_model=list[ScoredMovie])
 async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
-    # seen_ids: always None for now — wired to DB once user_interactions is queryable.
-    return await _get_engine().get_feed(user_id=request.user_id, limit=request.limit)
+    await _ensure_profile(request.user_id)
+
+    seen_ids: list[int] | None = None
+    if _db is not None:
+        try:
+            seen_ids = await _db.fetch_seen_tmdb_ids(request.user_id)
+        except Exception:
+            logger.exception("seen-ids query failed for user %s — feed served undeduplicated", request.user_id)
+
+    return await _get_engine().get_feed(
+        user_id=request.user_id, limit=request.limit, seen_ids=seen_ids
+    )
 
 
 @app.post("/signal", status_code=204)
 async def record_signal(payload: EngagementSignal) -> None:
+    await _ensure_profile(payload.user_id)
     await _get_engine().record_signal(
         user_id=payload.user_id,
         movie_id=payload.movie_id,
         action=payload.action,
         watch_time=payload.watch_time,
     )
+    # Persist the updated profile — a DB blip must not fail the swipe itself.
+    if _db is not None and _content is not None:
+        try:
+            await _db.save_profile(_content.get_profile(payload.user_id))
+        except Exception:
+            logger.exception("profile save failed for user %s", payload.user_id)
 
 
 @app.post("/retrain", status_code=202)
