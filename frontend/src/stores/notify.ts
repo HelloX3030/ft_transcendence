@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 export const notifyStore = defineStore('notify', () => {
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);
-  const notifyMsg = ref<{ id: number; titel: string; msg: string }[]>([]);
+  const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const socket = io('http://localhost:3000/notify', { withCredentials: true }); // todo global url
 
   function init() {
@@ -17,7 +17,8 @@ export const notifyStore = defineStore('notify', () => {
 
     socket.on('message', (msg) => {
       count.value++;
-      notifyMsg.value.push({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg });
+      const date = new Date(Date.now()).toLocaleString('de-DE');
+      notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
       console.log(msg, count.value);
     });
 
