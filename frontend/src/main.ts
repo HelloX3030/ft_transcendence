@@ -3,8 +3,8 @@ import { createPinia } from 'pinia';
 
 import App from './App.vue';
 import router from './router';
+import { useAuthStore } from './stores/auth';
 
-//implementation of youtube iframe api
 const youtube = {
   install() {
     const tag = document.createElement('script');
@@ -13,10 +13,15 @@ const youtube = {
   },
 };
 
-const app = createApp(App);
+(async () => {
+  const app = createApp(App);
+  const pinia = createPinia();
+  app.use(pinia);
 
-app.use(createPinia());
-app.use(router);
-app.use(youtube);
+  const auth = useAuthStore();
+  await auth.init();
 
-app.mount('#app');
+  app.use(router);
+  app.use(youtube);
+  app.mount('#app');
+})();

@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
 import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
 
@@ -16,24 +17,37 @@ const mockUser = {
 
 const mockPublicUser = { id: 1, username: 'testuser', image: null };
 
+// PrismaService inherits a large generated client; only type the slice this service uses.
 const mockPrisma = {
   users: {
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
-};
+} satisfies { users: Partial<jest.Mocked<PrismaService['users']>> };
 
 function prismaError(code: string): PrismaClientKnownRequestError {
   return new PrismaClientKnownRequestError('error', { code, clientVersion: '5.0.0' });
 }
+
+const mockStorage = {
+  upload: jest.fn(),
+  delete: jest.fn(),
+  extractKey: jest.fn(),
+} satisfies Partial<jest.Mocked<StorageService>>;
 
 describe('UsersService', () => {
   let service: UsersService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [UsersService, { provide: PrismaService, useValue: mockPrisma }],
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: StorageService, useValue: mockStorage },
+      ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
@@ -96,8 +110,49 @@ describe('UsersService', () => {
     });
   });
 
+  describe('uploadAvatar', () => {
+    const file = {
+      originalname: 'photo.jpg',
+      buffer: Buffer.from('img'),
+      mimetype: 'image/jpeg',
+    } as Express.Multer.File;
+
+    it('deletes old MinIO avatar when user has one', async () => {
+      const minioUrl = 'http://localhost:9000/avatars/1-old.jpg';
+      mockPrisma.users.findUnique.mockResolvedValue({ image: minioUrl });
+      mockStorage.extractKey.mockReturnValue('1-old.jpg');
+      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.jpg');
+      mockPrisma.users.update.mockResolvedValue({
+        ...mockUser,
+        image: 'http://localhost:9000/avatars/1-new.jpg',
+      });
+
+      await service.uploadAvatar(1, file);
+
+      expect(mockStorage.delete).toHaveBeenCalledWith('1-old.jpg');
+    });
+
+    it('does not call delete when user has no MinIO avatar', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({
+        image: 'https://oauth.example.com/avatar.jpg',
+      });
+      mockStorage.extractKey.mockReturnValue(null);
+      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.jpg');
+      mockPrisma.users.update.mockResolvedValue({
+        ...mockUser,
+        image: 'http://localhost:9000/avatars/1-new.jpg',
+      });
+
+      await service.uploadAvatar(1, file);
+
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deleteMe', () => {
     it('returns account deleted message on success', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
       mockPrisma.users.delete.mockResolvedValue(undefined);
 
       const result = await service.deleteMe(1);
@@ -106,19 +161,76 @@ describe('UsersService', () => {
       expect(result).toEqual({ message: 'Account deleted' });
     });
 
-    it('returns account deleted message when user does not exist (P2025)', async () => {
+    it('deletes MinIO avatar when user has one', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({
+        image: 'http://localhost:9000/avatars/1-old.jpg',
+      });
+      mockStorage.extractKey.mockReturnValue('1-old.jpg');
+      mockPrisma.users.delete.mockResolvedValue(undefined);
+
+      await service.deleteMe(1);
+
+      expect(mockStorage.delete).toHaveBeenCalledWith('1-old.jpg');
+    });
+
+    it('does not call delete when user has no avatar', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
+      mockPrisma.users.delete.mockResolvedValue(undefined);
+
+      await service.deleteMe(1);
+
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws a Prisma P2025 error when deleting a non-existent user', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
       mockPrisma.users.delete.mockRejectedValue(prismaError('P2025'));
 
-      const result = await service.deleteMe(999);
-
-      expect(result).toEqual({ message: 'Account deleted' });
+      await expect(service.deleteMe(1)).rejects.toThrow();
     });
 
     it('re-throws non-P2025 errors', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
       const error = new Error('DB connection failed');
       mockPrisma.users.delete.mockRejectedValue(error);
 
       await expect(service.deleteMe(1)).rejects.toThrow('DB connection failed');
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('returns a paginated case-insensitive substring match, excluding the requester', async () => {
+      const matches = [mockPublicUser];
+      mockPrisma.users.count.mockResolvedValue(1);
+      mockPrisma.users.findMany.mockResolvedValue(matches);
+
+      const result = await service.searchUsers(42, { query: 'test', page: 2, limit: 10 });
+
+      const expectedWhere = {
+        username: { contains: 'test', mode: 'insensitive' },
+        id: { not: 42 },
+      };
+      expect(mockPrisma.users.count).toHaveBeenCalledWith({ where: expectedWhere });
+      expect(mockPrisma.users.findMany).toHaveBeenCalledWith({
+        where: expectedWhere,
+        select: PUBLIC_SELECT,
+        orderBy: { username: 'asc' },
+        skip: 10,
+        take: 10,
+      });
+      expect(result).toEqual({ page: 2, limit: 10, total: 1, results: matches });
+    });
+
+    it('returns an empty result set when nothing matches', async () => {
+      mockPrisma.users.count.mockResolvedValue(0);
+      mockPrisma.users.findMany.mockResolvedValue([]);
+
+      const result = await service.searchUsers(1, { query: 'zzz', page: 1, limit: 20 });
+
+      expect(result).toEqual({ page: 1, limit: 20, total: 0, results: [] });
     });
   });
 

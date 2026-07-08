@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
 import * as argon2 from 'argon2';
@@ -13,9 +14,12 @@ import { randomBytes } from 'crypto';
 import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
+import { successResponse } from 'src/utils';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -36,14 +40,11 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res);
-      return { message: 'User registered successfully' };
+      return successResponse(null, 'User registered successfully');
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           throw new ForbiddenException('Credentials taken');
-        }
-        if (error.code === 'P2000') {
-          throw new BadRequestException('Provided value for the column is too long');
         }
       }
       throw error;
@@ -64,7 +65,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return { message: 'Login successful' };
+    return successResponse(null, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -74,7 +75,7 @@ export class AuthService {
       },
     });
     if (session === null) {
-      console.error('could not find the session in the database to issue a new JWT');
+      this.logger.error('could not find the session in the database to issue a new JWT');
       throw new ForbiddenException('Invalid session id');
     }
 
@@ -89,7 +90,7 @@ export class AuthService {
       },
     });
     if (user === null) {
-      console.error('could not find the user in the database to issue a new JWT');
+      this.logger.error('could not find the user in the database to issue a new JWT');
       throw new InternalServerErrorException();
     }
     const tokens = {
@@ -98,24 +99,18 @@ export class AuthService {
         .refresh_token,
     };
     this.setCookies(tokens, res);
-    return { message: 'Token refreshed' };
+    return successResponse(null, 'Token refreshed');
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
-    try {
-      await this.prisma.sessions.delete({
-        where: {
-          id: payload.sessionId,
-        },
-      });
-    } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        throw error;
-      }
-    }
+    await this.prisma.sessions.delete({
+      where: {
+        id: payload.sessionId,
+      },
+    });
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
-    return { message: 'Logged out' };
+    return successResponse(null, 'Logged out');
   }
 
   async createJwt(userId: number, email: string, req: ExpressRequest): Promise<JwtTokens> {
@@ -225,7 +220,6 @@ export class AuthService {
 
   @Interval(300000) // every 5 min
   async sessionCleanUp() {
-    console.log('Run session clean up');
     try {
       await this.prisma.sessions.deleteMany({
         where: {
@@ -235,9 +229,7 @@ export class AuthService {
         },
       });
     } catch (error) {
-      if (!(error instanceof PrismaClientKnownRequestError && error.code === 'P2025')) {
-        console.error(error);
-      }
+      this.logger.error('Session cleanup failed', error as Error);
     }
   }
 }

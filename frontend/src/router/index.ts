@@ -1,14 +1,21 @@
-import { useAuthStore } from '@/stores/auth';
-import { storeToRefs } from 'pinia';
+import { APP_NAME } from '@/lib/constants';
 import LoginView from '@/views/auth/LoginView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
 import HomeView from '@/views/HomeView.vue';
+import MovieDetailView from '@/views/MovieDetailView.vue';
+import TermsView from '@/views/TermsView.vue';
+import PrivacyView from '@/views/PrivacyView.vue';
+import HelpView from '@/views/HelpView.vue';
 
+import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
-
+import UserProfileView from '@/views/UserProfileView.vue';
+import EditProfileView from '@/views/EditProfileView.vue';
 import WatchlistView from '@/views/WatchlistView.vue';
+import { useAuthStore } from '@/stores/auth';
+import { storeToRefs } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const router = createRouter({
@@ -30,9 +37,24 @@ const router = createRouter({
       meta: { requiresAuth: true, title: 'Profil' },
     },
     {
+      path: '/profile/edit',
+      component: EditProfileView,
+      meta: { requiresAuth: true, title: 'Edit Profile' },
+    },
+    {
       path: '/watchlist',
       component: WatchlistView,
       meta: { requiresAuth: true, title: 'Watchlist' },
+    },
+    {
+      path: '/friends',
+      component: FriendsView,
+      meta: { requiresAuth: true, title: 'Friends' },
+    },
+    {
+      path: '/users/:id',
+      component: UserProfileView,
+      meta: { requiresAuth: true, title: 'Profile' },
     },
     {
       path: '/login',
@@ -48,6 +70,26 @@ const router = createRouter({
       path: '/onboarding',
       component: OnboardingView,
       meta: { requiresOnboarding: true, hideLayout: true, title: 'Onboarding' },
+    },
+    {
+      path: '/moviedetail/:id',
+      component: MovieDetailView,
+      meta: { requiresAuth: true, title: 'Movie Details' },
+    },
+    {
+      path: '/terms',
+      component: TermsView,
+      meta: { requiresAuth: false, title: 'Terms of Service' },
+    },
+    {
+      path: '/privacy',
+      component: PrivacyView,
+      meta: { requiresAuth: false, title: 'Privacy Policy' },
+    },
+    {
+      path: '/help',
+      component: HelpView,
+      meta: { requiresAuth: true, title: 'Help' },
     },
   ],
 });
@@ -73,7 +115,7 @@ router.beforeEach((to) => {
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} | CineMates` : 'CineMates'; //TODO: use env for name
+  document.title = to.meta.title ? `${to.meta.title} | ${APP_NAME}` : APP_NAME;
 });
 
 export default router;

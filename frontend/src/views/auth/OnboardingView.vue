@@ -1,20 +1,36 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import MovieSearch from '@/components/MovieSearch.vue';
-import MovieSelect from '@/components/MovieSelect.vue';
+import MovieBrowser from '@/components/MovieBrowser.vue';
+import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
+import MovieCard from '@/components/MovieCard.vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-import { useMovies } from '@/composables/useMovies';
+import { useSelectionStore } from '@/stores/selection';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
 
-const { selectedMovies } = useMovies();
+const selection = useSelectionStore();
+const { selectedMovies } = storeToRefs(selection);
 const auth = useAuthStore();
 const router = useRouter();
 
-function completeOnboarding() {
-  auth.completeOnboarding();
-  router.push('/');
+const submitting = ref(false);
+const error = ref('');
+
+async function completeOnboarding() {
+  submitting.value = true;
+  error.value = '';
+  try {
+    await auth.completeOnboarding(selectedMovies.value.map((movie) => movie.id));
+    router.push('/');
+  } catch (e) {
+    error.value = (e as Error)?.message ?? 'Something went wrong. Please try again.';
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
@@ -27,12 +43,25 @@ function completeOnboarding() {
       </p>
     </div>
     <MovieSearch />
-    <Button :disabled="selectedMovies.length < 10" @click="completeOnboarding">Next</Button>
+    <MovieFilterToggle />
+    <Button :disabled="selectedMovies.length < 10 || submitting" @click="completeOnboarding">
+      {{ submitting ? 'Saving…' : 'Next' }}
+    </Button>
+    <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
     <div class="flex items-center justify-between">
       <span>Selected({{ selectedMovies.length }}/10)</span>
       <Progress :model-value="selectedMovies.length * 10" class="w-1/3" />
     </div>
 
-    <MovieSelect />
+    <MovieBrowser :show-label="false">
+      <template #movie="{ movie }">
+        <MovieCard
+          :title="movie.title"
+          :img="movie.poster_path"
+          :selected="selection.isSelected(movie.id)"
+          @select="selection.toggleMovie(movie)"
+        />
+      </template>
+    </MovieBrowser>
   </div>
 </template>

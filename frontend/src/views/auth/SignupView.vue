@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Hero from '@/components/Hero.vue';
+import LoginHero from '@/components/auth/LoginHero.vue';
 
 import SignupForm from '@/components/auth/SignupForm.vue';
 
@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 <template>
   <div class="flex flex-1 h-full">
     <section class="hidden lg:flex flex-1 items-center justify-center p-12">
-      <Hero />
+      <LoginHero />
     </section>
 
     <Separator orientation="vertical" />

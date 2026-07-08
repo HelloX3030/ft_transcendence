@@ -3,12 +3,10 @@ import {
   Body,
   Controller,
   Get,
-  HttpException,
   Post,
   UseGuards,
   Request,
   Response,
-  InternalServerErrorException,
   HttpCode,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from './dto';
@@ -22,18 +20,6 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  async handleAuth<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      console.error(error);
-      throw new InternalServerErrorException();
-    }
-  }
-
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Creates a new user' })
@@ -45,9 +31,7 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('register request');
-
-    return this.handleAuth(() => this.authService.register(req, dto, res));
+    return this.authService.register(req, dto, res);
   }
 
   @Public()
@@ -62,8 +46,15 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('login request');
-    return this.handleAuth(() => this.authService.login(req, dto, res));
+    return this.authService.login(req, dto, res);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiResponse({ status: 200, description: 'Returns the authenticated user payload' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  me(@Request() req: ExpressRequest) {
+    return req.user;
   }
 
   @Public()
@@ -77,9 +68,8 @@ export class AuthController {
     @Request() req: ExpressRequest,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
-    console.log('refresh request');
     if (req.user === undefined) throw new BadRequestException();
-    return this.handleAuth(() => this.authService.refresh(req.user as JwtRefreshPayload, res));
+    return this.authService.refresh(req.user as JwtRefreshPayload, res);
   }
 
   @Public()
@@ -89,8 +79,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User logout successful' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token signature' })
   logout(@Request() req: ExpressRequest, @Response({ passthrough: true }) res: ExpressResponse) {
-    console.log('logout request');
     if (req.user === undefined) throw new BadRequestException();
-    return this.handleAuth(() => this.authService.logout(req.user as JwtRefreshPayload, res));
+    return this.authService.logout(req.user as JwtRefreshPayload, res);
   }
 }
