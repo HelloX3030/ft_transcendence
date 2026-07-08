@@ -41,7 +41,7 @@ const notify = notifyStore();
 
             <span
               v-if="notify.count > 0"
-              class="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+              class="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-xs font-bold text-white"
             >
               {{ notify.count }}
             </span>
