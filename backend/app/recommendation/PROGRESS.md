@@ -6,30 +6,34 @@
 
 ## Current State
 
-The full content-based pipeline and collaborative filtering are implemented and tested.
-Profile weights accumulate on every positive signal via a lazy TMDB detail fetch.
-SVD collaborative filtering loads from a checkpoint on startup and falls back to zeros
-gracefully until a trained model exists. Remaining work: DB persistence and `retrain.py`.
+The full pipeline is implemented, tested, and DB-backed. Profiles load from
+`users.feature_vector` on startup (onboarding prefs seed cold-start users), persist
+back after every signal, and feed requests deduplicate against the user's `ratings`
+history. The real `CollaborativeFilter` is wired in `main.py`; `TMDBBridgeImpl`
+activates automatically when `TMDB_API_KEY` is set. Remaining work: `retrain.py`
+and Docker integration.
 
 ```
 recommendation/
 ├── __init__.py
-├── requirements.txt       FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, pytest, pytest-asyncio
+├── requirements.txt       FastAPI, uvicorn, sklearn, numpy, scipy, httpx, joblib, asyncpg, pytest, pytest-asyncio
 ├── config.py              all hyperparameters in one frozen dataclass
 ├── schemas.py             Pydantic API contracts + MovieMetadata (Discover + detail fields)
 ├── engine.py              async orchestration + Protocol interfaces; detail-fetch guard
-├── main.py                all endpoints wired; _CollabStub + _TMDBStub active (see Gaps)
+├── main.py                all endpoints wired; DB + collab live; _TMDBStub only without TMDB_API_KEY
 ├── content_based.py       genre cosine + TF-IDF overview + all four weight dicts — complete
 ├── engagement.py          delta accumulation + apply_signals — complete
 ├── diversifier.py         genre history + freshness boost — complete
 ├── tmdb_bridge.py         profile_to_params + fetch_candidates + fetch_movie_detail — complete
 ├── collaborative.py       SVD load/predict/train + atomic checkpoint — complete
+├── db.py                  asyncpg persistence: profile encode/decode, seen-ids, SVD rows — complete
 ├── retrain.py             not started
 ├── tests/
 │   ├── test_tmdb_bridge.py       8 tests — profile_to_params
 │   ├── test_fetch_candidates.py  9 tests — fetch_candidates (async)
 │   ├── test_content_based.py    23 tests — content_score + update_profile (all weight dicts)
-│   └── test_collaborative.py    12 tests — predict + train + checkpoint I/O
+│   ├── test_collaborative.py    12 tests — predict + train + checkpoint I/O
+│   └── test_db.py               12 tests — vector round-trip, onboarding seed, DSN cleanup
 └── architecture.md        full algorithm spec (reference, do not edit here)
 ```
 
@@ -54,13 +58,19 @@ python3 -m pytest recommendation/tests -v
 | TMDB call location | **Option A: Python calls TMDB directly** | NestJS has no Discover integration; full pipeline in one service |
 | Keyword/cast Discover params | OR-joined (`\|`), genres AND-joined (`,`) | AND-joining keywords/actors over-constrains Discover to near-empty pools |
 | Page rotation hash | `zlib.crc32`, not `hash()` | `hash()` is salted per process — rotation would change on every restart |
-| `keyword_weights` on `UserProfile` | Dict field, in-RAM only | Needed for `with_keywords` translation; populated via TMDB detail calls |
+| `keyword_weights` on `UserProfile` | Dict field, persisted in `feature_vector` | Needed for `with_keywords` translation; populated via TMDB detail calls |
 | Tests | pytest in `recommendation/tests/` | Pure-logic modules get unit tests |
 | Movie metadata in engine cache | `_movie_cache: dict[int, MovieMetadata]` | `record_signal` enriches profile without an extra TMDB call per signal |
 | Detail fetch trigger | Positive signals only; once per movie per process | Negative signals only need genre data; `_detail_fetched` guard prevents repeat calls |
 | Detail cast limit | `_DETAIL_CAST_LIMIT = 5` in `tmdb_bridge.py` | Top 5 billed actors; not in architecture spec so kept as module constant |
 | `record_signal` async | Made async alongside `fetch_movie_detail` | Detail fetch is I/O — must be awaited; `/signal` endpoint already async |
 | Dislike only subtracts genre weights | Actor/keyword weights unchanged on negative signal | Penalising every actor from a disliked film would overfit on incidental associations |
+| DB driver | `asyncpg` pool, raw SQL in `db.py` | Five queries total — an ORM adds nothing; Prisma's `?schema=public` is stripped from the DSN |
+| `feature_vector` wire format | Sparse self-describing float array (header + id/weight pairs), versioned | Weight dicts have no fixed vocabulary, so a dense ~1500-dim layout is impossible; doubles hold TMDB ids exactly |
+| Onboarding prefs merge | `setdefault` — learned weights always win over onboarding seeds | A disliked genre (negative weight) must not be reset to +1.0 by the onboarding pick |
+| Profile persistence trigger | After every `/signal`, write-through; DB errors log but return 204 | A DB blip must not fail the swipe; RAM profile stays correct and is re-persisted on the next signal |
+| Late-registered users | Lazy `_ensure_profile` per request in `main.py` | Startup bulk-load misses users created afterwards; one cheap existence check per request covers them |
+| TMDB auth | `Authorization: Bearer` header, not `api_key` query param | `TMDB_API_KEY` in `.env` holds a v4 read access token (see NestJS `TmdbClient`) — v3 query auth rejects it |
 
 ---
 
@@ -68,9 +78,9 @@ python3 -m pytest recommendation/tests -v
 
 | Decision | Status |
 |---|---|
-| DB schema additions | Request sent (`DB_REQUEST.md`). Blocking persistence and cold-start. |
+| DB schema additions | **Resolved** — landed on main (see `DB_REQUEST.md` header for the deviations). |
+| `user_id` type at API boundary | **Resolved** — `db.py` converts str→int at the query boundary; non-numeric ids skip DB access gracefully. |
 | Docker integration | Pending infra team. Run command + env vars in Notes section below. |
-| `user_id` type at API boundary | DB uses `Int`, Python uses `str`. Resolve at `main.py` boundary when DB is wired — low priority. |
 
 ---
 
@@ -81,13 +91,14 @@ python3 -m pytest recommendation/tests -v
 | `config.py` | Done | |
 | `schemas.py` | Done | `MovieMetadata` carries Discover + detail fields (cast/director/keyword IDs) |
 | `engine.py` | Done | Async; metadata cache; detail-fetch guard; `record_served` wired |
-| `main.py` | Done | All endpoints wired; stubs active until real modules replace them |
+| `main.py` | Done | DB + real collab wired; TMDB impl auto-selected via `TMDB_API_KEY` |
 | `content_based.py` | Done | Genre cosine + TF-IDF overview + all four weight dicts on `update_profile` |
 | `engagement.py` | Done | |
 | `diversifier.py` | Done | Freshness and genre history fully wired |
-| `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` + `fetch_movie_detail` |
+| `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` + `fetch_movie_detail`; v4 Bearer auth |
 | `collaborative.py` | Done | SVD load/predict/train; atomic checkpoint; zero fallback until first train |
-| `retrain.py` | Not started | Nightly SVD batch job |
+| `db.py` | Done | Profile load/save (+onboarding seed), seen-ids, SVD training rows |
+| `retrain.py` | Not started | Nightly SVD batch job — `db.fetch_interactions()` already provides the rows |
 
 ---
 
@@ -95,59 +106,63 @@ python3 -m pytest recommendation/tests -v
 
 Everything here is intentional and tracked — none of it is forgotten tech debt.
 
-### Inline stubs in `main.py`
+### `_TMDBStub` active without `TMDB_API_KEY`
 
-| Stub | Current behaviour | Replaced when |
-|---|---|---|
-| `_CollabStub` | Returns `np.zeros` for all candidates | Swap for `CollaborativeFilter()` in `main.py` — `collaborative.py` is ready |
-| `_TMDBStub` | Runs real `profile_to_params`; `fetch_movie_detail` returns pool entry (cast fields empty) | `TMDB_API_KEY` in Docker — swap for `TMDBBridgeImpl()` in one line |
+`main.py` selects `TMDBBridgeImpl` automatically when `TMDB_API_KEY` is set;
+otherwise the fixed 10-movie stub pool serves candidates. No code change needed
+at deploy time — just the env var.
 
-### `seen_ids` not deduplicated
+### `liked_overviews` not persisted
 
-`engine.get_feed` accepts `seen_ids` but `main.py` always passes `None`.
-Users can be served films they have already interacted with.
+`users.feature_vector` is a float array, so the overview texts backing the
+TF-IDF component can't be stored in it. After a restart the overview-similarity
+term starts at zero and rebuilds as new positive signals arrive; genre/actor/
+director/keyword weights, interaction count and avg_vote all survive the
+round-trip. Acceptable: overview TF-IDF carries only `(1-β) = 0.3` of the
+content score.
 
-**Blocked on:** DB integration — query `ratings` for the user's interaction history.
+### No live DB in local test runs
 
-### No DB persistence
-
-`ContentBasedFilter.load()` is a no-op. All profile state resets on service restart.
-
-**Blocked on:** `user_profiles` and `user_preferences` tables in Prisma schema (`DB_REQUEST.md`).
+`db.py`'s pure logic (encoding, onboarding merge, DSN cleanup) is unit-tested;
+the asyncpg query paths were verified manually against a scratch PostgreSQL 16
+with the real column definitions (load, save, seen-ids dedup, restart survival).
+Without `DATABASE_URL` the service logs a warning and runs in-RAM only.
 
 ### `/retrain` endpoint not secured
 
 Accepts a `secret` query param but does not verify it and schedules nothing.
 
-**Blocked on:** `collaborative.py` and `retrain.py`.
+**Blocked on:** `retrain.py`.
 
 ---
 
 ## Next Steps
 
-**1. Wire `_CollabStub` → `CollaborativeFilter` in `main.py`**
-One-line swap. `collaborative.py` is ready — just needs `model_dir` pointed at a
-writable path and the stub replaced in the engine instantiation.
+**1. `retrain.py`**
+Nightly SVD retrain job: `db.fetch_interactions()` → `CollaborativeFilter.train()`,
+triggered via `/retrain` (verify secret against an env var, then run in a background
+task). Checkpoint swap is already atomic.
 
-**2. DB integration**
-Wire `ContentBasedFilter.load()`, persist profile vectors, fetch `seen_ids` on feed requests.
-Depends on backend team applying schema additions from `DB_REQUEST.md`.
+**2. Docker integration**
+Hand the run command + env vars below to the infra team; the service is
+deploy-ready (DB and TMDB both activate via env vars alone).
 
-**3. `retrain.py`**
-Nightly SVD retrain job. Depends on `collaborative.py` being stable.
+**3. NestJS → recommender wiring**
+Backend needs to call `POST /feed` and `POST /signal` (contract in `schemas.py`)
+and map internal `movies.id` ↔ `tmdb_id` when it persists ratings.
 
 ---
 
 ## Notes for Other Teams
 
-**Backend team (Prisma schema):** Three additions needed — see `DB_REQUEST.md` for full spec.
-1. `ratings.watch_time Float?` — nullable; for skip_fast / watched_long signals
-2. New table `user_profiles` — `userId`, `featureVector Float[]`, `updatedAt`
-3. New table `user_preferences` — `userId`, `genreIds Int[]`, `actorIds Int[]`, `directorIds Int[]`
+**Backend team (Prisma schema):** ~~Three additions needed~~ **Done on main** —
+implemented on the `users` table rather than as separate tables (details in
+`DB_REQUEST.md` header). No further schema work needed for now.
 
 **Infra team (Docker):** Add a `recommender` service to `docker-compose.yml`:
 - Build context: `./backend/app`
 - Run command: `uvicorn recommendation.main:app --host 0.0.0.0 --port 8000`
-- Env vars: `TMDB_API_KEY`, `DATABASE_URL`
+- Env vars: `TMDB_API_KEY`, `DATABASE_URL`, optional `MODEL_DIR` (writable path for
+  the SVD checkpoint, defaults to `./models`)
 - Network: same internal network as `backend` and `db`
-- Once `TMDB_API_KEY` is available, swap `_TMDBStub` for `TMDBBridgeImpl()` in `main.py` (one line)
+- No code changes needed — real TMDB and DB integrations activate when their env vars are present
