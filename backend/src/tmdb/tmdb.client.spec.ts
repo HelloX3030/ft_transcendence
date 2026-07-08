@@ -1,0 +1,102 @@
+import { BadGatewayException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { TmdbMovie } from '@trailertinder/shared';
+import { makeMovie } from './tmdb.fixtures';
+import { TmdbClient } from './tmdb.client';
+
+process.env.TMDB_API_KEY = 'test-api-key';
+
+const mockMovies: TmdbMovie[] = [makeMovie()];
+
+function mockFetchWith(body: unknown, ok = true): void {
+  jest.spyOn(global, 'fetch').mockResolvedValue({
+    ok,
+    status: ok ? 200 : 500,
+    json: jest.fn().mockResolvedValue(body),
+  } as unknown as Response);
+}
+
+describe('TmdbClient', () => {
+  let client: TmdbClient;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [TmdbClient],
+    }).compile();
+    client = module.get<TmdbClient>(TmdbClient);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(client).toBeDefined();
+  });
+
+  describe('get', () => {
+    it('returns the full list response on a successful response', async () => {
+      const body = { results: mockMovies, page: 1, total_pages: 1, total_results: 1 };
+      mockFetchWith(body);
+
+      const result = await client.get('/movie/popular?language=en-US&page=1');
+
+      expect(result).toEqual(body);
+    });
+
+    it('calls fetch with the correct full URL', async () => {
+      mockFetchWith({ results: [], page: 1, total_pages: 0, total_results: 0 });
+
+      await client.get('/movie/popular?language=en-US&page=1');
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        'https://api.themoviedb.org/3/movie/popular?language=en-US&page=1',
+        expect.anything(),
+      );
+    });
+
+    it('calls fetch with the Authorization Bearer header', async () => {
+      mockFetchWith({ results: [], page: 1, total_pages: 0, total_results: 0 });
+
+      await client.get('/movie/popular?language=en-US&page=1');
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          headers: { accept: 'application/json', Authorization: 'Bearer test-api-key' },
+        }),
+      );
+    });
+
+    it('calls fetch with a timeout signal so hung connections abort', async () => {
+      mockFetchWith({ results: [], page: 1, total_pages: 0, total_results: 0 });
+
+      await client.get('/movie/popular?language=en-US&page=1');
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal }),
+      );
+    });
+
+    it('throws BadGatewayException and logs a warning when the response is not ok', async () => {
+      mockFetchWith({}, false);
+      const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
+
+      await expect(client.get('/movie/popular?language=en-US&page=1')).rejects.toThrow(
+        BadGatewayException,
+      );
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('throws BadGatewayException and logs a warning when fetch throws a network error', async () => {
+      jest.spyOn(global, 'fetch').mockRejectedValue(new Error('Network failure'));
+      const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
+
+      await expect(client.get('/movie/popular?language=en-US&page=1')).rejects.toThrow(
+        BadGatewayException,
+      );
+      expect(warnSpy).toHaveBeenCalled();
+    });
+  });
+});

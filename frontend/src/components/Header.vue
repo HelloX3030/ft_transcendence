@@ -5,24 +5,33 @@ import Separator from './ui/separator/Separator.vue';
 </script>
 
 <template>
-  <header class="flex h-14 shrink-0 items-center gap-2">
-    <div class="flex flex-1 justify-between items-center gap-2 px-3">
-      <SidebarTrigger />
-      <RouterLink to="/">
-        <div class="flex items-center">
-          <img src="/logo-512x512.png" alt="logo" class="size-12 rounded-full" />
+  <header class="flex h-14 shrink-0 items-center">
+    <div class="grid grid-cols-3 w-full items-center px-9">
+      <!-- Links: Sidebar -->
+      <div class="flex justify-start">
+        <SidebarTrigger />
+      </div>
 
-          <p class="text-lg font-medium hover:text-primary transition-colors">Trailer Mates</p>
-        </div>
-      </RouterLink>
+      <!-- Mitte: Logo -->
+      <div class="flex justify-center">
+        <RouterLink to="/">
+          <p class="text-2xl tracking-tight">
+            <span class="font-light text-white">Cine</span
+            ><span class="font-bold text-orange-500">mates</span>
+          </p>
+        </RouterLink>
+      </div>
 
-      <RouterLink
-        to="/notifications"
-        class="text-sm font-medium hover:text-primary transition-colors"
-        active-class="text-primary"
-      >
-        <Bell />
-      </RouterLink>
+      <!-- Rechts: Bell -->
+      <div class="flex justify-end">
+        <RouterLink
+          to="/notifications"
+          class="hover:text-primary transition-colors"
+          active-class="text-primary"
+        >
+          <Bell class="size-6" />
+        </RouterLink>
+      </div>
     </div>
   </header>
   <Separator orientation="horizontal" />

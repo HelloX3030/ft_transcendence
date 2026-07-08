@@ -1,9 +1,10 @@
 # * @ausperg
 .github/CODEOWNERS @HelloX3030
 frontend/ @jofmann
-backend/ @HelloX3030
+backend/ @HelloX3030 @ausperg
 
-# Pipeline & code-quality tooling — requires HelloX3030 approval
+# Pipeline & code-quality tooling
+*docker-compose.yml  @HelloX3030
 .github/workflows/  @HelloX3030
 .husky/             @HelloX3030
 .prettierrc         @HelloX3030

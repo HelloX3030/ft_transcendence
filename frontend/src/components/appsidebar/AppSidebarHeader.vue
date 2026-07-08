@@ -14,7 +14,7 @@ const auth = useAuthStore();
         <SidebarMenuButton size="lg" as-child>
           <RouterLink to="/profile" active-class="border-r-2 border-primary">
             <Avatar>
-              <AvatarImage src="https://github.com/shadcn.png" alt="avatar" />
+              <AvatarImage v-if="auth.user?.image" :src="auth.user.image" alt="avatar" />
               <AvatarFallback>{{
                 auth.user?.username?.slice(0, 2).toUpperCase() ?? '?'
               }}</AvatarFallback>
@@ -22,7 +22,6 @@ const auth = useAuthStore();
 
             <div class="grid flex-1 text-left text-sm leading-tight">
               <span class="truncate font-semibold">{{ auth.user?.username ?? '...' }}</span>
-              <span class="truncate text-xs">{{ auth.user?.email ?? '' }}</span>
             </div>
           </RouterLink>
         </SidebarMenuButton>
