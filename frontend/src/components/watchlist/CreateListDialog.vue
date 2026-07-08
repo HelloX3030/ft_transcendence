@@ -39,6 +39,7 @@ import { useMoviesStore } from '@/stores/movies';
 import { watchlistApi } from '@/api';
 import type { TmdbMovie } from '@trailertinder/shared';
 
+const emit = defineEmits(['success']);
 const store = useMoviesStore();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
 const isOpen = ref(false);
@@ -48,12 +49,25 @@ const { handleSubmit, resetForm } = useForm({
 });
 
 const onSubmit = handleSubmit(async (values) => {
-  const watchlistData = await watchlistApi.create({ name: values.name });
-  if (!watchlistData) return; //TODO: Improve with error message and status for user
-  for (const movie of selectedMovies.value) {
-    watchlistApi.addMovie(watchlistData?.id, { tmdbId: movie.id });
+  try {
+    const watchlistData = await watchlistApi.create({ name: values.name });
+    if (!watchlistData) return;
+
+    const results = await Promise.allSettled(
+      selectedMovies.value.map((m) => watchlistApi.addMovie(watchlistData.id, { tmdbId: m.id })),
+    );
+
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      toast.warning(`List created but ${failed.length} movie(s) couldn't be added`);
+    } else {
+      toast.success('New List Created Successfully');
+    }
+    emit('success');
+  } catch (error) {
+    console.log(error);
+    toast.error('Something went wrong');
   }
-  toast.success('New List Created Successfully');
   isOpen.value = false;
 });
 

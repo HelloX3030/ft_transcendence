@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-
+import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
-
 import { useMovieSelection } from '@/composables/useMovieSelection';
-
 import { Button } from '@/components/ui/button';
-
 import {
   Dialog,
   DialogClose,
@@ -17,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,28 +32,36 @@ import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { watchlistApi } from '@/api';
-import { Pencil } from '@lucide/vue';
 import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
+import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 
 const props = defineProps<{
   name: string;
   watchlistId: number;
-  movies: WatchlistMovieResponse[];
+  movies?: WatchlistMovieResponse[];
 }>();
 
+const emit = defineEmits<{ success: [] }>();
+const isOpen = defineModel<boolean>('open');
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
+const { movies: fetchedMovies, refetchMovies } = useWatchlistMovies(props.watchlistId, {
+  immediate: false,
+});
 
-const isOpen = ref(false);
-watch(isOpen, (open) => {
+const currentMovies = computed(() => props.movies ?? fetchedMovies.value);
+
+watch(isOpen, async (open) => {
   if (open) {
-    for (const m of props.movies) {
+    if (!props.movies) {
+      await refetchMovies();
+    }
+    for (const m of currentMovies.value) {
       addMovie(m);
     }
   } else {
     resetDialog();
   }
 });
-const store = useMoviesStore();
 
 const { handleSubmit, resetForm } = useForm({
   validationSchema: toTypedSchema(updateListSchema),
@@ -66,16 +69,16 @@ const { handleSubmit, resetForm } = useForm({
 
 const onSubmit = handleSubmit(async (values) => {
   try {
-    const moviesToDelete = props.movies.filter(
+    const moviesToDelete = currentMovies.value.filter(
       (m) => !selectedMovies.value.some((d) => d.id === m.tmdbId),
     );
 
     const moviesToAdd = selectedMovies.value.filter(
-      (m) => !props.movies.some((d) => d.tmdbId === m.id),
+      (m) => !currentMovies.value.some((d) => d.tmdbId === m.id),
     );
 
     const results = await Promise.allSettled([
-      ...moviesToDelete.map((m) => watchlistApi.delete(props.watchlistId, m.id)),
+      ...moviesToDelete.map((m) => watchlistApi.deleteMovie(props.watchlistId, m.id)),
       ...moviesToAdd.map((m) => watchlistApi.addMovie(props.watchlistId, { tmdbId: m.id })),
     ]);
 
@@ -89,9 +92,8 @@ const onSubmit = handleSubmit(async (values) => {
       await watchlistApi.update(props.watchlistId, { name: values.name });
     }
 
-    if (failed.length === 0) {
-      toast.success('Edit Successfully');
-    }
+    if (failed.length === 0) toast.success('Edit Successfully');
+    emit('success');
   } catch (error) {
     console.log(error);
     toast.error('Something went wrong');
@@ -105,15 +107,16 @@ const resetDialog = () => {
   store.resetSearch();
   resetForm();
 };
+const store = useMoviesStore();
 </script>
 
 <template>
   <Dialog v-model:open="isOpen">
-    <DialogTrigger as-child>
+    <!-- <DialogTrigger as-child>
       <Button variant="ghost" size="icon" class="shrink-0">
-        <Pencil class="size-4" />
+        <Pencil />
       </Button>
-    </DialogTrigger>
+    </DialogTrigger> -->
     <DialogContent class="sm:max-w-5/6">
       <DialogHeader>
         <DialogTitle>Edit: {{ name }}</DialogTitle>
