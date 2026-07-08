@@ -5,6 +5,7 @@ import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
+import { successResponse } from 'src/utils';
 
 export const ME_SELECT = {
   id: true,
@@ -143,6 +144,6 @@ export class UsersService {
       select: PUBLIC_SELECT,
     });
     if (user === null) throw new NotFoundException('User not found');
-    return user;
+    return successResponse(user);
   }
 }

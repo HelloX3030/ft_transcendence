@@ -22,9 +22,6 @@ export const watchlistApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number, movieId: number) =>
-    backendClient<void>(`/watchlists/${id}/movies/${movieId}`, { method: 'DELETE' }),
-
   update: (id: number, data: WatchlistUpdateRequest) =>
     backendClient<WatchlistResponse>(`/watchlists/${id}`, {
       method: 'PATCH',
@@ -34,14 +31,28 @@ export const watchlistApi = {
       body: JSON.stringify(data),
     }),
 
+  delete: (id: number) =>
+    backendClient(`/watchlists/${id}`, { method: 'DELETE' }, { expectData: false }),
+
   addMovie: (id: number, movie: WatchlistMovieRequest) =>
-    backendClient(`/watchlists/${id}/movies`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    backendClient(
+      `/watchlists/${id}/movies`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(movie),
       },
-      body: JSON.stringify(movie),
-    }),
+      { expectData: false },
+    ),
+
+  deleteMovie: (id: number, movieId: number) =>
+    backendClient(
+      `/watchlists/${id}/movies/${movieId}`,
+      { method: 'DELETE' },
+      { expectData: false },
+    ),
 
   getMoviesById: async (id: number) =>
     backendClient<WatchlistMovieResponse[]>(`/watchlists/${id}/movies`, {

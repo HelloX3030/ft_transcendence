@@ -2,33 +2,22 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserIcon } from '@lucide/vue';
-import type {
-  GetUserResponse,
-  WatchlistMovieResponse,
-  WatchlistResponse,
-} from '@trailertinder/shared';
-import { computed, ref } from 'vue';
+import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared';
+import { computed } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
+import { useWatchlistEditors } from '@/composables/watchlist/useWatchlistEditors.ts';
 
 interface PropsType {
   watchlist: WatchlistResponse;
   movies: WatchlistMovieResponse[];
-  editors: GetUserResponse[];
-  editorsLoading: boolean;
 }
 
 const props = defineProps<PropsType>();
 
-const editors2 = ref([
-  { id: 1, username: 'philipp', image: 'https://github.com/shadcn.png' },
-  {
-    id: 2,
-    username: 'urbi',
-    image: 'https://github.com/leerob.png',
-  },
-  { id: 3, username: 'XxXMussiePeisterXxX', image: null },
-]);
+const emit = defineEmits(['success']);
+
+const { editors, editorsLoading } = useWatchlistEditors(props.watchlist.editorIds);
 
 const formattedDate = computed(() => {
   if (!props.watchlist.createdAt) return '';
@@ -45,7 +34,12 @@ const formattedDate = computed(() => {
   <div class="flex flex-col gap-1 mb-8">
     <div class="flex items-start justify-between">
       <h1 class="font-bold text-2xl md:text-3xl xl:text-4xl">{{ watchlist.name }}</h1>
-      <EditListDialog :name="watchlist.name" :movies="movies" :watchlist-id="watchlist.id" />
+      <EditListDialog
+        :name="watchlist.name"
+        :watchlist-id="watchlist.id"
+        :movies="movies"
+        @success="emit('success')"
+      />
     </div>
 
     <div class="flex flex-wrap items-center gap-2 md:text-xl">
@@ -61,15 +55,12 @@ const formattedDate = computed(() => {
               class="size-8 rounded-full"
             />
           </div>
-          <!-- <p v-else-if="editorsError" class="text-sm text-destructive">
-            Couldn't load editors {{ editorsError.message }}
-          </p> -->
-          <TooltipProvider v-else>
+          <TooltipProvider v-else-if="editors">
             <RouterLink
-              v-for="(user, idx) in editors2"
+              v-for="(user, idx) in editors"
               :key="user.id"
               :to="`/profile/${user.id}`"
-              :style="{ zIndex: editors2.length - idx }"
+              :style="{ zIndex: editors.length - idx }"
             >
               <Tooltip>
                 <TooltipTrigger

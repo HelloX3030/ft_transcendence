@@ -1,9 +1,21 @@
 <script setup lang="ts">
 import { ChevronRight } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { WatchlistResponse } from '@trailertinder/shared';
+import { ArrowUpRight, Ellipsis, Pen, Trash } from '@lucide/vue';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '../ui/button';
+import EditListDialog from './EditListDialog.vue';
 
+const emit = defineEmits<{ success: []; delete: [id: number] }>();
 const props = defineProps<WatchlistResponse>();
 
 const posters = computed(() => {
@@ -27,11 +39,17 @@ const router = useRouter();
 function goToWatchlist() {
   router.push(`/watchlist/${props.id}`);
 }
+
+const open = ref(false);
+
+function deleteWatchlist() {
+  emit('delete', props.id);
+}
 </script>
 
 <template>
   <div
-    class="flex items-center gap-3 sm:gap-4 py-3 sm:py-4 border-b cursor-pointer hover:bg-accent/50 transition-colors duration-150 -mx-2 px-2 rounded-md"
+    class="flex items-center gap-3 sm:gap-4 py-3 sm:py-4 border-b cursor-pointer hover:bg-accent/50 transition-colors duration-150 -mx-2 px-2 rounded-md relative"
     @click="goToWatchlist"
   >
     <div class="flex shrink-0">
@@ -57,7 +75,22 @@ function goToWatchlist() {
         created at {{ formattedDate }}
       </p>
     </div>
-
+    <DropdownMenu>
+      <DropdownMenuTrigger as-child @click.stop class="absolute top-0 right-0">
+        <Button variant="ghost" size="icon"> <Ellipsis /> </Button
+      ></DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuLabel>{{ name }}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem @click="router.push(`/watchlist/${props.id}`)">
+          <ArrowUpRight /> Open</DropdownMenuItem
+        >
+        <DropdownMenuItem @select.prevent="open = true"><Pen /> Edit</DropdownMenuItem>
+        <DropdownMenuItem @click="deleteWatchlist"><Trash /> Delete </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
     <ChevronRight class="size-4 text-muted-foreground shrink-0" />
   </div>
+
+  <EditListDialog :name="name" :watchlist-id="id" v-model:open="open" @success="emit('success')" />
 </template>

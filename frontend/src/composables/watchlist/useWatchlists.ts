@@ -7,7 +7,8 @@ export function useWatchlists() {
     isLoading: watchlistsLoading,
     isReady: watchlistsReady,
     error: watchlistsError,
+    execute: refetchWatchlists,
   } = useAsyncState(() => watchlistApi.getAll(), null);
 
-  return { watchlists, watchlistsLoading, watchlistsReady, watchlistsError };
+  return { watchlists, watchlistsLoading, watchlistsReady, watchlistsError, refetchWatchlists };
 }
