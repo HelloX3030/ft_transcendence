@@ -15,9 +15,92 @@ import { useAuthStore } from '@/stores/auth';
 import { useGenresStore } from '@/stores/genres';
 import { usePeopleStore } from '@/stores/people';
 
+import { ref } from 'vue'; // "computed" schon vorhanden, "ref" ergänzen
+import { ShieldCheck, ShieldOff } from '@lucide/vue';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
 const auth = useAuthStore();
 const genres = useGenresStore();
 const people = usePeopleStore();
+// TODO: durch computed(() => profile.value?.totpActive) ersetzen, sobald Backend
+// das Feld in UserMeResponse liefert
+const is2faEnabled = ref(false);
+
+// Setup-Dialog (Enable-Flow)
+const isSetupDialogOpen = ref(false);
+const otpValue = ref('');
+const isVerifying = ref(false);
+const verifyError = ref(false);
+const isLoadingQrCode = ref(false);
+const qrCodeSvg = ref('');
+const qrLoadError = ref(false);
+
+async function openSetupDialog() {
+  otpValue.value = '';
+  verifyError.value = false;
+  qrLoadError.value = false;
+  qrCodeSvg.value = '';
+  isSetupDialogOpen.value = true;
+  isLoadingQrCode.value = true;
+  try {
+    qrCodeSvg.value = await auth.setupTotp();
+  } catch (err) {
+    qrLoadError.value = true;
+    console.error(err);
+  } finally {
+    isLoadingQrCode.value = false;
+  }
+}
+
+async function handleVerify() {
+  if (otpValue.value.length !== 6) return;
+  isVerifying.value = true;
+  verifyError.value = false;
+  try {
+    await auth.activateTotp(otpValue.value);
+    is2faEnabled.value = true;
+    isSetupDialogOpen.value = false;
+  } catch {
+    verifyError.value = true;
+  } finally {
+    isVerifying.value = false;
+  }
+}
+
+// Deaktivieren-Flow
+const isDisableDialogOpen = ref(false);
+const isDisabling = ref(false);
+
+async function handleDisableConfirm() {
+  isDisabling.value = true;
+  try {
+    await auth.deleteTotp();
+    is2faEnabled.value = false;
+    isDisableDialogOpen.value = false;
+  } catch (err) {
+    console.error(err);
+    // TODO: Fehler-Toast o.ä. anzeigen
+  } finally {
+    isDisabling.value = false;
+  }
+}
+
+function handle2faButtonClick() {
+  if (is2faEnabled.value) {
+    isDisableDialogOpen.value = true;
+  } else {
+    void openSetupDialog();
+  }
+}
+
 const profile = computed(() => auth.user);
 
 const initials = computed(() =>
@@ -125,6 +208,104 @@ watch(
           <p v-else class="text-muted-foreground text-sm">{{ section.empty }}</p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle class="text-muted-foreground text-sm font-medium"
+            >Two-Factor Authentication</CardTitle
+          >
+        </CardHeader>
+        <CardContent class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3 min-w-0">
+            <component
+              :is="is2faEnabled ? ShieldCheck : ShieldOff"
+              class="size-5 shrink-0"
+              :class="is2faEnabled ? 'text-primary' : 'text-muted-foreground'"
+            />
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm font-medium">
+                {{ is2faEnabled ? 'Enabled' : 'Disabled' }}
+              </span>
+              <span class="text-muted-foreground text-xs">
+                {{
+                  is2faEnabled
+                    ? 'Your account is protected with an authenticator app.'
+                    : 'Add an extra layer of security to your account.'
+                }}
+              </span>
+            </div>
+          </div>
+          <Button
+            :variant="is2faEnabled ? 'destructive' : 'default'"
+            class="shrink-0"
+            @click="handle2faButtonClick"
+          >
+            {{ is2faEnabled ? 'Disable' : 'Enable' }} 2FA
+          </Button>
+        </CardContent>
+      </Card>
+      <!-- Setup Dialog -->
+      <Dialog v-model:open="isSetupDialogOpen">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code with your authenticator app, then enter the 6-digit code it
+              generates.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div class="flex flex-col items-center gap-4 py-2">
+            <div class="flex size-40 items-center justify-center">
+              <p v-if="isLoadingQrCode" class="text-muted-foreground text-xs">Loading QR code...</p>
+              <div v-else-if="qrCodeSvg" v-html="qrCodeSvg" class="size-40 [&_svg]:size-full" />
+              <p v-else-if="qrLoadError" class="text-destructive text-xs">
+                Failed to load QR code.
+              </p>
+            </div>
+
+            <InputOTP v-model="otpValue" :maxlength="6" @complete="handleVerify">
+              <InputOTPGroup>
+                <InputOTPSlot :index="0" />
+                <InputOTPSlot :index="1" />
+                <InputOTPSlot :index="2" />
+                <InputOTPSlot :index="3" />
+                <InputOTPSlot :index="4" />
+                <InputOTPSlot :index="5" />
+              </InputOTPGroup>
+            </InputOTP>
+
+            <p v-if="verifyError" class="text-destructive text-sm">
+              Invalid code. Please try again.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" @click="isSetupDialogOpen = false">Cancel</Button>
+            <Button :disabled="otpValue.length !== 6 || isVerifying" @click="handleVerify">
+              {{ isVerifying ? 'Verifying...' : 'Verify' }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Disable Confirmation Dialog -->
+      <Dialog v-model:open="isDisableDialogOpen">
+        <DialogContent class="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disable Two-Factor Authentication?</DialogTitle>
+            <DialogDescription>
+              Your account will no longer require a verification code at login. This makes your
+              account less secure.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" @click="isDisableDialogOpen = false">Cancel</Button>
+            <Button variant="destructive" @click="handleDisableConfirm">Disable 2FA</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </template>
   </div>
 </template>
