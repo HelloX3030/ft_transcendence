@@ -4,13 +4,14 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from './notify.service';
-import { forwardRef, Inject } from '@nestjs/common';
+import { forwardRef, Inject, UseFilters } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 
 @WebSocketGateway({
@@ -47,17 +48,21 @@ export class NotifyGateway {
       this.notifyService.setUserAsActive(payload.sub, client);
       this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
     } catch (error) {
-      console.log(error);
+      console.error(error);
       this.server.emit('error', 'No token provided or the token is invalid.');
-      client.disconnect();
+      client.disconnect(true);
     }
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Disconnected:', client.id, ' userid: ' + client.data.user);
-    this.notifyService.setUserAsInative(client.data.user, client);
-    this.server.emit(`online-status:${client.data.user}`, {
-      id: client.data.user,
+    const userId = client.data.user;
+
+    if (!userId) {
+      return;
+    }
+    this.notifyService.setUserAsInative(userId, client);
+    this.server.emit(`online-status:${userId}`, {
+      id: userId,
       isOnline: false,
     });
   }
@@ -96,6 +101,7 @@ export class NotifyGateway {
   // -------------------------
   sendMessage(userId: number, message: NotifyMsg) {
     console.log(message);
+    throw new WsException('Test error');
     this.server.to(`user:${userId}`).emit('message', message);
   }
 

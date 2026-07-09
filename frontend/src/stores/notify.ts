@@ -6,23 +6,41 @@ export const notifyStore = defineStore('notify', () => {
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
-  const socket = io('http://localhost:3000/notify', { withCredentials: true }); // todo global url
+  let socket = io('http://localhost:3000/notify', { withCredentials: true, autoConnect: false }); // todo global url
 
   function init() {
     console.log('Notify init...');
+    socket.connect();
+
     socket.removeAllListeners();
     socket.on('connect', () => {
-      console.log('Verbunden:', socket.id); // todo: error msg if no connection
+      console.log('Notify connected.'); // todo: error msg if no connection
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Notify connect error:', error.message);
+    });
+
+    socket.on('exception', (error) => {
+      console.log(error);
+    });
+
+    socket.on('error', (msg) => {
+      console.error('Backend error: ' + msg);
     });
 
     socket.on('message', (msg) => {
       count.value++;
-      const date = new Date(Date.now()).toLocaleString('de-DE');
+      const date = new Date(Date.now()).toLocaleString('de-DE'); // todo: use the time format of the user location
       notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
-      console.log(msg, count.value);
     });
 
     watchFriendsOnlineStatus();
+  }
+
+  function stop() {
+    console.log('Notify stop.');
+    socket.close();
   }
 
   function watchFriendsOnlineStatus() {
@@ -63,5 +81,5 @@ export const notifyStore = defineStore('notify', () => {
   // 	await fetchUser();
   //   }
 
-  return { count, notifyMsg, init, clearAllNotifications };
+  return { count, notifyMsg, init, stop, clearAllNotifications };
 });

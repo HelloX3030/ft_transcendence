@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
+import { notifyStore } from './notify';
 
 async function throwApiError(res: Response): Promise<never> {
   const body = await res.json().catch(() => ({}));
@@ -35,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const requiresOnboarding = ref(false);
   const user = ref<AuthUser | null>(null);
+  const notify = notifyStore();
 
   async function fetchUser() {
     try {
@@ -60,6 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(payload: LoginPayload) {
+    notify.init();
     const res = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,6 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = false;
     requiresOnboarding.value = false;
     user.value = null;
+    notify.stop();
   }
 
   async function register(payload: RegisterPayload) {
@@ -91,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = true;
     requiresOnboarding.value = true;
     await fetchUser();
+    notify.init();
   }
 
   async function completeOnboarding() {
