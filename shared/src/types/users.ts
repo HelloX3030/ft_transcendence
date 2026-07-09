@@ -36,3 +36,10 @@ export interface GetUserResponse {
   image: string | null;
   username: string;
 }
+
+export interface UserSearchResponse {
+  page: number;
+  limit: number;
+  total: number;
+  results: GetUserResponse[];
+}
