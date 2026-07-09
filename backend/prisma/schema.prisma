@@ -23,9 +23,10 @@ model friends {
 }
 
 model movies {
-  id     Int    @id @default(autoincrement())
-  tmdbId Int    @unique @map("tmdb_id")
-  name   String @db.VarChar(255)
+  id         Int     @id @default(autoincrement())
+  tmdbId     Int     @unique @map("tmdb_id")
+  name       String  @db.VarChar(255)
+  posterPath String? @map("poster_path") @db.VarChar(255)
 
   ratings         ratings[]
   watchlistMovies watchlist_movies[]

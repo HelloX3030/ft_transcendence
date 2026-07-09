@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { severalMovies } from '@/lib/test';
+import type { TmdbMovie } from '@trailertinder/shared';
 import { useRouter } from 'vue-router';
 
 defineProps<{
-  movies: typeof severalMovies;
+  movies: TmdbMovie[];
 }>();
 
 const router = useRouter();
