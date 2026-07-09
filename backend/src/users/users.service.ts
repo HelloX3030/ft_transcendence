@@ -1,9 +1,22 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
+import * as crypto from 'crypto';
+import { encrypt, getMfaKey, successResponse } from 'src/utils';
+import { verifyTOTP } from 'src/utils/otp.utils';
+import QRCode from 'qrcode';
+import * as OTPAuth from 'otpauth';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 
 export const ME_SELECT = {
@@ -144,5 +157,109 @@ export class UsersService {
     });
     if (user === null) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async createTOTP(userId: number) {
+    const user = await this.prisma.users.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        username: true,
+        totpActive: true,
+      },
+    });
+    if (user === null) throw new NotFoundException('User not found.');
+
+    const appName = process.env.APP_NAME;
+    if (appName === undefined) {
+      console.error('The env "APP_NAME" is not set.');
+      throw new InternalServerErrorException();
+    }
+
+    const totp = new OTPAuth.TOTP({
+      issuer: appName,
+      label: user.username,
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+    });
+
+    const secret = totp.secret.base32;
+    const qrCode = await this.generateQRCode(totp.toString());
+
+    const key = getMfaKey();
+    const iv = crypto.randomBytes(16);
+    let encryptedSecret = iv.toString('hex') + ':';
+    encryptedSecret += encrypt(secret, key, iv);
+
+    const result = await this.prisma.users.updateMany({
+      where: {
+        id: userId,
+        totpActive: false,
+      },
+      data: {
+        totpSecret: encryptedSecret,
+      },
+    });
+    if (result.count === 0) {
+      throw new ConflictException('TOTP setup already in progress or active.');
+    }
+    return successResponse(qrCode);
+  }
+
+  async activateTOTP(userId: number, otp: string) {
+    const user = await this.prisma.users.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        totpSecret: true,
+        totpActive: true,
+      },
+    });
+    if (user === null) throw new NotFoundException('User not found.');
+    if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
+    const isValid = verifyTOTP(user.totpSecret, otp);
+    if (isValid) {
+      const result = await this.prisma.users.updateMany({
+        where: {
+          id: userId,
+          totpSecret: user.totpSecret,
+        },
+        data: {
+          totpActive: true,
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException('TOTP setup already in progress or active.');
+      }
+    } else {
+      throw new BadRequestException('TOTP code is invalid.');
+    }
+    return successResponse(null, 'TOTP verified and activated successfully.');
+  }
+
+  async deleteTOTP(userId: number) {
+    await this.prisma.users.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        totpSecret: null,
+        totpActive: false,
+      },
+    });
+    return successResponse(null, 'TOTP deleted.');
+  }
+
+  async generateQRCode(uri: string) {
+    try {
+      const qrCode = await QRCode.toString(uri, { type: 'svg' });
+      return qrCode;
+    } catch (error) {
+      console.error('Error during QR code generation: ', error);
+      throw new InternalServerErrorException();
+    }
   }
 }
