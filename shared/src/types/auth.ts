@@ -1,8 +1,10 @@
-export type LanguageCode = 'de' | 'en' | 'es';
+export type LanguageCode = "de" | "en" | "es";
+export type MfaType = "none" | "totp";
 
 export interface LoginRequest {
   email: string;
   password: string;
+  otp?: string;
 }
 
 export interface RegisterRequest {
@@ -12,10 +14,11 @@ export interface RegisterRequest {
   language: LanguageCode;
 }
 
-export interface AuthUserResponse {
-  id: number;
-  username: string;
-  email: string;
-  language: LanguageCode;
-  image: string | null;
+export interface LoginResponse {
+  mfaRequired: boolean;
+  mfaType: MfaType;
+}
+
+export interface otp {
+  otp: string;
 }
