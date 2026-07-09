@@ -6,8 +6,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-import 'vue-sonner/style.css'
-import { Toaster } from '@/components/ui/sonner'
+
 const route = useRoute();
 </script>
 
