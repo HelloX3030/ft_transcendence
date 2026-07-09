@@ -3,7 +3,8 @@ import { useRoute } from 'vue-router';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-
+import 'vue-sonner/style.css';
+import { Toaster } from '@/components/ui/sonner';
 const route = useRoute();
 </script>
 
@@ -18,6 +19,7 @@ const route = useRoute();
         <main class="flex flex-col flex-1">
           <RouterView :key="$route.fullPath" />
         </main>
+        <Toaster position="top-center" />
       </SidebarInset>
     </SidebarProvider>
   </template>
