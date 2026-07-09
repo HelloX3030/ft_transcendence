@@ -67,6 +67,8 @@ model users {
   password String  @db.VarChar(512)
   email    String  @unique @db.VarChar(255)
   image    String? @db.VarChar(255)
+  totpSecret String?  @db.VarChar(512) @map("totp_secret")
+  totpActive Boolean @map("totp_active")
 
   language language_code
   role     user_role

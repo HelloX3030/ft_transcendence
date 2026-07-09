@@ -14,12 +14,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
 import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
+import { otpDto } from 'src/utils';
 
 @Controller('users')
 export class UsersController {
@@ -100,5 +101,53 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found' })
   getUser(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getUser(id);
+  }
+
+  @Post('mfa/totp/setup')
+  @ApiOperation({ summary: 'Generate TOTP secret for authenticated user' })
+  @ApiResponse({
+    status: 201,
+    description: 'TOTP secret generated successfully. Returns QR code and secret.',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'TOTP setup already in progress or active.' })
+  createTOTP(@Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.createTOTP(user.sub);
+  }
+
+  @Post('mfa/totp/activate')
+  @ApiOperation({ summary: 'Activate TOTP using verification code' })
+  @ApiBody({
+    schema: {
+      example: {
+        otp: 213846,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'TOTP activated successfully',
+  })
+  @ApiResponse({ status: 400, description: 'No TOTP set or invalid OTP code' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'TOTP setup already in progress or active.' })
+  activateTOTP(@Request() req: ExpressRequest, @Body() dto: otpDto) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.activateTOTP(user.sub, dto.otp);
+  }
+
+  @Delete('mfa/totp')
+  @ApiOperation({ summary: 'Disable TOTP for authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'TOTP disabled successfully',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  deleteTOTP(@Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.deleteTOTP(user.sub);
   }
 }
