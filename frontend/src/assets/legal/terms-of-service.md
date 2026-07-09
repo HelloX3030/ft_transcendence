@@ -81,4 +81,4 @@ Questions about these Terms? Reach out to **cwolf@student.42heilbronn.de**.
 
 ---
 
-*This document was prepared for a 42 School student project (ft_transcendence) and is intended to demonstrate GDPR-conscious, user-respecting terms rather than to serve as a substitute for professional legal advice for a commercial product.*
+_This document was prepared for a 42 School student project (ft_transcendence) and is intended to demonstrate GDPR-conscious, user-respecting terms rather than to serve as a substitute for professional legal advice for a commercial product._
