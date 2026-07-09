@@ -37,10 +37,10 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
-  @ApiOperation({ summary: 'User login' })
+  @ApiOperation({ summary: 'User login with optional TOTP' })
   @ApiResponse({ status: 200, description: 'User login successful' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 403, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Invalid credentials or TOTP required' })
   async login(
     @Request() req: ExpressRequest,
     @Body() dto: LoginDto,

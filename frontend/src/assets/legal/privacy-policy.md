@@ -14,14 +14,14 @@ CineMates is a non-commercial student project developed as part of the 42 School
 
 ## 2. What Data We Collect
 
-| Category | Examples | Source |
-| --- | --- | --- |
-| **Account & Identity** | Name, email, profile picture/avatar, OAuth ID (Google or 42) | Provided by you / OAuth provider |
-| **Preferences** | Favorite genres, directors, actors, movies | Onboarding, Settings |
-| **Behavioral Data** | Likes/dislikes/saves, watch/view duration, skip speed, comments, shares | Generated as you use the Service |
-| **Social Data** | Friends list, online status, chat messages (1:1) | Generated as you use the Service |
-| **Movie Night Data** | Session participation, real-time swipes within a session | Generated when joining a Movie Night session |
-| **Technical Data** | Device/browser info, IP address, session/login timestamps | Automatically collected |
+| Category               | Examples                                                                | Source                                       |
+| ---------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
+| **Account & Identity** | Name, email, profile picture/avatar, OAuth ID (Google or 42)            | Provided by you / OAuth provider             |
+| **Preferences**        | Favorite genres, directors, actors, movies                              | Onboarding, Settings                         |
+| **Behavioral Data**    | Likes/dislikes/saves, watch/view duration, skip speed, comments, shares | Generated as you use the Service             |
+| **Social Data**        | Friends list, online status, chat messages (1:1)                        | Generated as you use the Service             |
+| **Movie Night Data**   | Session participation, real-time swipes within a session                | Generated when joining a Movie Night session |
+| **Technical Data**     | Device/browser info, IP address, session/login timestamps               | Automatically collected                      |
 
 We do **not** collect payment information (the Service is free and non-commercial) or special categories of data (e.g., health, religion, biometric data).
 
@@ -107,4 +107,4 @@ For any questions, data requests, or concerns about this Privacy Policy, contact
 
 ---
 
-*This document was prepared for a 42 School student project (ft_transcendence) to demonstrate GDPR-conscious data handling as part of the project's compliance module, and is not a substitute for professional legal advice for a commercial product.*
+_This document was prepared for a 42 School student project (ft_transcendence) to demonstrate GDPR-conscious data handling as part of the project's compliance module, and is not a substitute for professional legal advice for a commercial product._
