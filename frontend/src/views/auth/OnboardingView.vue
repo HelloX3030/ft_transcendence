@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import MovieSearch from '@/components/MovieSearch.vue';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
@@ -32,6 +32,8 @@ async function completeOnboarding() {
     submitting.value = false;
   }
 }
+
+onUnmounted(selection.clearMovies);
 </script>
 
 <template>
