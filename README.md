@@ -24,6 +24,9 @@ cp .env.example .env
 
 Edit `.env` to set real passwords if desired.
 
+To create a new MFA_KEY, run the following command.
+`openssl rand -hex 32`
+
 **2. Install local dependencies** (first time only):
 
 ```bash
