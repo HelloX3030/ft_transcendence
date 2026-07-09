@@ -23,11 +23,12 @@ function handleSubmit() {
 <template>
   <div class="min-h-screen flex items-start justify-center p-6 pt-12">
     <div class="w-full max-w-2xl flex flex-col gap-8">
-
       <!-- Header -->
       <div>
         <h1 class="text-3xl font-bold">Help & Contact</h1>
-        <p class="text-muted-foreground mt-2">Have a question or issue? Send us a message and we'll get back to you.</p>
+        <p class="text-muted-foreground mt-2">
+          Have a question or issue? Send us a message and we'll get back to you.
+        </p>
       </div>
 
       <!-- Form -->
@@ -60,7 +61,6 @@ function handleSubmit() {
           Send Message
         </Button>
       </div>
-
     </div>
   </div>
 </template>

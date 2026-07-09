@@ -28,6 +28,8 @@ import { JwtAccessGuard } from './auth/guard';
         MINIO_ACCESS_KEY: Joi.string().required(),
         MINIO_SECRET_KEY: Joi.string().required(),
         MINIO_BUCKET: Joi.string().required(),
+        APP_NAME: Joi.string().required(),
+        MFA_KEY: Joi.string().required(),
         TMDB_API_KEY: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
         PORT: Joi.number().default(3000),
