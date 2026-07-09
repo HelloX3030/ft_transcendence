@@ -16,6 +16,7 @@ import { useRouter } from 'vue-router';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Separator } from '@/components/ui/separator';
 import { RouterLink } from 'vue-router';
 import { loginSchema } from '@/lib/schemas';
@@ -29,11 +30,26 @@ const router = useRouter();
 const auth = useAuthStore();
 const errorMessage = ref<string | null>(null);
 
+// Zwischenzustand: Passwort korrekt, aber TOTP-Code noch nötig
+const mfaRequired = ref(false);
+const otpValue = ref('');
+const isVerifyingOtp = ref(false);
+
+// Credentials merken, damit wir sie im zweiten Schritt erneut mitschicken können
+const pendingEmail = ref('');
+const pendingPassword = ref('');
+
 const onSubmit = form.handleSubmit(async ({ email, password }) => {
   errorMessage.value = null;
   try {
-    await auth.login({ email, password });
-    router.push('/');
+    const result = await auth.login({ email, password });
+    if (result.mfaRequired) {
+      pendingEmail.value = email;
+      pendingPassword.value = password;
+      mfaRequired.value = true;
+    } else {
+      router.push('/');
+    }
   } catch (err: unknown) {
     const e = err as { status?: number; message?: string };
     if (e?.status === 403) {
@@ -45,6 +61,38 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
     }
   }
 });
+
+async function handleOtpVerify() {
+  if (otpValue.value.length !== 6) return;
+  errorMessage.value = null;
+  isVerifyingOtp.value = true;
+  try {
+    const result = await auth.login({
+      email: pendingEmail.value,
+      password: pendingPassword.value,
+      otp: otpValue.value,
+    });
+    if (!result.mfaRequired) {
+      router.push('/');
+    }
+  } catch (err: unknown) {
+    const e = err as { status?: number; message?: string };
+    errorMessage.value =
+      e?.status === 403
+        ? 'Invalid code. Please try again.'
+        : 'Something went wrong. Please try again.';
+    otpValue.value = '';
+  } finally {
+    isVerifyingOtp.value = false;
+  }
+}
+
+function handleBackToLogin() {
+  mfaRequired.value = false;
+  otpValue.value = '';
+  errorMessage.value = null;
+  pendingPassword.value = '';
+}
 </script>
 
 <template>
@@ -55,7 +103,7 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
     </CardHeader>
 
     <CardContent class="">
-      <form @submit.prevent="onSubmit" class="space-y-6">
+      <form v-if="!mfaRequired" @submit.prevent="onSubmit" class="space-y-6">
         <FormField v-slot="{ componentField }" name="email">
           <FormItem>
             <FormLabel>Email</FormLabel>
@@ -103,6 +151,38 @@ const onSubmit = form.handleSubmit(async ({ email, password }) => {
           </Button>
         </div>
       </form>
+
+      <div v-else class="space-y-6">
+        <div class="flex flex-col items-center gap-4">
+          <p class="text-muted-foreground text-sm text-center">
+            Enter the 6-digit code from your authenticator app.
+          </p>
+          <InputOTP v-model="otpValue" :maxlength="6" @complete="handleOtpVerify">
+            <InputOTPGroup>
+              <InputOTPSlot :index="0" />
+              <InputOTPSlot :index="1" />
+              <InputOTPSlot :index="2" />
+              <InputOTPSlot :index="3" />
+              <InputOTPSlot :index="4" />
+              <InputOTPSlot :index="5" />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+
+        <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
+
+        <div class="flex flex-col space-y-4">
+          <Button
+            type="button"
+            class="w-full"
+            :disabled="otpValue.length !== 6 || isVerifyingOtp"
+            @click="handleOtpVerify"
+          >
+            {{ isVerifyingOtp ? 'Verifying...' : 'Verify' }}
+          </Button>
+          <Button type="button" variant="link" @click="handleBackToLogin">Back to login</Button>
+        </div>
+      </div>
     </CardContent>
 
     <CardFooter class="flex flex-col gap-2">

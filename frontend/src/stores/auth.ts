@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import type {
   LoginRequest,
+  LoginResponse,
   RegisterRequest,
   UpdateUserRequest,
   UserMeResponse,
@@ -50,15 +51,22 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(payload: LoginRequest) {
+  async function login(payload: LoginRequest): Promise<LoginResponse> {
     const res = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     if (!res.ok) await throwApiError(res);
-    isLoggedIn.value = true;
-    await fetchUser();
+    const body = await res.json();
+    const result = body.data as LoginResponse;
+
+    if (!result.mfaRequired) {
+      isLoggedIn.value = true;
+      await fetchUser();
+    }
+
+    return result;
   }
 
   async function logout() {
