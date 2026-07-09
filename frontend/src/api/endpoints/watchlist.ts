@@ -30,8 +30,7 @@ export const watchlistApi = {
       body: JSON.stringify(data),
     }),
 
-  delete: (id: number) =>
-    backendClient(`/watchlists/${id}`, { method: 'DELETE' }, { expectData: false }),
+  delete: (id: number) => backendClient(`/watchlists/${id}`, { method: 'DELETE' }),
 
   addMovie: (id: number, movie: WatchlistMovieRequest) =>
     backendClient(
@@ -43,14 +42,14 @@ export const watchlistApi = {
         },
         body: JSON.stringify(movie),
       },
-      { expectData: false },
+      // { expectData: false },
     ),
 
   deleteMovie: (id: number, movieId: number) =>
     backendClient(
       `/watchlists/${id}/movies/${movieId}`,
       { method: 'DELETE' },
-      { expectData: false },
+      // { expectData: false },
     ),
 
   getMoviesById: async (id: number) =>
