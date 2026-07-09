@@ -123,6 +123,34 @@ export const useAuthStore = defineStore('auth', () => {
     syncOnboarding();
   }
 
+  async function setupTotp(): Promise<string> {
+    const res = await fetch('/v1/users/mfa/totp/setup', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    if (!res.ok) await throwApiError(res);
+    const body = await res.json();
+    return body.data as string; // SVG-Markup as string
+  }
+
+  async function activateTotp(otp: string) {
+    const res = await fetch('/v1/users/mfa/totp/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ otp }),
+    });
+    if (!res.ok) await throwApiError(res);
+  }
+
+  async function deleteTotp() {
+    const res = await fetch('/v1/users/mfa/totp', {
+      method: 'DELETE',
+      credentials: 'same-origin',
+    });
+    if (!res.ok) await throwApiError(res);
+  }
+
   return {
     isLoggedIn,
     requiresOnboarding,
@@ -135,5 +163,8 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     updateUser,
     uploadAvatar,
+    setupTotp,
+    activateTotp,
+    deleteTotp,
   };
 });
