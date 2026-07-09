@@ -3,7 +3,6 @@ import type {
   WatchlistCreateRequest,
   WatchlistMovieRequest,
   WatchlistMovieResponse,
-  WatchlistRequest,
   WatchlistResponse,
   WatchlistUpdateRequest,
 } from '@trailertinder/shared';

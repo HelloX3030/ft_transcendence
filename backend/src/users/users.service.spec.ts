@@ -244,7 +244,7 @@ describe('UsersService', () => {
         where: { id: 1 },
         select: PUBLIC_SELECT,
       });
-      expect(result).toEqual(mockPublicUser);
+      expect(result.data).toEqual(mockPublicUser);
     });
 
     it('throws NotFoundException when user does not exist', async () => {
