@@ -1,4 +1,3 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
@@ -6,13 +5,13 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
-import { SearchUsersDto, UpdateUserDto } from './dto';
 import * as crypto from 'crypto';
 import { encrypt, getMfaKey, successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
