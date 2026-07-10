@@ -101,7 +101,7 @@ export class NotifyGateway {
   // -------------------------
   sendMessage(userId: number, message: NotifyMsg) {
     console.log(message);
-    throw new WsException('Test error');
+    // throw new WsException('Test error');
     this.server.to(`user:${userId}`).emit('message', message);
   }
 
