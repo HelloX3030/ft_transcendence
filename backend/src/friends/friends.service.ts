@@ -8,6 +8,7 @@ import { Friend } from '@trailertinder/shared';
 import {
   FRIEND_REMOVED,
   FRIEND_REQUEST_ACCEPTED,
+  FRIEND_REQUEST_REMOVED,
   FRIENDS_TITEL,
   NEW_FRIEND_REQUEST,
   successResponse,
@@ -121,7 +122,7 @@ export class FriendsService {
 
   async deleteFriend(payload: JwtAccessPayload, id: number) {
     const friendsKey = this.getFriendsKey(payload.sub, id);
-    await this.prisma.friends.delete({
+    const deletedFriend = await this.prisma.friends.delete({
       where: {
         userAId_userBId: friendsKey,
       },
@@ -130,10 +131,18 @@ export class FriendsService {
     this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
 
     const username = (await this.userUtils.getUser(payload.sub)).username;
-    this.notifyService.sendNotify(id, {
-      titel: FRIENDS_TITEL,
-      msg: FRIEND_REMOVED(username),
-    });
+
+    if (deletedFriend.status === 'accepted') {
+      this.notifyService.sendNotify(id, {
+        titel: FRIENDS_TITEL,
+        msg: FRIEND_REMOVED(username),
+      });
+    } else {
+      this.notifyService.sendNotify(id, {
+        titel: FRIENDS_TITEL,
+        msg: FRIEND_REQUEST_REMOVED(username),
+      });
+    }
 
     return successResponse(null, 'friendship deleted');
   }

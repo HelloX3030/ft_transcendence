@@ -11,6 +11,7 @@ export const NEW_FRIEND_REQUEST = (user: string) =>
   `You have received a new friend request from ${user}.`;
 
 export const FRIEND_REMOVED = (user: string) => `${user} has removed you as a friend.`;
+export const FRIEND_REQUEST_REMOVED = (user: string) => `${user} has removed the friend request.`;
 
 export const FRIEND_REQUEST_ACCEPTED = (user: string) =>
   `${user} has accepted your friend request.`;

@@ -6,27 +6,24 @@ export const notifyStore = defineStore('notify', () => {
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
+  const friendsStatus = ref(new Map<number, boolean>());
   let socket = io('http://localhost:3000/notify', { withCredentials: true, autoConnect: false }); // todo global url
 
   function init() {
-    console.log('Notify init...');
+    console.log('[notify] init...');
     socket.connect();
 
     socket.removeAllListeners();
     socket.on('connect', () => {
-      console.log('Notify connected.'); // todo: error msg if no connection
+      console.log('[notify] connected.'); // todo: error msg if no connection
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Notify connect error:', error.message);
+      console.error('[notify] connect error:', error.message);
     });
 
-    socket.on('exception', (error) => {
-      console.log(error);
-    });
-
-    socket.on('error', (msg) => {
-      console.error('Backend error: ' + msg);
+    socket.on('error', (error) => {
+      console.error('[notify] ' + error);
     });
 
     socket.on('message', (msg) => {
@@ -39,7 +36,7 @@ export const notifyStore = defineStore('notify', () => {
   }
 
   function stop() {
-    console.log('Notify stop.');
+    console.log('[notify] stop.');
     socket.close();
   }
 
@@ -49,9 +46,11 @@ export const notifyStore = defineStore('notify', () => {
       const tmp = data as { id: number; isOnline: boolean }[];
       for (const user of tmp) {
         socket.off(`online-status:${user.id}`);
-        socket.on(`online-status:${user.id}`, (msg) => {
-          console.log(msg);
+        socket.on(`online-status:${user.id}`, (user) => {
+          console.log(user);
+          friendsStatus.value.set(user.id, user.isOnline);
         });
+        friendsStatus.value.set(user.id, user.isOnline);
         console.log('add watch user Id: ' + user.id);
       }
     });
@@ -60,6 +59,7 @@ export const notifyStore = defineStore('notify', () => {
       for (const user of tmp) {
         socket.off(`online-status:${user.id}`);
         console.log('removed watch user Id: ' + user.id);
+        friendsStatus.value.delete(user.id);
       }
     });
     socket.emit('watch-friends-status', 'init');
