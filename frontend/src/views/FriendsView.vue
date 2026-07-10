@@ -8,7 +8,6 @@ import { Users } from 'lucide-vue-next';
 import { storeToRefs } from 'pinia';
 
 const store = useFriendsStore();
-
 const { friends } = storeToRefs(store);
 </script>
 

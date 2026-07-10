@@ -6,7 +6,7 @@ import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/s
 import { computed } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
-import { useWatchlistEditors } from '@/composables/watchlist/useWatchlistEditors.ts';
+import { useUserDetails } from '@/composables/useUserDetails.ts';
 
 interface PropsType {
   watchlist: WatchlistResponse;
@@ -17,7 +17,7 @@ const props = defineProps<PropsType>();
 
 const emit = defineEmits(['success']);
 
-const { editors, editorsLoading } = useWatchlistEditors(props.watchlist.editorIds);
+const { userDetails, usersLoading } = useUserDetails(props.watchlist.editorIds);
 
 const formattedDate = computed(() => {
   if (!props.watchlist.createdAt) return '';
@@ -48,19 +48,19 @@ const formattedDate = computed(() => {
         <div
           class="*:data-[slot=avatar]:ring-background flex -space-x-2 *:data-[slot=avatar]:ring-2"
         >
-          <div v-if="editorsLoading">
+          <div v-if="usersLoading">
             <Skeleton
               v-for="value in watchlist.editorIds"
               :key="value"
               class="size-8 rounded-full"
             />
           </div>
-          <TooltipProvider v-else-if="editors">
+          <TooltipProvider v-else-if="userDetails">
             <RouterLink
-              v-for="(user, idx) in editors"
+              v-for="(user, idx) in userDetails"
               :key="user.id"
               :to="`/profile/${user.id}`"
-              :style="{ zIndex: editors.length - idx }"
+              :style="{ zIndex: userDetails.length - idx }"
             >
               <Tooltip>
                 <TooltipTrigger
