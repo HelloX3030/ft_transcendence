@@ -7,7 +7,7 @@ const notify = notifyStore();
 </script>
 
 <template>
-  <div class="flex max-w-1xl flex-col gap-6 p-6">
+  <div class="flex flex-1 max-w-1xl flex-col gap-6 p-6">
     <div class="flex items-center justify-items-center">
       <h1 class="flex-auto pr-2 text-2xl font-bold">Notifications</h1>
       <Button
@@ -19,12 +19,11 @@ const notify = notifyStore();
         Clear all
       </Button>
     </div>
-    <span
-      v-if="notify.count <= 0"
-      class="flex flex-initial items-baseline self-center gap-4 p-4 rounded-full bg-muted px-4 text-s"
-    >
-      You don't have any new notifications.
-    </span>
+
+    <div v-if="notify.count <= 0" class="flex flex-1 items-center justify-center">
+      <p class="text-zinc-500">You don't have any new notifications.</p>
+    </div>
+
     <Card
       v-for="notification in notify.notifyMsg"
       :key="notification.id"
