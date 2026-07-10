@@ -28,6 +28,9 @@ export const useSelectionStore = defineStore('selection', () => {
       selectedMovies.value.push({ id: movie.id, title: movie.title, img: movie.poster_path });
     }
   }
+  function clearMovies() {
+    selectedMovies.value = [];
+  }
 
-  return { selectedMovies, isSelected, toggleMovie };
+  return { selectedMovies, isSelected, toggleMovie, clearMovies };
 });
