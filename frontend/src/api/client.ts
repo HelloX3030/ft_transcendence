@@ -13,6 +13,7 @@ export async function backendClient<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => null);
+    console.log('frontend request:', path, options);
     throw new Error(error?.message ?? `Request failed: ${response.status}`);
   }
 
@@ -23,9 +24,12 @@ export async function backendClient<T>(
 
   const json: apiResponse<T> = await response.json();
   if (json.data === undefined || json.data === null) {
+    console.log('frontend request:', path, options);
+    console.log('backendClient response:', json);
     // throw new Error('Response data is empty');
     return json; //TODO: wait for backend to fix response types
   }
+  console.log('frontend request:', path, options);
   console.log('backendClient response:', json);
 
   return json.data;

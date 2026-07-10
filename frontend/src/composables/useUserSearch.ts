@@ -9,7 +9,6 @@ export function useUserSearch() {
     try {
       searchStatus.value = 'loading';
       const data = await userApi.search(params);
-      console.log('data: ', data);
       searchData.value = data;
       searchStatus.value = 'ready';
     } catch (error) {

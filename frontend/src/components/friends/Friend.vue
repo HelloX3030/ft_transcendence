@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Friend, GetUserResponse } from '@trailertinder/shared';
-import { Card, CardAction, CardHeader, CardTitle } from '../ui/card';
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ClockArrowRight, UserCheck, UserIcon } from '@lucide/vue';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '../ui/item';
 
 const props = defineProps<Friend>();
 const userDetail = ref<GetUserResponse>();
@@ -15,31 +15,30 @@ onMounted(async () => {
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
-      <CardTitle class="flex items-center gap-2"
-        ><Avatar>
-          <AvatarImage
-            v-if="userDetail && userDetail.image"
-            :src="userDetail?.image"
-            :alt="userDetail.username"
-          />
-          <AvatarFallback>
-            <UserIcon class="size-4 text-muted-foreground" />
-          </AvatarFallback>
-        </Avatar>
-        {{ userDetail?.username }}
-      </CardTitle>
-      <CardAction>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              ><UserCheck v-if="props.status === 'accepted'" /> <ClockArrowRight v-else
-            /></TooltipTrigger>
-            <TooltipContent> {{ status }} </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </CardAction>
-    </CardHeader>
-  </Card>
+  <Item variant="outline">
+    <ItemMedia>
+      <Avatar class="size-10">
+        <AvatarImage
+          v-if="userDetail && userDetail.image"
+          :src="userDetail?.image"
+          :alt="userDetail.username"
+        />
+        <AvatarFallback><UserIcon /></AvatarFallback>
+      </Avatar>
+    </ItemMedia>
+    <ItemContent>
+      <ItemTitle>{{ userDetail?.username }}</ItemTitle>
+    </ItemContent>
+    <ItemActions>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            ><UserCheck v-if="props.status === 'accepted'" class="text-green-400" />
+            <ClockArrowRight v-else class="text-yellow-400"
+          /></TooltipTrigger>
+          <TooltipContent>Status {{ status }} </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </ItemActions>
+  </Item>
 </template>
