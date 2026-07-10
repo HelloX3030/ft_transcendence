@@ -18,7 +18,6 @@ import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
-import { successResponse } from 'src/utils';
 
 export const ME_SELECT = {
   id: true,
