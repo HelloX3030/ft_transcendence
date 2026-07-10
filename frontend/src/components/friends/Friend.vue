@@ -3,9 +3,9 @@ import type { Friend, GetUserResponse } from '@trailertinder/shared';
 import { onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { ClockArrowRight, UserCheck, UserIcon } from '@lucide/vue';
+import { UserCheck, UserIcon } from '@lucide/vue';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '../ui/item';
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item';
 
 const props = defineProps<Friend>();
 const userDetail = ref<GetUserResponse>();
@@ -28,14 +28,16 @@ onMounted(async () => {
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ userDetail?.username }}</ItemTitle>
+      <ItemDescription>
+        Friend since {{ new Date(createdAt).toLocaleDateString() }}</ItemDescription
+      >
     </ItemContent>
     <ItemActions>
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger
-            ><UserCheck v-if="props.status === 'accepted'" class="text-green-400" />
-            <ClockArrowRight v-else class="text-yellow-400"
-          /></TooltipTrigger>
+          <TooltipTrigger>
+            <UserCheck v-if="props.status === 'accepted'" class="text-green-400" />
+          </TooltipTrigger>
           <TooltipContent>Status {{ status }} </TooltipContent>
         </Tooltip>
       </TooltipProvider>
