@@ -4,14 +4,13 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from './notify.service';
-import { forwardRef, Inject, UseFilters } from '@nestjs/common';
+import { forwardRef, Inject } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 
 @WebSocketGateway({
@@ -73,9 +72,14 @@ export class NotifyGateway {
   @SubscribeMessage('watch-friends-status')
   async userStatus(@MessageBody() msg: string, @ConnectedSocket() client: Socket) {
     if (msg === 'init') {
-      const friendIds = await this.notifyService.getFreinds(client.data.user);
-      for (const userId of friendIds) {
-        this.addClientToStatusUpdate(client, userId);
+      try {
+        const friendIds = await this.notifyService.getFreinds(client.data.user);
+        for (const userId of friendIds) {
+          this.addClientToStatusUpdate(client, userId);
+        }
+      } catch (error) {
+        console.error(error);
+        this.server.emit('error', 'Unable to load your friends online status.');
       }
     }
   }
@@ -101,7 +105,6 @@ export class NotifyGateway {
   // -------------------------
   sendMessage(userId: number, message: NotifyMsg) {
     console.log(message);
-    // throw new WsException('Test error');
     this.server.to(`user:${userId}`).emit('message', message);
   }
 
