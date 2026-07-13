@@ -5,13 +5,15 @@ import SignupView from '@/views/auth/SignupView.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
 import HomeView from '@/views/HomeView.vue';
 import MovieDetailView from '@/views/MovieDetailView.vue';
+import TermsView from '@/views/TermsView.vue';
+import PrivacyView from '@/views/PrivacyView.vue';
+import HelpView from '@/views/HelpView.vue';
 
 import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import UserProfileView from '@/views/UserProfileView.vue';
 import EditProfileView from '@/views/EditProfileView.vue';
 import WatchlistView from '@/views/WatchlistView.vue';
-import SearchView from '@/views/SearchView.vue';
 import { useAuthStore } from '@/stores/auth';
 import { storeToRefs } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -29,11 +31,6 @@ const router = createRouter({
       path: '/discover',
       component: DiscoverView,
       meta: { requiresAuth: true, title: 'Discover' },
-    },
-    {
-      path: '/search',
-      component: SearchView,
-      meta: { requiresAuth: true, title: 'Search' },
     },
     {
       path: '/profile',
@@ -84,6 +81,21 @@ const router = createRouter({
       path: '/notifications',
       component: NotificationView,
       meta: { requiresAuth: true, title: 'Notifications' },
+    },
+    {
+      path: '/terms',
+      component: TermsView,
+      meta: { requiresAuth: false, title: 'Terms of Service' },
+    },
+    {
+      path: '/privacy',
+      component: PrivacyView,
+      meta: { requiresAuth: false, title: 'Privacy Policy' },
+    },
+    {
+      path: '/help',
+      component: HelpView,
+      meta: { requiresAuth: true, title: 'Help' },
     },
   ],
 });

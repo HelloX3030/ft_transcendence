@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { LoginRequest } from '@trailertinder/shared';
-import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, Matches } from 'class-validator';
 
 export class LoginDto implements LoginRequest {
   @ApiProperty({ example: 'bob@example.com' })
@@ -15,4 +15,10 @@ export class LoginDto implements LoginRequest {
   @MaxLength(DEFAULT_MAX_LENGTH)
   @IsNotEmpty()
   password!: string;
+
+  @ApiProperty({ example: '823641', required: true })
+  @IsString()
+  @Matches(/^[0-9]{6}$/)
+  @IsOptional()
+  otp?: string;
 }
