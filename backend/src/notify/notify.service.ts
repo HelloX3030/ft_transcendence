@@ -61,7 +61,7 @@ export class NotifyService {
   // Send Notifications
   // -------------------------
   sendNotify(userId: number, message: NotifyMsg) {
-    this.notifyGateway.sendMessage(userId, message);
+    this.notifyGateway.sendNotification(userId, message);
   }
 
   async getFreinds(userId: number): Promise<number[]> {
