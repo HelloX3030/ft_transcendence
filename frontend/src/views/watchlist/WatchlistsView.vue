@@ -48,7 +48,6 @@ async function deleteWatchlist(watchlistId: number) {
           @delete="(id) => deleteWatchlist(id)"
           @success="refetchWatchlists"
         />
-        <!-- @edit="openEditDialog" -->
       </div>
     </div>
   </section>
