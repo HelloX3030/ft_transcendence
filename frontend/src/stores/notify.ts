@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import { io } from 'socket.io-client';
 import type { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
+import { toast } from 'vue-sonner';
 
 export const notifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
@@ -39,6 +40,7 @@ export const notifyStore = defineStore('notify', () => {
       count.value++;
       const date = new Date(Date.now()).toLocaleString();
       notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
+      toast.info(msg.msg);
     });
 
     watchFriendsOnlineStatus();
