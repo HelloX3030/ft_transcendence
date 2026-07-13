@@ -75,6 +75,17 @@ async function handleVerify() {
   }
 }
 
+function downloadQrCode() {
+  if (!qrCodeSvg.value) return;
+  const blob = new Blob([qrCodeSvg.value], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'cinemates-2fa-qrcode.svg';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 // Deaktivieren-Flow
 const isDisableDialogOpen = ref(false);
 const isDisabling = ref(false);
@@ -263,6 +274,21 @@ watch(
                 Failed to load QR code.
               </p>
             </div>
+
+            <Button
+              v-if="qrCodeSvg"
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="downloadQrCode"
+            >
+              Download QR Code
+            </Button>
+
+            <p class="text-muted-foreground text-xs text-center max-w-xs">
+              Save or print this QR code and keep it somewhere safe. Without it and access to your
+              authenticator app, you won't be able to log in if you lose your device.
+            </p>
 
             <InputOTP v-model="otpValue" :maxlength="6" @complete="handleVerify">
               <InputOTPGroup>
