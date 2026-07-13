@@ -30,9 +30,8 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 const auth = useAuthStore();
 const genres = useGenresStore();
 const people = usePeopleStore();
-// TODO: durch computed(() => profile.value?.totpActive) ersetzen, sobald Backend
-// das Feld in UserMeResponse liefert
-const is2faEnabled = ref(false);
+
+const is2faEnabled = computed(() => profile.value?.totpActive ?? false);
 
 // Setup-Dialog (Enable-Flow)
 const isSetupDialogOpen = ref(false);
@@ -66,7 +65,7 @@ async function handleVerify() {
   verifyError.value = false;
   try {
     await auth.activateTotp(otpValue.value);
-    is2faEnabled.value = true;
+    await auth.fetchUser();
     isSetupDialogOpen.value = false;
   } catch {
     verifyError.value = true;
@@ -94,7 +93,7 @@ async function handleDisableConfirm() {
   isDisabling.value = true;
   try {
     await auth.deleteTotp();
-    is2faEnabled.value = false;
+    await auth.fetchUser();
     isDisableDialogOpen.value = false;
   } catch (err) {
     console.error(err);
