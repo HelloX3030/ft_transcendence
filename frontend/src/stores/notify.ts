@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import { io } from 'socket.io-client';
 import type { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
+import { BACKEND_URL } from '@/lib/constants';
 
 export const notifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
@@ -9,9 +10,10 @@ export const notifyStore = defineStore('notify', () => {
   const nofiyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
-  let socket = io('http://localhost:3000/notify', { withCredentials: true, autoConnect: false }); // todo global url
+  let socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
 
   function init() {
+    console.log(import.meta.env);
     if (isInit) return;
     console.log('[notify] init...');
     socket.connect();
