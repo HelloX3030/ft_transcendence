@@ -1,15 +1,10 @@
 <!-- MovieCredits.vue -->
 <script setup lang="ts">
-interface CastMember {
-  id: number;
-  name: string;
-  character: string;
-  profile_path: string;
-}
+import type { TmdbCastMember } from '@trailertinder/shared';
 
 defineProps<{
   director: string;
-  cast: CastMember[];
+  cast: TmdbCastMember[];
 }>();
 </script>
 

@@ -23,7 +23,6 @@ docker compose exec backend  sh -c "npm install <package>"
 ```
 
 See `_meta/doc/ARCHITECTURE.md` for full tech stack decisions.
-See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for folder-specific conventions, test commands, and formatting setup.
 
 ---
 

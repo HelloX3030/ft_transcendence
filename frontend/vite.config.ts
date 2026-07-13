@@ -7,7 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
-  const required = ['VITE_APP_NAME', 'VITE_BACKEND_URL', 'BACKEND_URL_DOCKER'];
+  const required = ['TMDB_API_KEY', 'VITE_APP_NAME', 'VITE_BACKEND_URL', 'BACKEND_URL_DOCKER'];
   for (const key of required) {
     if (!env[key]) throw new Error(`Missing required env var: ${key}`);
   }

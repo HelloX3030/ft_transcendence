@@ -1,12 +1,8 @@
 <script setup lang="ts">
-interface Provider {
-  provider_id: number;
-  provider_name: string;
-  logo_path: string;
-}
+import type { WatchProvider } from '@trailertinder/shared';
 
 defineProps<{
-  providers: Provider[];
+  providers: WatchProvider[];
 }>();
 </script>
 

@@ -15,6 +15,8 @@ import { JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
+import { verifyTOTP } from 'src/utils/otp.utils';
+import { apiResponse, LoginResponse } from '@trailertinder/shared';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +38,7 @@ export class AuthService {
           password: hash,
           language: dto.language,
           role: 'user',
+          totpActive: false,
         },
       });
       const tokens = await this.createJwt(user.id, user.email, req);
@@ -51,20 +54,39 @@ export class AuthService {
     }
   }
 
-  async login(req: ExpressRequest, dto: LoginDto, res: ExpressResponse) {
+  async login(
+    req: ExpressRequest,
+    dto: LoginDto,
+    res: ExpressResponse,
+  ): Promise<apiResponse<LoginResponse>> {
     const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
-    if (user === null || user.password === undefined)
-      throw new ForbiddenException('Invalid credentials');
+    if (user === null) throw new ForbiddenException('Invalid credentials');
 
     const isPwMatch = await argon2.verify(user.password, dto.password);
     if (!isPwMatch) {
       throw new ForbiddenException('Invalid credentials');
     }
+
+    if (user.totpActive) {
+      if (!dto.otp) {
+        return successResponse(
+          { mfaRequired: true, mfaType: 'totp' },
+          'TOTP is required for login.',
+        );
+      }
+      if (user.totpSecret === null) {
+        console.error('TOTP is enabled, but no totpSecret has been set.');
+        throw new InternalServerErrorException();
+      }
+      const isValid = verifyTOTP(user.totpSecret, dto.otp);
+      if (!isValid) throw new ForbiddenException('Invalid TOTP');
+    }
+
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
-    return successResponse(null, 'Login successful');
+    return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {

@@ -11,7 +11,8 @@ services:
     environment:
       - VITE_BACKEND_URL=${BACKEND_URL}
       - BACKEND_URL_DOCKER=${BACKEND_URL_DOCKER}
-      - VITE_APP_NAME=${VITE_APP_NAME}
+      - VITE_APP_NAME=${APP_NAME}
+      - TMDB_API_KEY=${TMDB_API_KEY}
     depends_on:
       - backend
     networks:
@@ -39,6 +40,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
+      APP_NAME: ${APP_NAME}
+      MFA_KEY: ${MFA_KEY}
       TMDB_API_KEY: ${TMDB_API_KEY}
       REDIS_URL: ${REDIS_URL}
     depends_on:

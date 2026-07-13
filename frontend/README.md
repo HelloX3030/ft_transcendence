@@ -6,17 +6,17 @@ Vue 3 + Vite SPA. Runs on port 5173 inside Docker.
 
 ## Stack
 
-| | |
-|---|---|
-| Framework | Vue 3 (Composition API) |
-| Language | TypeScript (strict) |
-| Bundler | Vite |
-| Styling | Tailwind CSS 4 |
+|                   |                              |
+| ----------------- | ---------------------------- |
+| Framework         | Vue 3 (Composition API)      |
+| Language          | TypeScript (strict)          |
+| Bundler           | Vite                         |
+| Styling           | Tailwind CSS 4               |
 | Component library | Reka UI (shadcn-vue pattern) |
-| State management | Pinia |
-| Routing | Vue Router |
-| Icons | Lucide Vue |
-| Utilities | VueUse |
+| State management  | Pinia                        |
+| Routing           | Vue Router                   |
+| Icons             | Lucide Vue                   |
+| Utilities         | VueUse                       |
 
 ---
 
