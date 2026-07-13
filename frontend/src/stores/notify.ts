@@ -10,10 +10,9 @@ export const notifyStore = defineStore('notify', () => {
   const nofiyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
-  let socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
+  const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
 
   function init() {
-    console.log(import.meta.env);
     if (isInit) return;
     console.log('[notify] init...');
     socket.connect();
