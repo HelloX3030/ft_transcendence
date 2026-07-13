@@ -2,38 +2,33 @@
 import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import FriendRequestItem from './FriendRequestItem.vue';
+import { ItemGroup } from '../ui/item/index.ts';
 import { useFriendsStore } from '@/stores/friends.ts';
 import { storeToRefs } from 'pinia';
 
 const { user: me } = useAuthStore();
 
-const friendsStore = useFriendsStore();
-const { friends } = storeToRefs(friendsStore);
+const { state: friends } = storeToRefs(useFriendsStore());
 
 const incomingRequests = computed(() =>
-  friends.value.filter((f) => f.status === 'pending' && f.initiatorId !== me?.id),
+  friends.value.filter((f) => f.initiatorId !== me?.id && f.status !== 'accepted'),
 );
-
 const outgoingRequests = computed(() =>
-  friends.value.filter((f) => f.status === 'pending' && f.initiatorId === me?.id),
+  friends.value.filter((f) => f.initiatorId === me?.id && f.status !== 'accepted'),
 );
-
-function handleResolved(friendId: number) {
-  friends.value = friends.value.filter((f) => f.friendId !== friendId);
-}
 </script>
 
 <template>
   <div class="space-y-6">
     <section v-if="incomingRequests.length">
-      <h3 class="text-sm font-medium mb-2">Friend Requests ({{ incomingRequests.length }})</h3>
+      <h3 class="text-sm font-medium mb-2 text-muted-foreground">
+        Friend Requests ({{ incomingRequests.length }})
+      </h3>
       <div class="space-y-2">
         <FriendRequestItem
           v-for="friend in incomingRequests"
           v-bind="friend"
           :key="friend.friendId"
-          @accepted="handleResolved"
-          @declined="handleResolved"
         />
       </div>
     </section>
@@ -42,13 +37,13 @@ function handleResolved(friendId: number) {
       <h3 class="text-sm font-medium mb-2 text-muted-foreground">
         Sent Requests ({{ outgoingRequests.length }})
       </h3>
-      <div class="space-y-2">
+      <ItemGroup class="gap-2">
         <FriendRequestItem
           v-for="friend in outgoingRequests"
           v-bind="friend"
           :key="friend.friendId"
         />
-      </div>
+      </ItemGroup>
     </section>
 
     <p

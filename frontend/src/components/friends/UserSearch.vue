@@ -1,21 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { Plus, Search, UserIcon, X } from '@lucide/vue';
-
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
-
 import { useUserSearch } from '@/composables/useUserSearch';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import { Button } from '../ui/button';
 import { Spinner } from '../ui/spinner';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { friendsApi } from '@/api/endpoints/friends';
 import { toast } from 'vue-sonner';
 import ItemGroup from '../ui/item/ItemGroup.vue';
 import ItemSeparator from '../ui/item/ItemSeparator.vue';
+import { useFriendsStore } from '@/stores/friends.ts';
+
+const friendStore = useFriendsStore();
 
 const { search, resetSearch, searchStatus, searchData } = useUserSearch();
-
 const inputQuery = ref('');
 
 function handleSearch() {
@@ -30,9 +29,9 @@ function handleClear() {
 
 const hasResults = computed(() => !!searchData.value && searchData.value.results.length > 0);
 
-async function sendFriendRequest(userId: number) {
+async function handleRequest(userId: number) {
   try {
-    await friendsApi.sendRequest(userId);
+    await friendStore.sendRequest(userId);
     toast.success('Friend Request Successfully sent');
   } catch (error) {
     console.log(error);
@@ -97,7 +96,7 @@ async function sendFriendRequest(userId: number) {
                   class="rounded-full hover:text-primary"
                   aria-label="Invite"
                   type="button"
-                  @click="sendFriendRequest(user.id)"
+                  @click="handleRequest(user.id)"
                 >
                   <Plus />
                 </Button>

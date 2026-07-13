@@ -2,20 +2,16 @@
 import type { Friend, GetUserResponse } from '@trailertinder/shared';
 import { computed, onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
-import { friendsApi } from '@/api/endpoints/friends';
 import { useAuthStore } from '@/stores/auth';
 import { toast } from 'vue-sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle, ItemDescription } from '../ui/item';
 import { Button } from '../ui/button';
 import { UserIcon, Check, X } from '@lucide/vue';
+import { useFriendsStore } from '@/stores/friends';
 
 const props = defineProps<Friend>();
-const emit = defineEmits<{
-  (e: 'accepted', friendId: number): void;
-  (e: 'declined', friendId: number): void;
-}>();
-
+const friendsStore = useFriendsStore();
 const { user: me } = useAuthStore();
 const userDetail = ref<GetUserResponse>();
 const isProcessing = ref(false);
@@ -33,9 +29,8 @@ onMounted(async () => {
 async function handleAccept() {
   isProcessing.value = true;
   try {
-    await friendsApi.acceptRequest(props.initiatorId);
+    await friendsStore.acceptRequest(otherUserId.value);
     toast.success(`Friend request from ${userDetail.value?.username} accepted`);
-    emit('accepted', props.friendId);
   } catch (error) {
     console.error(error);
     toast.warning('Failed to accept friend request');
@@ -47,9 +42,8 @@ async function handleAccept() {
 async function handleDecline() {
   isProcessing.value = true;
   try {
-    await friendsApi.delete(props.initiatorId);
+    await friendsStore.declineRequest(otherUserId.value);
     toast.success('Friend request declined');
-    emit('declined', props.friendId);
   } catch (error) {
     console.error(error);
     toast.warning('Failed to decline friend request');
@@ -69,7 +63,7 @@ async function handleDecline() {
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ userDetail?.username }}</ItemTitle>
-      <ItemDescription v-if="!isIncoming">Waiting for response…</ItemDescription>
+      <ItemDescription v-if="!isIncoming" class="">Waiting for response… </ItemDescription>
     </ItemContent>
     <ItemActions>
       <template v-if="isIncoming">
