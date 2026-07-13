@@ -4,10 +4,10 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
-import { JwtAccessPayload } from 'src/types';
+import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
