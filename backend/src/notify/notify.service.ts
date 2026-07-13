@@ -1,8 +1,8 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Socket } from 'socket.io';
 import { NotifyMsg } from '@trailertinder/shared';
+import type { NotifySocket as Socket } from 'src/types';
 
 @Injectable()
 export class NotifyService {
