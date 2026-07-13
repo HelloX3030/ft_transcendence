@@ -16,7 +16,7 @@ import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 @WebSocketGateway({
   namespace: 'notify',
   cors: {
-    origin: 'http://localhost:5173', // todo: env with the url
+    origin: process.env.CORS_ORIGIN,
     credentials: true,
   },
 })
@@ -42,7 +42,7 @@ export class NotifyGateway {
       });
 
       client.data.user = payload.sub;
-      console.log(payload);
+      console.log(payload); // todo: remove
       client.join(`user:${payload.sub}`);
       this.notifyService.setUserAsActive(payload.sub, client);
       this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
@@ -70,17 +70,15 @@ export class NotifyGateway {
   // User online Status
   // -------------------------
   @SubscribeMessage('watch-friends-status')
-  async userStatus(@MessageBody() msg: string, @ConnectedSocket() client: Socket) {
-    if (msg === 'init') {
-      try {
-        const friendIds = await this.notifyService.getFreinds(client.data.user);
-        for (const userId of friendIds) {
-          this.addClientToStatusUpdate(client, userId);
-        }
-      } catch (error) {
-        console.error(error);
-        this.server.emit('error', 'Unable to load your friends online status.');
+  async userStatus(@ConnectedSocket() client: Socket) {
+    try {
+      const friendIds = await this.notifyService.getFreinds(client.data.user);
+      for (const userId of friendIds) {
+        this.addClientToStatusUpdate(client, userId);
       }
+    } catch (error) {
+      console.error(error);
+      this.server.emit('error', 'Unable to load your friends online status.');
     }
   }
 
@@ -103,13 +101,7 @@ export class NotifyGateway {
   // -------------------------
   // Send Notifications
   // -------------------------
-  sendMessage(userId: number, message: NotifyMsg) {
-    console.log(message);
-    this.server.to(`user:${userId}`).emit('message', message);
-  }
-
-  @SubscribeMessage('message')
-  handleMessage(@MessageBody() message: string, @ConnectedSocket() client: Socket): void {
-    this.server.emit<'message'>('message', message);
+  sendNotification(userId: number, message: NotifyMsg) {
+    this.server.to(`user:${userId}`).emit('notification', message);
   }
 }

@@ -62,7 +62,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(payload: LoginPayload) {
-    notify.init();
     const res = await fetch('/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,6 +70,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!res.ok) await throwApiError(res);
     isLoggedIn.value = true;
     await fetchUser();
+    notify.init();
   }
 
   async function logout() {
