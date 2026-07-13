@@ -7,7 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
-  const required = ['VITE_APP_NAME', 'BACKEND_URL'];
+  const required = ['VITE_APP_NAME', 'VITE_BACKEND_URL', 'BACKEND_URL_DOCKER'];
   for (const key of required) {
     if (!env[key]) throw new Error(`Missing required env var: ${key}`);
   }
@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       watch: { usePolling: true },
       proxy: {
-        '/v1': env.BACKEND_URL,
+        '/v1': env.BACKEND_URL_DOCKER,
       },
     },
   };
