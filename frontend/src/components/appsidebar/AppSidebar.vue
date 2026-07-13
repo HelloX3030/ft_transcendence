@@ -17,6 +17,7 @@ import {
   Clapperboard,
   FileText,
   LogOut,
+  MessageCircle,
   Search,
   Shield,
   Users,
@@ -46,6 +47,7 @@ async function handleLogout() {
             <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
             <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
             <AppSidebarItem titel="Friends" path="/friends" :icon="Users" />
+            <AppSidebarItem titel="Chat" path="/chat" :icon="MessageCircle" />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
