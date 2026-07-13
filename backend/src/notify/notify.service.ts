@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Socket } from 'socket.io';
@@ -6,6 +6,7 @@ import { NotifyMsg } from '@trailertinder/shared';
 
 @Injectable()
 export class NotifyService {
+  private readonly logger = new Logger(NotifyService.name);
   // map: userId, clientCount
   private readonly userStatus = new Map<number, Set<Socket>>();
 
@@ -22,18 +23,18 @@ export class NotifyService {
     const cSocketSet = this.userStatus.get(userId) ?? new Set();
     cSocketSet.add(client);
     this.userStatus.set(userId, cSocketSet);
-    console.log('User ' + userId + ' set to Active ');
+    this.logger.debug('User ' + userId + ' set to active.');
   }
 
   setUserAsInative(userId: number, client: Socket) {
     const cSocketSet = this.userStatus.get(userId);
     if (cSocketSet === undefined) {
-      console.error('The user could not be removed from the active list.');
+      this.logger.error('The user could not be removed from the active list.');
       return;
     }
     cSocketSet.delete(client);
     if (cSocketSet.size == 0) this.userStatus.delete(userId);
-    console.log('User ' + userId + ' set to InActive ');
+    this.logger.debug('User ' + userId + ' set to inactive.');
   }
 
   addUserToOnlineStatus(monitoringUser: number, userIdToMonitor: number) {
@@ -72,12 +73,12 @@ export class NotifyService {
       select: {
         friendsA: {
           where: {
-            //status: 'accepted', // todo: aktivate accepted
+            status: 'accepted',
           },
         },
         friendsB: {
           where: {
-            //status: 'accepted', // todo: aktivate accepted
+            status: 'accepted',
           },
         },
       },

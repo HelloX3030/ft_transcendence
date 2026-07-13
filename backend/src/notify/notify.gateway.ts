@@ -1,6 +1,5 @@
 import {
   ConnectedSocket,
-  MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -10,7 +9,7 @@ import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from './notify.service';
-import { forwardRef, Inject } from '@nestjs/common';
+import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 
 @WebSocketGateway({
@@ -21,6 +20,8 @@ import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
   },
 })
 export class NotifyGateway {
+  private readonly logger = new Logger(NotifyGateway.name);
+
   constructor(
     @Inject(forwardRef(() => NotifyService))
     private readonly notifyService: NotifyService,
@@ -42,12 +43,11 @@ export class NotifyGateway {
       });
 
       client.data.user = payload.sub;
-      console.log(payload); // todo: remove
       client.join(`user:${payload.sub}`);
       this.notifyService.setUserAsActive(payload.sub, client);
       this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
       this.server.emit('error', 'No token provided or the token is invalid.');
       client.disconnect(true);
     }
@@ -77,7 +77,7 @@ export class NotifyGateway {
         this.addClientToStatusUpdate(client, userId);
       }
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
       this.server.emit('error', 'Unable to load your friends online status.');
     }
   }
@@ -87,7 +87,7 @@ export class NotifyGateway {
     friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
     client.join(`online-status:${userId}`);
     this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
-    console.log(`Add user to online-status:${userId}`);
+    this.logger.debug(`Add user to online-status:${userId}`);
   }
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
@@ -95,7 +95,7 @@ export class NotifyGateway {
     const friendsStatus: FriendsStatus[] = [];
     friendsStatus.push({ id: userId, isOnline: false });
     this.server.to(`user:${client.data.user}`).emit('watch-friends-status-rm', friendsStatus);
-    console.log(`Removed user from online-status:${userId}`);
+    this.logger.debug(`Removed user from online-status:${userId}`);
   }
 
   // -------------------------
