@@ -20,17 +20,17 @@ interface Chat {
   messages: ChatMessage[];
 }
 
-// ---- Mock current user ----
-const currentUserId = 'me-001';
+// ---- Mock current user (deine echte ID, mit der du gerade eingeloggt bist) ----
+const currentUserId = '4';
 
-// ---- Mock chats (deine Datenstruktur, kommt später vom Backend) ----
+// ---- Mock chats (echte User-IDs aus der DB) ----
 const chats = ref<Chat[]>([
   {
-    userId: 'user-1',
+    userId: '2',
     messages: [
       {
         timestamp: '2026-07-12T18:20:00Z',
-        senderId: 'user-1',
+        senderId: '2',
         message: 'Hey, hast du Inception schon gesehen?',
       },
       {
@@ -38,15 +38,11 @@ const chats = ref<Chat[]>([
         senderId: currentUserId,
         message: 'Ja, gestern erst! Richtig gut.',
       },
-      {
-        timestamp: '2026-07-12T18:22:00Z',
-        senderId: 'user-1',
-        message: 'Movie Night diese Woche?',
-      },
+      { timestamp: '2026-07-12T18:22:00Z', senderId: '2', message: 'Movie Night diese Woche?' },
     ],
   },
   {
-    userId: 'user-2',
+    userId: '3',
     messages: [
       {
         timestamp: '2026-07-11T09:00:00Z',
@@ -55,30 +51,23 @@ const chats = ref<Chat[]>([
       },
       {
         timestamp: '2026-07-11T09:05:00Z',
-        senderId: 'user-2',
+        senderId: '3',
         message: 'Steht schon auf meiner Watchlist 👀',
       },
     ],
   },
-  {
-    userId: 'user-3',
-    messages: [
-      {
-        timestamp: '2026-07-10T21:15:00Z',
-        senderId: 'user-3',
-        message: 'The Dark Knight ist einfach zeitlos',
-      },
-    ],
-  },
 ]);
+
+// ---- Mock friends ----
+const friendIds = ref<string[]>(['2', '3']);
 
 // ---- User fetching (aktuell gemockt via Composable, morgen durch echten Store ersetzt) ----
 const { userCache, userLoading, ensureUser } = useUserResolver();
 
 onMounted(() => {
   chats.value.forEach((c) => ensureUser(c.userId));
+  friendIds.value.forEach((id) => ensureUser(id)); // Namen aller Freunde laden, fürs Suchen
 });
-
 // ---- Selection state ----
 const selectedUserId = ref<string | null>(chats.value[0]?.userId ?? null);
 
@@ -140,14 +129,6 @@ watch(
     scrollToBottom();
   },
 );
-// ---- Mock friends (kommt später vom Friends-Store des Kollegen) ----
-// Das ist bewusst getrennt von `chats` — Freunde sind nicht automatisch Chat-Partner
-const friendIds = ref<string[]>(['user-1', 'user-2', 'user-3', 'user-4', 'user-5']);
-
-onMounted(() => {
-  chats.value.forEach((c) => ensureUser(c.userId));
-  friendIds.value.forEach((id) => ensureUser(id)); // Namen aller Freunde laden, fürs Suchen
-});
 
 // Freunde, mit denen es noch KEINEN Chat gibt
 const friendsWithoutChat = computed(() =>

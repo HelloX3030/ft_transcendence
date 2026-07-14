@@ -1,4 +1,3 @@
-// src/composables/useUserResolver.ts
 import { ref } from 'vue';
 
 export interface UserInfo {
@@ -7,24 +6,29 @@ export interface UserInfo {
   avatarUrl?: string;
 }
 
-// TODO: Sobald der Users/Friends-Store vom Kollegen verfügbar ist,
-// diesen Composable-Inhalt durch einen Aufruf von useUsersStore() ersetzen.
-// Die Rückgabe-Signatur (userCache, userLoading, ensureUser) versuchen wir
-// dann möglichst 1:1 beizubehalten, damit ChatView.vue sich kaum ändert.
+// Response-Shape as in UserProfileView.vue
+interface PublicProfile {
+  id: number;
+  username: string;
+  image: string | null;
+}
 
 const userCache = ref<Record<string, UserInfo>>({});
 const userLoading = ref<Record<string, boolean>>({});
 
-async function mockFetchUser(id: string): Promise<UserInfo> {
-  await new Promise((r) => setTimeout(r, 300 + Math.random() * 400));
-  const names: Record<string, string> = {
-    'user-1': 'Lena',
-    'user-2': 'Tom',
-    'user-3': 'Sara',
-    'user-4': 'Max',
-    'user-5': 'Nina',
-  };
-  return { id, displayName: names[id] ?? `User ${id}` };
+async function fetchUserById(id: string): Promise<UserInfo | null> {
+  try {
+    const res = await fetch(`/v1/users/${id}`, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const data: PublicProfile = await res.json();
+    return {
+      id: String(data.id),
+      displayName: data.username,
+      avatarUrl: data.image ?? undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function useUserResolver() {
@@ -32,7 +36,10 @@ export function useUserResolver() {
     if (userCache.value[id] || userLoading.value[id]) return;
     userLoading.value[id] = true;
     try {
-      userCache.value[id] = await mockFetchUser(id);
+      const user = await fetchUserById(id);
+      if (user) {
+        userCache.value[id] = user;
+      }
     } finally {
       userLoading.value[id] = false;
     }
