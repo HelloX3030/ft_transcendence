@@ -14,10 +14,12 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { useGenresStore } from '@/stores/genres';
 import { usePeopleStore } from '@/stores/people';
+import TotpCard from '@/components/profile/TotpCard.vue';
 
 const auth = useAuthStore();
 const genres = useGenresStore();
 const people = usePeopleStore();
+
 const profile = computed(() => auth.user);
 
 const initials = computed(() =>
@@ -125,6 +127,7 @@ watch(
           <p v-else class="text-muted-foreground text-sm">{{ section.empty }}</p>
         </CardContent>
       </Card>
+      <TotpCard :totp-active="profile.totpActive" />
     </template>
   </div>
 </template>
