@@ -10,8 +10,18 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
-import { successResponse } from 'src/utils';
+import {
+  MOVIE_ADDED_TO_WATCHLIST,
+  MOVIE_REMOVED_FROM_WATCHLIST,
+  successResponse,
+  UserUtils,
+  WATCHLIST_DELETED,
+  WATCHLIST_USER_ADDED,
+  WATCHLIST_USER_REMOVED,
+  WATCHLISTS_TITEL,
+} from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
+import { NotifyService } from 'src/notify/notify.service';
 
 // Number of movie posters stitched into a watchlist's mosaic cover.
 export const WATCHLIST_COVER_LIMIT = 4;
@@ -33,7 +43,11 @@ export const WATCHLIST_SELECT = {
 
 @Injectable()
 export class WatchlistsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notify: NotifyService,
+    private userUtils: UserUtils,
+  ) {}
 
   // -------------------------
   // WATCHLIST
@@ -115,12 +129,17 @@ export class WatchlistsService {
   }
 
   async remove(id: number, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
+    const watchlistUser = await this.checkUserAccess(id, currentUserId);
     await this.prisma.watchlists.delete({
       where: {
         id,
       },
     });
+
+    const username = (await this.userUtils.getUser(currentUserId)).username;
+    const msg = WATCHLIST_DELETED(username, watchlistUser.watchlist.name);
+    await this.sendWatchlistNotify(id, currentUserId, msg);
+
     return successResponse(null);
   }
 
@@ -142,7 +161,7 @@ export class WatchlistsService {
   }
 
   async addMovie(id: number, dto: watchlistMovieDto, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
+    const watchlistUser = await this.checkUserAccess(id, currentUserId);
     let movie = await this.prisma.movies.findUnique({
       where: {
         tmdbId: dto.tmdbId,
@@ -166,19 +185,40 @@ export class WatchlistsService {
       },
     });
     if (watchlistMovie === null) throw new InternalServerErrorException();
+
+    const username = (await this.userUtils.getUser(currentUserId)).username;
+    const msg = MOVIE_ADDED_TO_WATCHLIST(username, movie.name, watchlistUser.watchlist.name);
+    await this.sendWatchlistNotify(id, currentUserId, msg);
+
     return successResponse(null);
   }
 
   async removeMovie(id: number, movieId: number, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
-    await this.prisma.watchlist_movies.delete({
+    const watchlistUser = await this.checkUserAccess(id, currentUserId);
+    const movie = await this.prisma.watchlist_movies.delete({
       where: {
         watchlistId_movieId: {
           watchlistId: id,
           movieId: movieId,
         },
       },
+      select: {
+        movie: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
+
+    const username = (await this.userUtils.getUser(currentUserId)).username;
+    const msg = MOVIE_REMOVED_FROM_WATCHLIST(
+      username,
+      movie.movie.name,
+      watchlistUser.watchlist.name,
+    );
+    await this.sendWatchlistNotify(id, currentUserId, msg);
+
     return successResponse(null);
   }
 
@@ -197,11 +237,14 @@ export class WatchlistsService {
         role: true,
       },
     });
+    if (users === null && users === undefined) {
+      throw new InternalServerErrorException();
+    }
     return successResponse(users);
   }
 
   async addUser(id: number, dto: watchlistUserDto, currentUserId: number) {
-    await this.checkUserAccess(id, currentUserId);
+    const watchlistAccess = await this.checkUserAccess(id, currentUserId);
 
     const watchlistUser = await this.prisma.watchlist_users.create({
       data: {
@@ -211,6 +254,13 @@ export class WatchlistsService {
       },
     });
     if (watchlistUser === null) throw new InternalServerErrorException();
+
+    const msg = WATCHLIST_USER_ADDED(watchlistAccess.watchlist.name);
+    this.notify.sendNotify(dto.userId, {
+      titel: WATCHLISTS_TITEL,
+      msg,
+    });
+
     return successResponse(null);
   }
 
@@ -251,14 +301,29 @@ export class WatchlistsService {
       await this.checkUserAccess(id, currentUserId);
     }
 
-    await this.prisma.watchlist_users.delete({
+    const wl = await this.prisma.watchlist_users.delete({
       where: {
         watchlistId_userId: {
           watchlistId: id,
           userId: userId,
         },
       },
+      select: {
+        watchlist: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
+
+    if (userId != currentUserId) {
+      const msg = WATCHLIST_USER_REMOVED(wl.watchlist.name);
+      this.notify.sendNotify(userId, {
+        titel: WATCHLISTS_TITEL,
+        msg,
+      });
+    }
 
     return successResponse(null);
   }
@@ -270,6 +335,13 @@ export class WatchlistsService {
           userId,
           watchlistId: watchlistId,
         },
+      },
+      select: {
+        watchlistId: true,
+        userId: true,
+        user: true,
+        role: true,
+        watchlist: {},
       },
     });
     if (!watchlistUser) {
@@ -334,6 +406,19 @@ export class WatchlistsService {
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException();
+    }
+  }
+
+  async sendWatchlistNotify(wlId: number, currentUserId: number, msg: string) {
+    const wlUsers = (await this.getUsers(wlId, currentUserId)).data;
+    if (wlUsers !== null && wlUsers !== undefined) {
+      for (const user of wlUsers) {
+        if (user.userId === currentUserId) continue;
+        this.notify.sendNotify(user.userId, {
+          titel: WATCHLISTS_TITEL,
+          msg,
+        });
+      }
     }
   }
 }
