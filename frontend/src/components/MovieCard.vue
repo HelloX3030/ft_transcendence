@@ -14,7 +14,7 @@ defineProps<Props>();
 </script>
 
 <template>
-  <AspectRatio :ratio="2 / 3" class="rounded-2xl">
+  <AspectRatio :ratio="2 / 3" class="rounded-2xl overflow-hidden">
     <!-- Skeleton -->
     <template v-if="loading">
       <Skeleton class="absolute inset-0" />
@@ -24,8 +24,8 @@ defineProps<Props>();
     <template v-else>
       <div
         :class="[
-          selected ? 'outline-2 outline-primary' : '',
-          'hover:outline-2 hover:outline-primary absolute inset-0 rounded-2xl hover:cursor-pointer transition-all duration-300 ease-in-out ',
+          selected ? 'ring-2 ring-primary' : '',
+          'hover:ring-2 hover:ring-primary absolute inset-0 rounded-2xl hover:cursor-pointer transition-all duration-300 ease-in-out ',
         ]"
         @click="$emit('select')"
       >
@@ -39,7 +39,7 @@ defineProps<Props>();
         />
         <div v-else class="rounded-2xl w-full h-full bg-muted"></div>
         <div class="bg-black/50 absolute bottom-0 w-full p-4 rounded-b-2xl">
-          <span class="text-sm line-clamp-2">{{ title }}</span>
+          <p class="text-sm truncate">{{ title }}</p>
         </div>
       </div>
     </template>

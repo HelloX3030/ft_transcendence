@@ -12,7 +12,7 @@ const auth = useAuthStore();
     <SidebarMenu>
       <SidebarMenuItem>
         <SidebarMenuButton size="lg" as-child>
-          <RouterLink to="/profile" active-class="border-r-2 border-primary">
+          <RouterLink to="/profile" active-class="border-r-2 border-primary rounded-r-xs">
             <Avatar>
               <AvatarImage v-if="auth.user?.image" :src="auth.user.image" alt="avatar" />
               <AvatarFallback>{{
@@ -20,7 +20,7 @@ const auth = useAuthStore();
               }}</AvatarFallback>
             </Avatar>
 
-            <div class="grid flex-1 text-left text-sm leading-tight">
+            <div class="flex-1 text-left text-sm leading-tight">
               <span class="truncate font-semibold">{{ auth.user?.username ?? '...' }}</span>
             </div>
           </RouterLink>
