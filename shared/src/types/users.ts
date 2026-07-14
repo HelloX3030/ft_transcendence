@@ -26,3 +26,20 @@ export interface UserMeResponse {
   actorIds: number[];
   directorIds: number[];
 }
+
+export interface GetUserRequest {
+  id: number;
+}
+
+export interface GetUserResponse {
+  id: number;
+  image: string | null;
+  username: string;
+}
+
+export interface UserSearchResponse {
+  page: number;
+  limit: number;
+  total: number;
+  results: GetUserResponse[];
+}

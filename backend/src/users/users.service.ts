@@ -156,7 +156,7 @@ export class UsersService {
       select: PUBLIC_SELECT,
     });
     if (user === null) throw new NotFoundException('User not found');
-    return user;
+    return successResponse(user);
   }
 
   async createTOTP(userId: number) {
