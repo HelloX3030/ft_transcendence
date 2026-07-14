@@ -30,6 +30,7 @@ export const ME_SELECT = {
   genreIds: true,
   actorIds: true,
   directorIds: true,
+  totpActive: true,
 } as const;
 
 // TODO: replace with real preference extraction derived from the movies the user
