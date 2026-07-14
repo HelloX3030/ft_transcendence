@@ -1,5 +1,6 @@
 import {
   ConnectedSocket,
+  MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -11,6 +12,8 @@ import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
+import { ChatRequestDto } from './dto';
+import { FriendUtils } from 'src/utils';
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -26,6 +29,7 @@ export class NotifyGateway {
     @Inject(forwardRef(() => NotifyService))
     private readonly notifyService: NotifyService,
     private readonly jwtService: JwtService,
+    private readonly friendUtils: FriendUtils,
   ) {}
   @WebSocketServer()
   server: Server = new Server();
@@ -72,7 +76,7 @@ export class NotifyGateway {
   @SubscribeMessage('watch-friends-status')
   async userStatus(@ConnectedSocket() client: Socket) {
     try {
-      const friendIds = await this.notifyService.getFreinds(client.data.user);
+      const friendIds = await this.friendUtils.getFreinds(client.data.user);
       for (const userId of friendIds) {
         this.addClientToStatusUpdate(client, userId);
       }
@@ -104,4 +108,38 @@ export class NotifyGateway {
   sendNotification(userId: number, message: NotifyMsg) {
     this.server.to(`user:${userId}`).emit('notification', message);
   }
+
+  // -------------------------
+  // User Chat
+  // -------------------------
+  @SubscribeMessage('chat')
+  async createChat(@MessageBody() data: ChatRequestDto, client: Socket) {
+    const clientUserId = client.data.user;
+    const friendUserId = data.userId;
+
+    // todo: check whots happend if a client trys to add the same chat multipli times.
+    // todo: avoid that socket io is buffering the messages that can not be delivert.
+    try {
+      await this.notifyService.hasChatRequirements(clientUserId, friendUserId);
+      const socketsA = this.notifyService.getUserSockets(clientUserId);
+      const socketsB = this.notifyService.getUserSockets(friendUserId);
+      const roomId = 1; // todo: generate a room id based on the friendId
+      const chatRoom = `chat:${roomId}`;
+
+      for (const socket of [...socketsA, ...socketsB]) {
+        socket.join(chatRoom);
+      }
+
+      this.server
+        .to(`user:${clientUserId}`)
+        .emit('chat', { status: true, chatPartnerId: friendUserId, chatRoom });
+      this.server
+        .to(`user:${friendUserId}`)
+        .emit('chat', { status: true, chatPartnerId: clientUserId, chatRoom });
+    } catch (error) {
+      // todo: error handling
+    }
+  }
+
+  removeChat() {}
 }
