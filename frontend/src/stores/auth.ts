@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
+import { notifyStore } from './notify';
 import type {
   LoginRequest,
   LoginResponse,
@@ -19,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const requiresOnboarding = ref(false);
   const user = ref<UserMeResponse | null>(null);
+  const notify = notifyStore();
 
   // Onboarding state is owned by the backend (users.onboardingCompleted). Mirror it
   // locally whenever we (re)load the user so a page reload or a login from another
@@ -64,6 +66,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!result.mfaRequired) {
       isLoggedIn.value = true;
       await fetchUser();
+      notify.init();
     }
 
     return result;
@@ -78,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = false;
     requiresOnboarding.value = false;
     user.value = null;
+    notify.stop();
   }
 
   async function register(payload: RegisterRequest) {
@@ -91,6 +95,7 @@ export const useAuthStore = defineStore('auth', () => {
     // requiresOnboarding is derived from the fetched user (onboardingCompleted=false
     // for a new account), so no need to set it manually here.
     await fetchUser();
+    notify.init();
   }
 
   // Sends the movies picked during onboarding to the backend, which marks

@@ -18,6 +18,7 @@ import { storeToRefs } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
 import WatchlistsView from '@/views/watchlist/WatchlistsView.vue';
 import ListView from '@/views/watchlist/ListView.vue';
+import NotificationView from '@/views/NotificationView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -79,6 +80,11 @@ const router = createRouter({
       path: '/moviedetail/:id',
       component: MovieDetailView,
       meta: { requiresAuth: true, title: 'Movie Details' },
+    },
+    {
+      path: '/notifications',
+      component: NotificationView,
+      meta: { requiresAuth: true, title: 'Notifications' },
     },
     {
       path: '/terms',

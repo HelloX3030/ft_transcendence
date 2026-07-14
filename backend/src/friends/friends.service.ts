@@ -5,9 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Friend } from '@trailertinder/shared';
-import { successResponse } from 'src/utils';
+import {
+  FRIEND_REMOVED,
+  FRIEND_REQUEST_ACCEPTED,
+  FRIEND_REQUEST_REMOVED,
+  FRIENDS_TITEL,
+  NEW_FRIEND_REQUEST,
+  successResponse,
+  UserUtils,
+} from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey, JwtAccessPayload } from 'src/types';
+import { NotifyService } from 'src/notify/notify.service';
 
 export const FRIENDS_SELECT = {
   friendsA: true,
@@ -16,7 +25,11 @@ export const FRIENDS_SELECT = {
 
 @Injectable()
 export class FriendsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifyService: NotifyService,
+    private userUtils: UserUtils,
+  ) {}
 
   async getFriends(payload: JwtAccessPayload) {
     const user = await this.prisma.users.findUnique({
@@ -59,6 +72,11 @@ export class FriendsService {
         status: 'pending',
       },
     });
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg: NEW_FRIEND_REQUEST(username),
+    });
     return successResponse(null, 'friendship request created');
   }
 
@@ -90,16 +108,42 @@ export class FriendsService {
       },
     });
 
+    this.notifyService.addUserToOnlineStatus(payload.sub, id);
+    this.notifyService.addUserToOnlineStatus(id, payload.sub);
+
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg: FRIEND_REQUEST_ACCEPTED(username),
+    });
+
     return successResponse(null, 'friendship status updated');
   }
 
   async deleteFriend(payload: JwtAccessPayload, id: number) {
     const friendsKey = this.getFriendsKey(payload.sub, id);
-    await this.prisma.friends.delete({
+    const deletedFriend = await this.prisma.friends.delete({
       where: {
         userAId_userBId: friendsKey,
       },
     });
+    this.notifyService.rmUserFromOnlineStatus(payload.sub, id);
+    this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
+
+    const username = (await this.userUtils.getUser(payload.sub)).username;
+
+    if (deletedFriend.status === 'accepted') {
+      this.notifyService.sendNotify(id, {
+        titel: FRIENDS_TITEL,
+        msg: FRIEND_REMOVED(username),
+      });
+    } else {
+      this.notifyService.sendNotify(id, {
+        titel: FRIENDS_TITEL,
+        msg: FRIEND_REQUEST_REMOVED(username),
+      });
+    }
+
     return successResponse(null, 'friendship deleted');
   }
 
