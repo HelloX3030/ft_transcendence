@@ -10,6 +10,11 @@ export default defineConfigWithVueTs(
   pluginOxlint.configs['flat/recommended'],
   eslintPluginPrettierRecommended,
   {
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
       'vue/multi-word-component-names': 'off',
     },

@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { watchlistCreateDto, watchlistDto, watchlistUpdateDto } from './dto';
+import { watchlistCreateDto, watchlistUpdateDto } from './dto';
 import { watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import {
@@ -35,6 +35,7 @@ const COVER_INCLUDE = {
     select: { movie: { select: { posterPath: true } } },
   },
 } as const;
+import { WatchlistResponse } from '@trailertinder/shared';
 
 export const WATCHLIST_SELECT = {
   role: true,
@@ -54,15 +55,17 @@ export class WatchlistsService {
   // -------------------------
 
   async findAll(userId: number) {
-    const watchlists = (
-      await this.prisma.watchlist_users.findMany({
-        where: {
-          userId,
-        },
-        select: WATCHLIST_SELECT,
-      })
-    ).map(({ role, watchlist }) =>
-      this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+    const watchlistUsers = await this.prisma.watchlist_users.findMany({
+      where: {
+        userId,
+      },
+      select: WATCHLIST_SELECT,
+    });
+
+    const watchlists = await Promise.all(
+      watchlistUsers.map(({ role, watchlist }) =>
+        this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+      ),
     );
     return successResponse(watchlists);
   }
@@ -75,7 +78,7 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = this.toWatchlistDto(
+    const watchlist = await this.toWatchlistDto(
       userWatchlist.role,
       userWatchlist.watchlist,
       this.extractPosterPaths(userWatchlist.watchlist.watchlistMovies),
@@ -101,7 +104,7 @@ export class WatchlistsService {
     });
     const userWatchlist = watchlist.watchlistUsers[0];
     // A freshly created watchlist has no movies yet, so the mosaic is empty.
-    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist, []));
+    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist, []));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -119,8 +122,9 @@ export class WatchlistsService {
       },
       include: COVER_INCLUDE,
     });
+    if (watchlist === null) throw new InternalServerErrorException();
     return successResponse(
-      this.toWatchlistDto(
+      await this.toWatchlistDto(
         watchlistUser.role,
         watchlist,
         this.extractPosterPaths(watchlist.watchlistMovies),
@@ -353,17 +357,29 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  toWatchlistDto(
+  async toWatchlistDto(
     role: watchlist_role,
     watchlistDb: watchlists,
     posterPaths: string[],
-  ): watchlistDto {
-    const watchlist: watchlistDto = {
+  ): Promise<WatchlistResponse> {
+    const editors: number[] = (
+      await this.prisma.watchlist_users.findMany({
+        where: {
+          watchlistId: watchlistDb.id,
+          role: 'editor',
+        },
+        select: {
+          userId: true,
+        },
+      })
+    ).map((editor) => editor.userId);
+    const watchlist: WatchlistResponse = {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
       posterPaths,
       role: role,
+      editorIds: editors,
       createdAt: watchlistDb.createdAt,
     };
     return watchlist;
