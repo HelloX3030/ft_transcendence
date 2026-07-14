@@ -31,8 +31,8 @@ async function handleDelete() {
     await friendsStore.deleteFriend(props.friendId);
     toast.success('Friend deleted successful');
   } catch (error) {
-    console.error(error);
-    toast.warning('Failed to delete friend');
+    const message = (error as Error).message;
+    toast.error(message);
   }
 }
 </script>

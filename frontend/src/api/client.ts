@@ -6,13 +6,12 @@ export async function backendClient<T>(path: string, options?: RequestInit): Pro
     credentials: 'include',
     ...options,
   });
-
   if (!response.ok) {
     const error = await response.json().catch(() => null);
-    console.log('frontend request:', path, options);
+    console.log('frontend request:', path, options, 'error:', error);
     throw new Error(error?.message ?? `Request failed: ${response.status}`);
   }
-
+  console.log('frontend request:', path, options, 'response:', response);
   const json: apiResponse<T> = await response.json();
   return ('data' in json ? json.data : json) as T; // TODO: remove fallback once all backend endpoints consistently return { data: ... } wrapper
 }
