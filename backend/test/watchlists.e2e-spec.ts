@@ -5,6 +5,7 @@ import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp } from './utils/create-test-app.utils';
 import { checkCookies } from './utils';
+import { WatchlistResponse } from '@trailertinder/shared';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -12,14 +13,14 @@ interface ApiResponse<T = unknown> {
   data: T;
 }
 
-interface WatchlistResponse {
-  id: number;
-  name: string;
-  image: string | null;
-  posterPaths: string[];
-  role: 'editor' | 'viewer';
-  createdAt: string;
-}
+// interface WatchlistResponse {
+//   id: number;
+//   name: string;
+//   image: string | null;
+//   posterPaths: string[];
+//   role: 'editor' | 'viewer';
+//   createdAt: string;
+// }
 
 interface MovieResponse {
   id: number;
@@ -206,6 +207,7 @@ describe('Watchlists (e2e)', () => {
 
     const body = response.body as ApiResponse<WatchlistResponse>;
     expect(body.success).toBe(true);
+    console.log(body);
     return body.data;
   }
 

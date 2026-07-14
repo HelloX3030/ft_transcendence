@@ -3,6 +3,10 @@ export type WatchlistRole = "editor" | "viewer";
 export interface WatchlistMovieRequest {
   tmdbId: number;
 }
+export interface WatchlistMovieResponse {
+  tmdbId: number;
+  name: string;
+}
 
 export interface WatchlistCreateRequest {
   name: string;
@@ -14,13 +18,23 @@ export interface WatchlistUpdateRequest {
   image?: string;
 }
 
+export interface WatchlistRequest {
+  watchlistId: number;
+}
+
 export interface WatchlistResponse {
   id: number;
   name: string;
   image: string | null;
   posterPaths: string[];
   role: WatchlistRole;
-  createdAt: Date;
+  editorIds: number[];
+  createdAt: Date | string;
+}
+
+export interface WatchlistUserCreateRequest {
+  userId: number;
+  role: WatchlistRole;
 }
 
 export interface WatchlistMovieResponse {
@@ -31,6 +45,10 @@ export interface WatchlistMovieResponse {
 }
 
 export interface WatchlistUserRequest {
+  watchlistId: number;
+}
+
+export interface WatchlistUserResponse {
   userId: number;
   role: WatchlistRole;
 }
