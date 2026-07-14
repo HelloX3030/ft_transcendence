@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { Search, Send, ArrowLeft } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUserResolver } from '@/composables/useUserResolver';
+import { useFriendsStore } from '@/stores/friends';
+import { storeToRefs } from 'pinia';
+import { useUserDetails } from '@/composables/useUserDetails';
+import { useAuthStore } from '@/stores/auth';
 
 // ---- Types ----
 interface ChatMessage {
@@ -20,10 +23,17 @@ interface Chat {
   messages: ChatMessage[];
 }
 
-// ---- Mock current user (deine echte ID, mit der du gerade eingeloggt bist) ----
-const currentUserId = '4';
+// ---- Current user ----
+const authStore = useAuthStore();
+const { user } = storeToRefs(authStore);
+const currentUserId = computed(() => user.value?.id.toString() ?? '');
 
-// ---- Mock chats (echte User-IDs aus der DB) ----
+// ---- Friends (echt, vom Friends-Store) ----
+const friendsStore = useFriendsStore();
+const { acceptedFriends } = storeToRefs(friendsStore);
+const friendIds = computed(() => acceptedFriends.value.map((f) => f.friendId.toString()));
+
+// ---- Mock chats (echte Test-User-IDs, Chat-Historie kommt später vom Backend) ----
 const chats = ref<Chat[]>([
   {
     userId: '2',
@@ -35,7 +45,7 @@ const chats = ref<Chat[]>([
       },
       {
         timestamp: '2026-07-12T18:21:00Z',
-        senderId: currentUserId,
+        senderId: currentUserId.value,
         message: 'Ja, gestern erst! Richtig gut.',
       },
       { timestamp: '2026-07-12T18:22:00Z', senderId: '2', message: 'Movie Night diese Woche?' },
@@ -46,7 +56,7 @@ const chats = ref<Chat[]>([
     messages: [
       {
         timestamp: '2026-07-11T09:00:00Z',
-        senderId: currentUserId,
+        senderId: currentUserId.value,
         message: 'Schau dir mal Spirited Away an',
       },
       {
@@ -58,16 +68,22 @@ const chats = ref<Chat[]>([
   },
 ]);
 
-// ---- Mock friends ----
-const friendIds = ref<string[]>(['2', '3']);
-
-// ---- User fetching (aktuell gemockt via Composable, morgen durch echten Store ersetzt) ----
-const { userCache, userLoading, ensureUser } = useUserResolver();
-
-onMounted(() => {
-  chats.value.forEach((c) => ensureUser(c.userId));
-  friendIds.value.forEach((id) => ensureUser(id)); // Namen aller Freunde laden, fürs Suchen
+// ---- User details laden: Chat-Partner UND Freunde zusammen ----
+const allUserIds = computed(() => {
+  const ids = new Set<number>();
+  chats.value.forEach((c) => ids.add(Number(c.userId)));
+  friendIds.value.forEach((id) => ids.add(Number(id)));
+  return Array.from(ids);
 });
+
+const { userDetails, usersLoading } = useUserDetails(allUserIds.value);
+
+function getUser(id: string) {
+  const u = userDetails.value.find((u) => u.id === Number(id));
+  if (!u) return undefined;
+  return { displayName: u.username, avatarUrl: u.image ?? undefined };
+}
+
 // ---- Selection state ----
 const selectedUserId = ref<string | null>(chats.value[0]?.userId ?? null);
 
@@ -77,18 +93,15 @@ const selectedChat = computed<Chat | undefined>(() =>
 
 function selectChat(userId: string) {
   selectedUserId.value = userId;
-  ensureUser(userId);
 }
 
-// ---- Search (Platzhalter, später Friend-Search vom Kollegen einbinden) ----
+// ---- Search ----
 const searchQuery = ref('');
 
 const filteredChats = computed(() => {
   if (!searchQuery.value.trim()) return chats.value;
   const q = searchQuery.value.toLowerCase();
-  return chats.value.filter((c) =>
-    userCache.value[c.userId]?.displayName.toLowerCase().includes(q),
-  );
+  return chats.value.filter((c) => getUser(c.userId)?.displayName.toLowerCase().includes(q));
 });
 
 const lastMessageOf = (chat: Chat) => chat.messages[chat.messages.length - 1];
@@ -103,7 +116,7 @@ function sendMessage() {
   if (!newMessage.value.trim() || !selectedChat.value) return;
   selectedChat.value.messages.push({
     timestamp: new Date().toISOString(),
-    senderId: currentUserId,
+    senderId: currentUserId.value,
     message: newMessage.value.trim(),
   });
   newMessage.value = '';
@@ -118,7 +131,6 @@ function scrollToBottom() {
   });
 }
 
-// Scrollen bei: Chat wechseln, neue Nachricht in aktivem Chat
 watch(selectedUserId, () => {
   scrollToBottom();
 });
@@ -130,17 +142,16 @@ watch(
   },
 );
 
-// Freunde, mit denen es noch KEINEN Chat gibt
+// ---- Freunde ohne bestehenden Chat ----
 const friendsWithoutChat = computed(() =>
   friendIds.value.filter((id) => !chats.value.some((c) => c.userId === id)),
 );
 
-// Bei Suche: passende Freunde ohne bestehenden Chat
 const filteredNewFriends = computed(() => {
   if (!searchQuery.value.trim()) return [];
   const q = searchQuery.value.toLowerCase();
   return friendsWithoutChat.value.filter((id) =>
-    userCache.value[id]?.displayName.toLowerCase().includes(q),
+    getUser(id)?.displayName.toLowerCase().includes(q),
   );
 });
 
@@ -149,12 +160,12 @@ function startNewChat(userId: string) {
     chats.value.push({ userId, messages: [] });
   }
   selectChat(userId);
-  searchQuery.value = ''; // Suche zurücksetzen nach Auswahl
+  searchQuery.value = '';
 }
 </script>
 
 <template>
-  <div class="flex h-full overflow-hidde relative">
+  <div class="flex h-full overflow-hidden relative">
     <!-- Left column: Search + Chat list -->
     <aside
       class="w-full sm:w-80 border-r border-white/10 flex-col shrink-0"
@@ -177,19 +188,19 @@ function startNewChat(userId: string) {
         >
           <Avatar class="h-10 w-10 shrink-0">
             <AvatarImage
-              v-if="userCache[chat.userId]?.avatarUrl"
-              :src="userCache[chat.userId]!.avatarUrl!"
+              v-if="getUser(chat.userId)?.avatarUrl"
+              :src="getUser(chat.userId)!.avatarUrl!"
             />
             <AvatarFallback>
-              {{ userCache[chat.userId]?.displayName.charAt(0) ?? '?' }}
+              {{ getUser(chat.userId)?.displayName.charAt(0) ?? '?' }}
             </AvatarFallback>
           </Avatar>
 
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-baseline">
-              <Skeleton v-if="userLoading[chat.userId]" class="h-4 w-20" />
+              <Skeleton v-if="usersLoading" class="h-4 w-20" />
               <span v-else class="font-medium truncate">
-                {{ userCache[chat.userId]?.displayName ?? chat.userId }}
+                {{ getUser(chat.userId)?.displayName ?? chat.userId }}
               </span>
               <span v-if="lastMessageOf(chat)" class="text-xs text-muted-foreground shrink-0 ml-2">
                 {{ formatTime(lastMessageOf(chat)!.timestamp) }}
@@ -223,15 +234,15 @@ function startNewChat(userId: string) {
           >
             <Avatar class="h-10 w-10 shrink-0">
               <AvatarImage
-                v-if="userCache[friendId]?.avatarUrl"
-                :src="userCache[friendId]!.avatarUrl!"
+                v-if="getUser(friendId)?.avatarUrl"
+                :src="getUser(friendId)!.avatarUrl!"
               />
               <AvatarFallback>
-                {{ userCache[friendId]?.displayName.charAt(0) ?? '?' }}
+                {{ getUser(friendId)?.displayName.charAt(0) ?? '?' }}
               </AvatarFallback>
             </Avatar>
             <span class="font-medium truncate">
-              {{ userCache[friendId]?.displayName ?? friendId }}
+              {{ getUser(friendId)?.displayName ?? friendId }}
             </span>
           </button>
         </template>
@@ -260,16 +271,16 @@ function startNewChat(userId: string) {
 
           <Avatar class="h-9 w-9">
             <AvatarImage
-              v-if="userCache[selectedChat.userId]?.avatarUrl"
-              :src="userCache[selectedChat.userId]!.avatarUrl!"
+              v-if="getUser(selectedChat.userId)?.avatarUrl"
+              :src="getUser(selectedChat.userId)!.avatarUrl!"
             />
             <AvatarFallback>
-              {{ userCache[selectedChat.userId]?.displayName.charAt(0) ?? '?' }}
+              {{ getUser(selectedChat.userId)?.displayName.charAt(0) ?? '?' }}
             </AvatarFallback>
           </Avatar>
-          <Skeleton v-if="userLoading[selectedChat.userId]" class="h-4 w-24" />
+          <Skeleton v-if="usersLoading" class="h-4 w-24" />
           <span v-else class="font-medium">
-            {{ userCache[selectedChat.userId]?.displayName ?? selectedChat.userId }}
+            {{ getUser(selectedChat.userId)?.displayName ?? selectedChat.userId }}
           </span>
         </header>
 
@@ -278,7 +289,7 @@ function startNewChat(userId: string) {
             v-if="selectedChat.messages.length === 0"
             class="h-full flex items-center justify-center text-muted-foreground text-sm text-center"
           >
-            Say hi to {{ userCache[selectedChat.userId]?.displayName ?? 'your friend' }} 👋
+            Say hi to {{ getUser(selectedChat.userId)?.displayName ?? 'your friend' }} 👋
           </div>
           <div v-else class="flex flex-col gap-2">
             <div
