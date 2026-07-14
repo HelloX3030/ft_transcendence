@@ -17,7 +17,7 @@ const { state: friends, acceptedFriends } = storeToRefs(store);
     <h1 class="text-3xl font-bold">Friends</h1>
     <UserSearch />
 
-    <div v-if="friends" class="space-y-4">
+    <div v-if="friends.length > 0" class="space-y-4">
       <FriendRequestList />
       <h3 class="text-sm font-medium mb-2 text-muted-foreground">
         Friends ({{ acceptedFriends.length }})
