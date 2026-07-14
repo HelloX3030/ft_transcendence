@@ -14,7 +14,7 @@ defineProps<PropsType>();
 <template>
   <SidebarMenuItem>
     <SidebarMenuButton as-child>
-      <RouterLink :to="path" active-class="border-r-2 border-primary">
+      <RouterLink :to="path" active-class="border-r-2 border-primary rounded-r-xs">
         <icon />
         {{ titel }}
       </RouterLink>

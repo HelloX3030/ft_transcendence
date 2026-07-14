@@ -4,5 +4,5 @@ export interface Friend {
   friendId: number;
   status: friendStatus;
   initiatorId: number;
-  createdAt: Date;
+  createdAt: Date | string;
 }

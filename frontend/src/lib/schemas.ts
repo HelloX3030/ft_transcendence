@@ -29,3 +29,10 @@ export const registerSchema = z
       });
     }
   });
+
+export const createListSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50),
+});
+export const updateListSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+});
