@@ -25,6 +25,7 @@ export interface UserMeResponse {
   genreIds: number[];
   actorIds: number[];
   directorIds: number[];
+  totpActive: boolean;
 }
 
 export interface GetUserRequest {
