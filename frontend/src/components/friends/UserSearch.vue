@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Plus, Search, UserIcon, X } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useUserSearch } from '@/composables/useUserSearch';
@@ -34,10 +34,12 @@ async function handleRequest(userId: number) {
     await friendStore.sendRequest(userId);
     toast.success('Friend Request Successfully sent');
   } catch (error) {
-    console.log(error);
-    toast.warning('Friend Request Failed');
+    const message = (error as Error).message;
+    toast.error(message);
   }
 }
+
+watch(inputQuery, (value) => value.length <= 0 && handleClear());
 </script>
 
 <template>

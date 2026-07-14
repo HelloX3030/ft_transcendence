@@ -32,8 +32,8 @@ async function handleAccept() {
     await friendsStore.acceptRequest(otherUserId.value);
     toast.success(`Friend request from ${userDetail.value?.username} accepted`);
   } catch (error) {
-    console.error(error);
-    toast.warning('Failed to accept friend request');
+    const message = (error as Error).message;
+    toast.error(message);
   } finally {
     isProcessing.value = false;
   }
@@ -45,8 +45,8 @@ async function handleDecline() {
     await friendsStore.declineRequest(otherUserId.value);
     toast.success('Friend request declined');
   } catch (error) {
-    console.error(error);
-    toast.warning('Failed to decline friend request');
+    const message = (error as Error).message;
+    toast.error(message);
   } finally {
     isProcessing.value = false;
   }
