@@ -4,3 +4,4 @@ export * from "./users";
 export * from "./watchlists";
 export * from "./friends";
 export * from "./tmdb";
+export * from "./notify";
