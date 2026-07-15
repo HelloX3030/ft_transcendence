@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserIcon } from '@lucide/vue';
 import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
 import { useUserDetails } from '@/composables/useUserDetails.ts';

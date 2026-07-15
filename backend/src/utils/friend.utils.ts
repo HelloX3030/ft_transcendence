@@ -1,17 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FriendKey } from 'src/types';
 
 @Injectable()
 export class FriendUtils {
   constructor(private prisma: PrismaService) {}
 
   async areFriends(userAId: number, userBId: number): Promise<boolean> {
+    const friendsKey = this.getFriendsKey(userAId, userBId);
     const friendShip = await this.prisma.friends.findUnique({
       where: {
-        userAId_userBId: {
-          userAId,
-          userBId,
-        },
+        userAId_userBId: friendsKey,
       },
       select: {
         status: true,
@@ -56,5 +55,18 @@ export class FriendUtils {
       friends.push(friend.userAId);
     });
     return friends;
+  }
+
+  getFriendsKey(userXId: number, userYId: number): FriendKey {
+    if (userXId < userYId) {
+      return {
+        userAId: userXId,
+        userBId: userYId,
+      };
+    }
+    return {
+      userAId: userYId,
+      userBId: userXId,
+    };
   }
 }

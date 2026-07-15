@@ -12,7 +12,7 @@ import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
-import { ChatRequestDto } from './dto';
+import { ChatMsgDto } from './dto';
 import { FriendUtils } from 'src/utils';
 
 @WebSocketGateway({
@@ -113,33 +113,61 @@ export class NotifyGateway {
   // User Chat
   // -------------------------
   @SubscribeMessage('chat')
-  async createChat(@MessageBody() data: ChatRequestDto, client: Socket) {
-    const clientUserId = client.data.user;
-    const friendUserId = data.userId;
+  async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
+    const meUserId = client.data.user;
+    const peerUserId = data.peerUserId;
 
     // todo: check whots happend if a client trys to add the same chat multipli times.
     // todo: avoid that socket io is buffering the messages that can not be delivert.
     try {
-      await this.notifyService.hasChatRequirements(clientUserId, friendUserId);
-      const socketsA = this.notifyService.getUserSockets(clientUserId);
-      const socketsB = this.notifyService.getUserSockets(friendUserId);
-      const roomId = 1; // todo: generate a room id based on the friendId
-      const chatRoom = `chat:${roomId}`;
-
-      for (const socket of [...socketsA, ...socketsB]) {
-        socket.join(chatRoom);
-      }
+      await this.notifyService.hasChatRequirements(meUserId, peerUserId);
 
       this.server
-        .to(`user:${clientUserId}`)
-        .emit('chat', { status: true, chatPartnerId: friendUserId, chatRoom });
-      this.server
-        .to(`user:${friendUserId}`)
-        .emit('chat', { status: true, chatPartnerId: clientUserId, chatRoom });
+        .to(`user:${peerUserId}`)
+        .emit('chat', { peerUserId: meUserId, time: Date.now(), msg: data.msg });
+      // send evt. ack
     } catch (error) {
       // todo: error handling
+      console.log(error);
     }
   }
+
+  // @SubscribeMessage('new-chat')
+  // async createChat(@MessageBody() data: ChatRequestDto, @ConnectedSocket() client: Socket) {
+  //   const meUserId = client.data.user;
+  //   const peerUserId = data.userId;
+
+  //   // todo: check whots happend if a client trys to add the same chat multipli times.
+  //   // todo: avoid that socket io is buffering the messages that can not be delivert.
+  //   try {
+  //     await this.notifyService.hasChatRequirements(meUserId, peerUserId);
+  //     const socketsA = this.notifyService.getUserSockets(meUserId);
+  //     const socketsB = this.notifyService.getUserSockets(peerUserId);
+  //     const roomId = 1; // todo: generate a room id based on the friendId
+  //     const chatRoom = `chat:${roomId}`;
+
+  //     for (const clientSocket of [...socketsA, ...socketsB]) {
+  //       clientSocket.join(chatRoom);
+  //     }
+  //     console.log('add client to room: ' + chatRoom);
+
+  //     this.server
+  //       .to(`user:${meUserId}`)
+  //       .emit('chat', { status: true, chatPartnerId: peerUserId, chatRoom });
+  //     this.server.emit('chat', { status: true, chatPartnerId: meUserId, chatRoom });
+
+  //     this.server.emit('chat:1', 'hallo from server');
+  //   } catch (error) {
+  //     // todo: error handling
+  //     console.log(error);
+  //   }
+  // }
+
+  // @SubscribeMessage('chat:1')
+  // test(@MessageBody() data: string) {
+  //   console.log(data);
+  //   this.server.emit('chat:1', data);
+  // }
 
   removeChat() {}
 }

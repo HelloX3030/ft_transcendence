@@ -8,6 +8,7 @@ export interface FriendsStatus {
   isOnline: boolean;
 }
 
-export interface ChatRequest {
-  userId: number;
+export interface ChatMsg {
+  peerUserId: number;
+  msg: string;
 }

@@ -15,12 +15,15 @@ import { useRouter } from 'vue-router';
 import { Button } from '../ui/button';
 import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
+import { notifyStore } from '@/stores/notify';
 
 const props = defineProps<Friend>();
 const router = useRouter();
 const friendsStore = useFriendsStore();
 
 const userDetail = ref<GetUserResponse>();
+
+const notify = notifyStore();
 
 onMounted(async () => {
   userDetail.value = await userApi.getById(props.friendId);
@@ -64,6 +67,9 @@ async function handleDelete() {
           <DropdownMenuItem @click="router.push(`/profile/${friendId}`)">
             <ArrowUpRight /> Open</DropdownMenuItem
           >
+          <DropdownMenuItem @click="notify.createChat(String(friendId))">
+            <ArrowUpRight /> Chat
+          </DropdownMenuItem>
           <DropdownMenuItem @click="handleDelete"><Trash /> Delete </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

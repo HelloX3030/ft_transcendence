@@ -5,6 +5,13 @@ import type { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 
+// ---- Types ----
+interface ChatMessage {
+  timestamp: string;
+  senderId: string;
+  message: string;
+}
+
 export const notifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
@@ -12,6 +19,7 @@ export const notifyStore = defineStore('notify', () => {
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
+  const chat = ref(new Map<string, ChatMessage[]>());
 
   function init() {
     if (isInit) return;
@@ -44,6 +52,7 @@ export const notifyStore = defineStore('notify', () => {
     });
 
     watchFriendsOnlineStatus();
+    initChat();
     isInit = true;
   }
 
@@ -89,7 +98,28 @@ export const notifyStore = defineStore('notify', () => {
     count.value = 0;
   }
 
-  return { count, notifyMsg, init, stop, clearAllNotifications };
+  function initChat() {
+    socket.on('chat', (data) => {
+      const message: ChatMessage[] = chat.value.get(String(data.peerUserId)) ?? [];
+      message.push({
+        timestamp: new Date(data.time).toLocaleString(),
+        senderId: data.peerUserId,
+        message: data.msg,
+      });
+      chat.value.set(String(data.peerUserId), message);
+    });
+  }
+
+  function createChat(peerUserId: string) {
+    const message: ChatMessage[] = chat.value.get(peerUserId) ?? [];
+    chat.value.set(peerUserId, message);
+  }
+
+  function sendChatMsg(peerUserId: number, msg: string) {
+    socket.emit('chat', { peerUserId, msg });
+  }
+
+  return { count, notifyMsg, chat, init, stop, clearAllNotifications, createChat, sendChatMsg };
 });
 
 function isNotifyMsg(value: unknown): value is NotifyMsg {
