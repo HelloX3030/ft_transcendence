@@ -17,14 +17,13 @@ import {
   Clapperboard,
   FileText,
   LogOut,
-  Search,
   Shield,
   Users,
 } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import AppSidebarHeader from './AppSidebarHeader.vue';
 import AppSidebarItem from './AppSidebarItem.vue';
+import { useRouter } from 'vue-router';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -42,7 +41,6 @@ async function handleLogout() {
       <SidebarGroup>
         <SidebarGroupContent>
           <SidebarMenu>
-            <AppSidebarItem titel="Search" path="/search" :icon="Search" />
             <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
             <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
             <AppSidebarItem titel="Friends" path="/friends" :icon="Users" />

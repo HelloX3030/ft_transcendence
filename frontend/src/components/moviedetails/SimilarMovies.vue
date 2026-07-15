@@ -12,7 +12,7 @@ const router = useRouter();
 <template>
   <div class="mt-8 pb-32">
     <p class="text-xs text-zinc-500 uppercase tracking-wider px-6 mb-3">More like this</p>
-    <div class="flex gap-3 overflow-x-auto px-6 pb-2 scrollbar-hide">
+    <div class="flex gap-3 overflow-x-auto px-6 pb-2 scrollbar-thin scrollbar-thumb-primary">
       <div
         v-for="movie in movies"
         :key="movie.id"

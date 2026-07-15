@@ -11,16 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useAuthStore } from '@/stores/auth';
 import { useGenresStore } from '@/stores/genres';
 import { usePeopleStore } from '@/stores/people';
 import TotpCard from '@/components/profile/TotpCard.vue';
+import { useUserStore } from '@/stores/user';
+import { storeToRefs } from 'pinia';
 
-const auth = useAuthStore();
+const userStore = useUserStore();
+
+const { state: profile } = storeToRefs(userStore);
 const genres = useGenresStore();
 const people = usePeopleStore();
-
-const profile = computed(() => auth.user);
 
 const initials = computed(() =>
   profile.value ? profile.value.username.slice(0, 2).toUpperCase() : '??',

@@ -1,6 +1,7 @@
 import { ref, watch, type Ref } from 'vue';
 import type { TmdbMovieDetail } from '@trailertinder/shared';
-import { fetchData } from '@/lib/api';
+import { fetchJson } from '@/api/tmdb.client';
+import { backendClient } from '@/api';
 
 type DetailStatus = 'idle' | 'loading' | 'ready' | 'notFound' | 'error';
 
@@ -27,7 +28,7 @@ export function useMovieDetail(movieId: Ref<number | undefined>) {
       }
       status.value = 'loading';
       try {
-        const data = await fetchData<TmdbMovieDetail>(`/v1/tmdb/movies/${id}`);
+        const data = await backendClient<TmdbMovieDetail>(`/tmdb/movies/${id}`);
         if (gen !== generation) return;
         movie.value = data;
         status.value = 'ready';

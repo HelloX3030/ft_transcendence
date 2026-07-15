@@ -5,6 +5,12 @@ export const loginSchema = z.object({
   password: z.string().nonempty(),
 });
 
+export const userEditSchema = z.object({
+  username: z.string().min(6),
+  email: z.string().email(),
+  language: z.enum(['de', 'en', 'es']),
+});
+
 const passwordSchema = z
   .string()
   .min(8, 'Password must be at least 8 characters long.')

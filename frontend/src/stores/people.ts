@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { TmdbPerson } from '@trailertinder/shared';
-import { fetchData } from '@/lib/api';
+import { backendClient } from '@/api';
 
 // Resolves TMDB person ids (a user's favorite actors/directors) to names. Unlike
 // the genre catalogue there's no "fetch all" — people are looked up by id and
@@ -24,7 +24,7 @@ export const usePeopleStore = defineStore('people', () => {
     const toFetch = unique.filter((id) => people.value[id] === undefined && !inFlight.has(id));
 
     if (toFetch.length > 0) {
-      const request = fetchData<TmdbPerson[]>(`/v1/tmdb/people?ids=${toFetch.join(',')}`)
+      const request = backendClient<TmdbPerson[]>(`/tmdb/people?ids=${toFetch.join(',')}`)
         .then((data) => {
           for (const person of data) people.value[person.id] = person;
         })
