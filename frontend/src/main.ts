@@ -5,6 +5,7 @@ import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth';
 import { notifyStore } from './stores/notify.ts';
+import { useUserStore } from './stores/user.ts';
 
 const youtube = {
   install() {
@@ -31,7 +32,7 @@ const youtube = {
   await auth.init();
   if (auth.isLoggedIn) {
     await userStore.refetchUser();
-    await notify.init();
+    notify.init();
   }
 
   app.use(router);
