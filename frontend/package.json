@@ -29,6 +29,7 @@
     "markdown-it": "^14.3.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.10.1",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.4",
     "vee-validate": "^4.15.1",
