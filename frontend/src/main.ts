@@ -8,6 +8,12 @@ import { useUserStore } from './stores/user.ts';
 
 const youtube = {
   install() {
+    if (window.YT?.Player) return;
+
+    if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+      return;
+    }
+
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
     document.head.appendChild(tag);
