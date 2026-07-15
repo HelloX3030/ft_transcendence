@@ -1,9 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ChatRequest } from '@trailertinder/shared';
-import { IsNumber } from 'class-validator';
+import { ChatMsg } from '@trailertinder/shared';
+import { IsNumber, IsString } from 'class-validator';
 
-export class ChatRequestDto implements ChatRequest {
+export class ChatMsgDto implements ChatMsg {
   @ApiProperty({ example: '641', required: true })
   @IsNumber()
-  userId!: number;
+  peerUserId!: number;
+
+  @IsString()
+  msg!: string;
 }

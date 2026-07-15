@@ -3,7 +3,6 @@ import { NotifyGateway } from './notify.gateway';
 import { NotifyMsg } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
 import { FriendUtils } from 'src/utils';
-import { threadCpuUsage } from 'process';
 
 @Injectable()
 export class NotifyService {
@@ -75,9 +74,9 @@ export class NotifyService {
   // -------------------------
   // User Chat
   // -------------------------
-  async hasChatRequirements(clientUserId: number, friendUserId: number) {
-    const isFriend = await this.friendUtils.areFriends(clientUserId, friendUserId);
-    const isOnline = this.userStatus.get(friendUserId) !== undefined;
+  async hasChatRequirements(meUserId: number, peerUserId: number) {
+    const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
+    const isOnline = this.userStatus.get(peerUserId) !== undefined;
 
     if (isFriend && isOnline) return;
     else throw new Error('The users do not meet the chat requirements.');

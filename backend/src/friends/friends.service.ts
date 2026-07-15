@@ -10,12 +10,13 @@ import {
   FRIEND_REQUEST_ACCEPTED,
   FRIEND_REQUEST_REMOVED,
   FRIENDS_TITEL,
+  FriendUtils,
   NEW_FRIEND_REQUEST,
   successResponse,
   UserUtils,
 } from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { FriendKey, JwtAccessPayload } from 'src/types';
+import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from 'src/notify/notify.service';
 
 export const FRIENDS_SELECT = {
@@ -29,6 +30,7 @@ export class FriendsService {
     private prisma: PrismaService,
     private notifyService: NotifyService,
     private userUtils: UserUtils,
+    private friendUtils: FriendUtils,
   ) {}
 
   async getFriends(payload: JwtAccessPayload) {
@@ -62,7 +64,8 @@ export class FriendsService {
   }
 
   async addFriend(payload: JwtAccessPayload, id: number) {
-    const friendsKey = this.getFriendsKey(payload.sub, id);
+    if (payload.sub === id) throw new BadRequestException("You can't be friends with yourself.");
+    const friendsKey = this.friendUtils.getFriendsKey(payload.sub, id);
 
     await this.prisma.friends.create({
       data: {
@@ -81,7 +84,8 @@ export class FriendsService {
   }
 
   async acceptFriendship(payload: JwtAccessPayload, id: number) {
-    const friendsKey = this.getFriendsKey(payload.sub, id);
+    if (payload.sub === id) throw new BadRequestException("You can't be friends with yourself.");
+    const friendsKey = this.friendUtils.getFriendsKey(payload.sub, id);
 
     const friendship = await this.prisma.friends.findUnique({
       where: {
@@ -121,7 +125,9 @@ export class FriendsService {
   }
 
   async deleteFriend(payload: JwtAccessPayload, id: number) {
-    const friendsKey = this.getFriendsKey(payload.sub, id);
+    if (payload.sub === id) throw new BadRequestException("You can't be friends with yourself.");
+    const friendsKey = this.friendUtils.getFriendsKey(payload.sub, id);
+
     const deletedFriend = await this.prisma.friends.delete({
       where: {
         userAId_userBId: friendsKey,
@@ -145,19 +151,5 @@ export class FriendsService {
     }
 
     return successResponse(null, 'friendship deleted');
-  }
-
-  getFriendsKey(userXId: number, userYId: number): FriendKey {
-    if (userXId === userYId) throw new BadRequestException("You can't be friends with yourself.");
-    if (userXId < userYId) {
-      return {
-        userAId: userXId,
-        userBId: userYId,
-      };
-    }
-    return {
-      userAId: userYId,
-      userBId: userXId,
-    };
   }
 }
