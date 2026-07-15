@@ -76,9 +76,9 @@ export class NotifyService {
   // -------------------------
   async hasChatRequirements(meUserId: number, peerUserId: number) {
     const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
-    const isOnline = this.userStatus.get(peerUserId) !== undefined;
+    if (!isFriend) throw new Error('You are not friends with this user.');
 
-    if (isFriend && isOnline) return;
-    else throw new Error('The users do not meet the chat requirements.');
+    const isOnline = this.userStatus.get(peerUserId) !== undefined;
+    if (!isOnline) throw new Error('The user is not online.');
   }
 }

@@ -52,7 +52,7 @@ export class NotifyGateway {
       this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
     } catch (error) {
       this.logger.error(error);
-      this.server.emit('error', 'No token provided or the token is invalid.');
+      client.emit('error', 'No token provided or the token is invalid.');
       client.disconnect(true);
     }
   }
@@ -82,7 +82,7 @@ export class NotifyGateway {
       }
     } catch (error) {
       this.logger.error(error);
-      this.server.emit('error', 'Unable to load your friends online status.');
+      client.emit('error', 'Unable to load your friends online status.');
     }
   }
 
@@ -112,62 +112,34 @@ export class NotifyGateway {
   // -------------------------
   // User Chat
   // -------------------------
+
+  // todo: whot happens if the chatMsgDto does throw an error?
   @SubscribeMessage('chat')
   async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
     const meUserId = client.data.user;
     const peerUserId = data.peerUserId;
 
-    // todo: check whots happend if a client trys to add the same chat multipli times.
-    // todo: avoid that socket io is buffering the messages that can not be delivert.
     try {
       await this.notifyService.hasChatRequirements(meUserId, peerUserId);
 
-      this.server
-        .to(`user:${peerUserId}`)
-        .emit('chat', { peerUserId: meUserId, time: Date.now(), msg: data.msg });
-      // send evt. ack
+      this.server.to(`user:${peerUserId}`).emit('chat', {
+        peerUserId: meUserId,
+        senderUserId: meUserId,
+        time: Date.now(),
+        msg: data.msg,
+      });
+      client.to(`user:${meUserId}`).emit('chat', {
+        peerUserId: peerUserId,
+        senderUserId: meUserId,
+        time: Date.now(),
+        msg: data.msg,
+      });
     } catch (error) {
       // todo: error handling
       console.log(error);
+
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.server.to(`user:${meUserId}`).emit('chat-error', { peerUserId, errorMsg });
     }
   }
-
-  // @SubscribeMessage('new-chat')
-  // async createChat(@MessageBody() data: ChatRequestDto, @ConnectedSocket() client: Socket) {
-  //   const meUserId = client.data.user;
-  //   const peerUserId = data.userId;
-
-  //   // todo: check whots happend if a client trys to add the same chat multipli times.
-  //   // todo: avoid that socket io is buffering the messages that can not be delivert.
-  //   try {
-  //     await this.notifyService.hasChatRequirements(meUserId, peerUserId);
-  //     const socketsA = this.notifyService.getUserSockets(meUserId);
-  //     const socketsB = this.notifyService.getUserSockets(peerUserId);
-  //     const roomId = 1; // todo: generate a room id based on the friendId
-  //     const chatRoom = `chat:${roomId}`;
-
-  //     for (const clientSocket of [...socketsA, ...socketsB]) {
-  //       clientSocket.join(chatRoom);
-  //     }
-  //     console.log('add client to room: ' + chatRoom);
-
-  //     this.server
-  //       .to(`user:${meUserId}`)
-  //       .emit('chat', { status: true, chatPartnerId: peerUserId, chatRoom });
-  //     this.server.emit('chat', { status: true, chatPartnerId: meUserId, chatRoom });
-
-  //     this.server.emit('chat:1', 'hallo from server');
-  //   } catch (error) {
-  //     // todo: error handling
-  //     console.log(error);
-  //   }
-  // }
-
-  // @SubscribeMessage('chat:1')
-  // test(@MessageBody() data: string) {
-  //   console.log(data);
-  //   this.server.emit('chat:1', data);
-  // }
-
-  removeChat() {}
 }
