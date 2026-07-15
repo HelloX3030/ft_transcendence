@@ -1,8 +1,9 @@
 import { ref } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { userApi } from '@/api/endpoints/user';
+import { useUserStore } from '@/stores/user';
 
 export function useTotp() {
-  const auth = useAuthStore();
+  const user = useUserStore();
 
   // Setup
   const isSetupDialogOpen = ref(false);
@@ -21,7 +22,7 @@ export function useTotp() {
     isSetupDialogOpen.value = true;
     isLoadingQrCode.value = true;
     try {
-      qrCodeSvg.value = await auth.setupTotp();
+      qrCodeSvg.value = await userApi.setupTotp();
     } catch {
       qrLoadError.value = true;
     } finally {
@@ -34,8 +35,7 @@ export function useTotp() {
     isVerifying.value = true;
     verifyError.value = false;
     try {
-      await auth.activateTotp(otpValue.value);
-      await auth.fetchUser();
+      await user.activateTotp(otpValue.value);
       isSetupDialogOpen.value = false;
     } catch {
       verifyError.value = true;
@@ -62,8 +62,7 @@ export function useTotp() {
   async function disableTotp() {
     isDisabling.value = true;
     try {
-      await auth.deleteTotp();
-      await auth.fetchUser();
+      await user.deleteTotp();
       isDisableDialogOpen.value = false;
     } finally {
       isDisabling.value = false;
