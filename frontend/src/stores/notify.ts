@@ -34,9 +34,14 @@ export const notifyStore = defineStore('notify', () => {
     socket.on('connect_error', (error) => {
       console.error('[notify] connect error:', error.message);
     });
-
+    // todo: validate error responses
     socket.on('error', (error) => {
       console.error('[notify] ' + error);
+    });
+
+    socket.on('chat-error', (error) => {
+      console.error('[notify] ' + error);
+      // todo: display the error in the chat.
     });
 
     socket.on('notification', (msg) => {
@@ -98,15 +103,19 @@ export const notifyStore = defineStore('notify', () => {
     count.value = 0;
   }
 
+  // todo: better create chat menue
+  // todo: more testing /  looking for edgecases...
+  // todo: change all user IDs as numer
   function initChat() {
     socket.on('chat', (data) => {
       const message: ChatMessage[] = chat.value.get(String(data.peerUserId)) ?? [];
       message.push({
         timestamp: new Date(data.time).toLocaleString(),
-        senderId: data.peerUserId,
+        senderId: String(data.senderUserId),
         message: data.msg,
       });
       chat.value.set(String(data.peerUserId), message);
+      console.log(chat.value);
     });
   }
 
