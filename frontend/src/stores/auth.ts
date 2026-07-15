@@ -3,9 +3,11 @@ import { defineStore } from 'pinia';
 import type { LoginRequest, LoginResponse, RegisterRequest } from '@trailertinder/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
+import { notifyStore } from './notify';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
+  const notify = notifyStore();
 
   async function init() {
     try {
@@ -23,6 +25,7 @@ export const useAuthStore = defineStore('auth', () => {
         isLoggedIn.value = true;
         const userStore = useUserStore();
         await userStore.refetchUser();
+        notify.init();
       }
       return result;
     } catch (error) {
@@ -33,6 +36,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await authApi.logout();
+      notify.stop();
       isLoggedIn.value = false;
     } catch {
       // best-effort — clear local state regardless
@@ -45,6 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
       isLoggedIn.value = true;
       const userStore = useUserStore();
       await userStore.refetchUser();
+      notify.init();
     } catch (error) {}
   }
 
