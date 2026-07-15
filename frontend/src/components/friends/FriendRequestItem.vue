@@ -2,17 +2,17 @@
 import type { Friend, GetUserResponse } from '@trailertinder/shared';
 import { computed, onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
-import { useAuthStore } from '@/stores/auth';
 import { toast } from 'vue-sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle, ItemDescription } from '../ui/item';
 import { Button } from '../ui/button';
 import { UserIcon, Check, X } from '@lucide/vue';
 import { useFriendsStore } from '@/stores/friends';
+import { useUserStore } from '@/stores/user';
 
 const props = defineProps<Friend>();
 const friendsStore = useFriendsStore();
-const { user: me } = useAuthStore();
+const { state: me } = useUserStore();
 const userDetail = ref<GetUserResponse>();
 const isProcessing = ref(false);
 
