@@ -1,8 +1,9 @@
 import { friendsApi } from '@/api/endpoints/friends';
+import { useUserDetails } from '@/composables/useUserDetails';
 
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 
 export const useFriendsStore = defineStore('friends', () => {
   const {
@@ -13,7 +14,10 @@ export const useFriendsStore = defineStore('friends', () => {
     execute: refetchFriends,
   } = useAsyncState(() => friendsApi.getAll(), []);
 
-  const acceptedFriends = computed(() => state.value.filter((f) => f.status === 'accepted'));
+  const acceptedFriends = computed(() =>
+    isReady.value ? state.value.filter((f) => f.status === 'accepted') : [],
+  );
+  const acceptedFriendsId = computed(() => acceptedFriends.value.map((f) => f.friendId));
 
   async function acceptRequest(friendId: number) {
     await friendsApi.acceptRequest(friendId);
@@ -38,6 +42,7 @@ export const useFriendsStore = defineStore('friends', () => {
   return {
     state,
     acceptedFriends,
+    acceptedFriendsId,
     isLoading,
     isReady,
     error,

@@ -17,7 +17,7 @@ const props = defineProps<PropsType>();
 
 const emit = defineEmits(['success']);
 
-const { userDetails, usersLoading } = useUserDetails(props.watchlist.editorIds);
+const { state: userDetails, isLoading: usersLoading } = useUserDetails(props.watchlist.editorIds);
 
 const formattedDate = computed(() => {
   if (!props.watchlist.createdAt) return '';
