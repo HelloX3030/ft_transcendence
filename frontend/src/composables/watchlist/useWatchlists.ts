@@ -3,12 +3,12 @@ import { watchlistApi } from '@/api/endpoints/watchlist';
 
 export function useWatchlists() {
   const {
-    state: watchlists,
-    isLoading: watchlistsLoading,
-    isReady: watchlistsReady,
-    error: watchlistsError,
+    state,
+    isLoading,
+    isReady,
+    error,
     execute: refetchWatchlists,
   } = useAsyncState(() => watchlistApi.getAll(), null);
 
-  return { watchlists, watchlistsLoading, watchlistsReady, watchlistsError, refetchWatchlists };
+  return { state, isLoading, isReady, error, refetchWatchlists };
 }
