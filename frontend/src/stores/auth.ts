@@ -1,6 +1,11 @@
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { LoginRequest, LoginResponse, RegisterRequest } from '@trailertinder/shared';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  UserMeResponse,
+} from '@trailertinder/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { notifyStore } from './notify';
@@ -8,6 +13,7 @@ import { notifyStore } from './notify';
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const notify = notifyStore();
+  const user = ref<UserMeResponse | null | undefined>(null);
 
   async function init() {
     try {
@@ -24,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!result?.mfaRequired) {
         isLoggedIn.value = true;
         const userStore = useUserStore();
-        await userStore.refetchUser();
+        user.value = await userStore.refetchUser();
         notify.init();
       }
       return result;
@@ -38,6 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.logout();
       notify.stop();
       isLoggedIn.value = false;
+      user.value = null;
     } catch {
       // best-effort — clear local state regardless
     }
@@ -48,12 +55,13 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.register(payload);
       isLoggedIn.value = true;
       const userStore = useUserStore();
-      await userStore.refetchUser();
+      user.value = await userStore.refetchUser();
       notify.init();
     } catch (error) {}
   }
 
   return {
+    user,
     isLoggedIn,
     init,
     login,
