@@ -28,7 +28,13 @@ export function useVideoPlayer(
     const init = () => {
       player.value = new window.YT.Player(`player-${videoId}`, {
         videoId,
-        playerVars: { controls: 0, rel: 0, autoplay: activeRef?.value ? 1 : 0, mute: 1 },
+        playerVars: {
+          controls: 0,
+          rel: 0,
+          autoplay: activeRef?.value ? 1 : 0,
+          mute: 1,
+          origin: window.location.origin, //TODO: use env for url
+        },
         events: {
           onStateChange: (e) => {
             isPlaying.value = e.data === window.YT.PlayerState.PLAYING;
@@ -110,6 +116,8 @@ export function useVideoPlayer(
   });
   onUnmounted(() => {
     clearTimeout(hideTimer);
+    player.value?.destroy();
+    player.value = undefined;
     if (screen.orientation) {
       screen.orientation.removeEventListener('change', handleOrientationChange);
     } else {

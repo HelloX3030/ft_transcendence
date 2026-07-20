@@ -4,7 +4,7 @@ import Spinner from '@/components/ui/spinner/Spinner.vue';
 import { useWatchlist } from '@/composables/watchlist/useWatchlist';
 
 import WatchlistHeader from '@/components/watchlist/WatchlistHeader.vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 
 const route = useRoute();
@@ -13,6 +13,7 @@ const { watchlist, watchlistLoading, watchlistError, refetchWatchlist } = useWat
 );
 
 const { movies, moviesLoading } = useWatchlistMovies(Number(route.params.id));
+const router = useRouter();
 </script>
 
 <template>
@@ -42,6 +43,7 @@ const { movies, moviesLoading } = useWatchlistMovies(Number(route.params.id));
           :title="movie.name"
           :img="movie.posterPath"
           :selected="false"
+          @select="router.push(`/moviedetail/${movie.tmdbId}`)"
         />
       </div>
     </div>
