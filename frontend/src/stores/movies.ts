@@ -1,8 +1,8 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
-import { fetchData } from '@/lib/api';
 import { useSearchFilter } from '@/composables/useSearchFilter';
+import { backendClient } from '@/api';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -106,19 +106,19 @@ export const useMoviesStore = defineStore('movies', () => {
     if (withGenres.value) params.set('withGenres', withGenres.value);
     if (primaryReleaseDateGte.value) params.set('releaseDateGte', primaryReleaseDateGte.value);
     if (primaryReleaseDateLte.value) params.set('releaseDateLte', primaryReleaseDateLte.value);
-    return `/v1/tmdb/discover?${params}`;
+    return `/tmdb/discover?${params}`;
   }
 
   // Discover list — the default browse state, paginated like search.
-  const discoverFeed = createMovieFeed((page) => fetchData<PaginatedMovies>(discoverUrl(page)));
+  const discoverFeed = createMovieFeed((page) => backendClient<PaginatedMovies>(discoverUrl(page)));
 
   // Active search session — the query drives which results the feed fetches.
   const searchQuery = ref('');
   // TMDB's total match count for the current query (see backend caveat: unfiltered).
   const searchTotal = ref(0);
   const searchFeed = createMovieFeed((page) =>
-    fetchData<PaginatedMovies>(
-      `/v1/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${page}&filtered=${filtered.value}`,
+    backendClient<PaginatedMovies>(
+      `/tmdb/search?query=${encodeURIComponent(searchQuery.value)}&page=${page}&filtered=${filtered.value}`,
     ),
   );
 

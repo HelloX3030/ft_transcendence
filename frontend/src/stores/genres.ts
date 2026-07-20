@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { TmdbGenre } from '@trailertinder/shared';
-import { fetchData } from '@/lib/api';
+import { backendClient } from '@/api';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -29,7 +29,7 @@ export const useGenresStore = defineStore('genres', () => {
     if (status.value === 'ready') return Promise.resolve();
     if (inFlight) return inFlight;
     status.value = 'loading';
-    inFlight = fetchData<TmdbGenre[]>('/v1/tmdb/genres')
+    inFlight = backendClient<TmdbGenre[]>('/tmdb/genres')
       .then((data) => {
         genres.value = data;
         status.value = 'ready';
