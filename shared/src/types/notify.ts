@@ -8,7 +8,18 @@ export interface FriendsStatus {
   isOnline: boolean;
 }
 
-export interface ChatMsg {
+export interface ChatMsgSend {
   peerUserId: number;
   msg: string;
+}
+
+export interface ChatMsgRecive {
+  peerUserId: number;
+  senderUserId: number;
+  time: number;
+  msg: string;
+}
+
+export interface NotifyError {
+  message: string;
 }
