@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 import { useSelectionStore } from '@/stores/selection';
-import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
+import { useUserStore } from '@/stores/user';
 
 const selection = useSelectionStore();
 const { selectedMovies } = storeToRefs(selection);
-const auth = useAuthStore();
+const userStore = useUserStore();
 const router = useRouter();
 
 const submitting = ref(false);
@@ -24,7 +24,7 @@ async function completeOnboarding() {
   submitting.value = true;
   error.value = '';
   try {
-    await auth.completeOnboarding(selectedMovies.value.map((movie) => movie.id));
+    await userStore.completeOnboarding(selectedMovies.value.map((movie) => movie.id));
     router.push('/');
   } catch (e) {
     error.value = (e as Error)?.message ?? 'Something went wrong. Please try again.';
