@@ -80,6 +80,12 @@ export const notifyStore = defineStore('notify', () => {
     console.log('[notify] stop.');
     socket.close();
     isInit = false;
+    count.value = 0;
+    nofiyId.value = 0;
+    notifyMsg.value = [];
+    friendsStatus.value = new Map();
+    offline.value = true;
+    chat.value = new Map();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -131,7 +137,8 @@ export const notifyStore = defineStore('notify', () => {
       });
       chat.value.set(String(data.peerUserId), message);
 
-      addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
+      if (data.senderUserId === data.peerUserId)
+        addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
     });
   }
 
