@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
-import { Search, Send, ArrowLeft, Cast } from 'lucide-vue-next';
+import { Search, Send, ArrowLeft } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -37,41 +37,6 @@ const friendIds = computed(() => acceptedFriends.value.map((f) => f.friendId.toS
 
 // --- Notify ---
 const notify = notifyStore();
-
-// ---- Mock chats (echte Test-User-IDs, Chat-Historie kommt später vom Backend) ----
-// const chats = ref<Chat[]>([
-//   {
-//     userId: '2',
-//     messages: [
-//       {
-//         timestamp: '2026-07-12T18:20:00Z',
-//         senderId: '2',
-//         message: 'Hey, hast du Inception schon gesehen?',
-//       },
-//       {
-//         timestamp: '2026-07-12T18:21:00Z',
-//         senderId: currentUserId.value,
-//         message: 'Ja, gestern erst! Richtig gut.',
-//       },
-//       { timestamp: '2026-07-12T18:22:00Z', senderId: '2', message: 'Movie Night diese Woche?' },
-//     ],
-//   },
-//   {
-//     userId: '3',
-//     messages: [
-//       {
-//         timestamp: '2026-07-11T09:00:00Z',
-//         senderId: currentUserId.value,
-//         message: 'Schau dir mal Spirited Away an',
-//       },
-//       {
-//         timestamp: '2026-07-11T09:05:00Z',
-//         senderId: '3',
-//         message: 'Steht schon auf meiner Watchlist 👀',
-//       },
-//     ],
-//   },
-// ]);
 
 watch(
   friendIds,
@@ -140,7 +105,6 @@ function sendMessage() {
   const peerUserId = selectedChat.value.userId;
   const messageText = newMessage.value.trim();
 
-  // Optimistisch direkt in den Store schreiben, da der Server kein Echo an den Sender schickt
   const existing = notify.chat.get(peerUserId) ?? [];
   existing.push({
     timestamp: new Date().toISOString(),
