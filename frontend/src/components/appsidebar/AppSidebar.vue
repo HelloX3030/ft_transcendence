@@ -18,7 +18,6 @@ import {
   FileText,
   LogOut,
   MessageCircle,
-  Search,
   Shield,
   Users,
 } from 'lucide-vue-next';
