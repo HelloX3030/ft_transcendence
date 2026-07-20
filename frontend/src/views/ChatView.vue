@@ -136,6 +136,16 @@ function sendMessage() {
   newMessage.value = '';
 }
 
+function getMessageClass(msg: ChatMessage) {
+  if (msg.senderId === currentUserId.value) {
+    return 'self-end items-end';
+  } else if (msg.senderId === notify.SYSTEM_SENDER_ID) {
+    return 'self-center items-center';
+  } else {
+    return 'self-start items-start';
+  }
+}
+
 // ---- Auto-scroll ----
 const messagesEndRef = ref<HTMLElement | null>(null);
 
@@ -310,11 +320,10 @@ function startNewChat(userId: string) {
               v-for="(msg, i) in selectedChat.messages"
               :key="i"
               class="max-w-[85%] sm:max-w-[70%] flex flex-col"
-              :class="
-                msg.senderId === currentUserId ? 'self-end items-end' : 'self-start items-start'
-              "
+              :class="getMessageClass(msg)"
             >
               <div
+                v-if="msg.senderId !== notify.SYSTEM_SENDER_ID"
                 class="rounded-2xl px-4 py-2 text-sm"
                 :class="
                   msg.senderId === currentUserId
@@ -324,7 +333,13 @@ function startNewChat(userId: string) {
               >
                 {{ msg.message }}
               </div>
-              <span class="text-[11px] text-muted-foreground mt-1">
+              <div v-else class="px-4 py-2 text-sm text-white">
+                {{ msg.message }}
+              </div>
+              <span
+                v-if="msg.senderId !== notify.SYSTEM_SENDER_ID"
+                class="text-[11px] text-muted-foreground mt-1"
+              >
                 {{ formatTime(msg.timestamp) }}
               </span>
             </div>

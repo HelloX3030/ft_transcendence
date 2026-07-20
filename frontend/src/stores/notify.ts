@@ -20,6 +20,7 @@ export const notifyStore = defineStore('notify', () => {
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   const chat = ref(new Map<string, ChatMessage[]>());
+  const SYSTEM_SENDER_ID = '-1';
 
   function init() {
     if (isInit) return;
@@ -40,8 +41,14 @@ export const notifyStore = defineStore('notify', () => {
     });
 
     socket.on('chat-error', (error) => {
-      console.error('[notify] ' + error);
-      // todo: display the error in the chat.
+      console.error('[notify] ' + error.msg);
+      const message: ChatMessage[] = chat.value.get(String(error.peerUserId)) ?? [];
+      message.push({
+        timestamp: new Date(Date.now()).toLocaleString(),
+        senderId: SYSTEM_SENDER_ID,
+        message: error.msg + ' - ' + new Date(Date.now()).toLocaleString(),
+      });
+      chat.value.set(String(error.peerUserId), message);
     });
 
     socket.on('notification', (msg) => {
@@ -115,7 +122,6 @@ export const notifyStore = defineStore('notify', () => {
         message: data.msg,
       });
       chat.value.set(String(data.peerUserId), message);
-      console.log(chat.value);
     });
   }
 
@@ -128,7 +134,17 @@ export const notifyStore = defineStore('notify', () => {
     socket.emit('chat', { peerUserId, msg });
   }
 
-  return { count, notifyMsg, chat, init, stop, clearAllNotifications, createChat, sendChatMsg };
+  return {
+    SYSTEM_SENDER_ID,
+    count,
+    notifyMsg,
+    chat,
+    init,
+    stop,
+    clearAllNotifications,
+    createChat,
+    sendChatMsg,
+  };
 });
 
 function isNotifyMsg(value: unknown): value is NotifyMsg {
