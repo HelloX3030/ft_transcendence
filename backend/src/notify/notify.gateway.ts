@@ -147,6 +147,12 @@ export class NotifyGateway {
       } else {
         this.logger.error(error);
       }
+      client.to(`user:${meUserId}`).emit('chat', {
+        peerUserId: peerUserId,
+        senderUserId: meUserId,
+        time: Date.now(),
+        msg: data.msg,
+      });
       this.server.to(`user:${meUserId}`).emit('chat', {
         peerUserId,
         senderUserId: SYSTEM_SENDER_ID,

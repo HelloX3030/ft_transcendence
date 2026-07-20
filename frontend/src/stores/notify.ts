@@ -62,10 +62,7 @@ export const notifyStore = defineStore('notify', () => {
         return;
       }
 
-      count.value++;
-      const date = new Date(Date.now()).toLocaleString();
-      notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
-      toast.info(msg.msg);
+      addNotification(msg);
     });
 
     initWatchFriendsOnlineStatus();
@@ -130,6 +127,8 @@ export const notifyStore = defineStore('notify', () => {
         message: data.msg,
       });
       chat.value.set(String(data.peerUserId), message);
+
+      addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
     });
   }
 
@@ -140,6 +139,13 @@ export const notifyStore = defineStore('notify', () => {
 
   function sendChatMsg(peerUserId: number, msg: string) {
     socket.emit('chat', { peerUserId, msg });
+  }
+
+  function addNotification(msg: NotifyMsg) {
+    count.value++;
+    const date = new Date(Date.now()).toLocaleString();
+    notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
+    toast.info(msg.msg);
   }
 
   return {
