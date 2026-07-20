@@ -21,6 +21,7 @@ export const notifyStore = defineStore('notify', () => {
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   const chat = ref(new Map<string, ChatMessage[]>());
   const SYSTEM_SENDER_ID = '-1';
+  const offline = ref<boolean>(true);
 
   function init() {
     if (isInit) return;
@@ -30,6 +31,7 @@ export const notifyStore = defineStore('notify', () => {
 
     socket.on('connect', () => {
       console.log('[notify] connected.');
+      offline.value = false;
     });
 
     socket.on('connect_error', (error) => {
@@ -38,6 +40,7 @@ export const notifyStore = defineStore('notify', () => {
         return;
       }
       console.error('[notify] connect error: ', error.message);
+      offline.value = true;
     });
 
     socket.on('error', (error) => {
@@ -150,6 +153,7 @@ export const notifyStore = defineStore('notify', () => {
 
   return {
     SYSTEM_SENDER_ID,
+    offline,
     count,
     notifyMsg,
     chat,
