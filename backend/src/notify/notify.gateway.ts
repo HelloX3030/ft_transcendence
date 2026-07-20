@@ -135,11 +135,11 @@ export class NotifyGateway {
         msg: data.msg,
       });
     } catch (error) {
-      // todo: error handling
-      console.log(error);
-
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      this.server.to(`user:${meUserId}`).emit('chat-error', { peerUserId, errorMsg });
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : 'An unknown error occurred while sending this message.';
+      this.server.to(`user:${meUserId}`).emit('chat-error', { peerUserId, msg: errorMsg });
     }
   }
 }
