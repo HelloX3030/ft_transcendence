@@ -40,15 +40,8 @@ export const notifyStore = defineStore('notify', () => {
       console.error('[notify] ' + error);
     });
 
-    socket.on('chat-error', (error) => {
-      console.error('[notify] ' + error.msg);
-      const message: ChatMessage[] = chat.value.get(String(error.peerUserId)) ?? [];
-      message.push({
-        timestamp: new Date(Date.now()).toLocaleString(),
-        senderId: SYSTEM_SENDER_ID,
-        message: error.msg + ' - ' + new Date(Date.now()).toLocaleString(),
-      });
-      chat.value.set(String(error.peerUserId), message);
+    socket.on('exception', (error) => {
+      console.error('[notify] ' + error);
     });
 
     socket.on('notification', (msg) => {
