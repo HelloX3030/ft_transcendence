@@ -11,6 +11,7 @@ import { storeToRefs } from 'pinia';
 import { useUserDetails } from '@/composables/useUserDetails';
 import { useAuthStore } from '@/stores/auth';
 import { notifyStore } from '@/stores/notify';
+import { userApi } from '@/api/endpoints/user';
 
 // ---- Types ----
 interface ChatMessage {
@@ -72,14 +73,22 @@ const notify = notifyStore();
 //   },
 // ]);
 
-const chats_a: Chat[] = Array.from(notify.chat, ([userId, messages]) => ({
-  userId,
-  messages,
-}));
+watch(
+  friendIds,
+  async (ids) => {
+    const missingIds = ids.map(Number).filter((id) => !userDetails.value.some((u) => u.id === id));
 
-const chats = ref<Chat[]>(chats_a);
+    if (missingIds.length === 0) return;
 
-console.log(notify.chat);
+    const fetched = await Promise.all(missingIds.map((id) => userApi.getById(id)));
+    userDetails.value.push(...fetched);
+  },
+  { immediate: true },
+);
+
+const chats = computed<Chat[]>(() =>
+  Array.from(notify.chat, ([userId, messages]) => ({ userId, messages })),
+);
 
 // ---- User details laden: Chat-Partner UND Freunde zusammen ----
 const allUserIds = computed(() => {
@@ -127,12 +136,20 @@ const newMessage = ref('');
 
 function sendMessage() {
   if (!newMessage.value.trim() || !selectedChat.value) return;
-  selectedChat.value.messages.push({
+
+  const peerUserId = selectedChat.value.userId;
+  const messageText = newMessage.value.trim();
+
+  // Optimistisch direkt in den Store schreiben, da der Server kein Echo an den Sender schickt
+  const existing = notify.chat.get(peerUserId) ?? [];
+  existing.push({
     timestamp: new Date().toISOString(),
     senderId: currentUserId.value,
-    message: newMessage.value.trim(),
+    message: messageText,
   });
-  notify.sendChatMsg(Number(selectedChat.value.userId), newMessage.value.trim());
+  notify.chat.set(peerUserId, existing);
+
+  notify.sendChatMsg(Number(peerUserId), messageText);
   newMessage.value = '';
 }
 
@@ -180,9 +197,7 @@ const filteredNewFriends = computed(() => {
 });
 
 function startNewChat(userId: string) {
-  if (!chats.value.some((c) => c.userId === userId)) {
-    chats.value.push({ userId, messages: [] });
-  }
+  notify.createChat(userId);
   selectChat(userId);
   searchQuery.value = '';
 }
