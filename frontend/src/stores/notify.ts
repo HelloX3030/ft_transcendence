@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import { io } from 'socket.io-client';
-import type { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
+import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 
@@ -25,23 +25,35 @@ export const notifyStore = defineStore('notify', () => {
   function init() {
     if (isInit) return;
     console.log('[notify] init...');
-    socket.connect();
 
     socket.removeAllListeners();
+
     socket.on('connect', () => {
       console.log('[notify] connected.');
     });
 
     socket.on('connect_error', (error) => {
-      console.error('[notify] connect error:', error.message);
+      if (!isError(error)) {
+        console.error('[notify] invalid connect_error payload ', error);
+        return;
+      }
+      console.error('[notify] connect error: ', error.message);
     });
-    // todo: validate error responses
+
     socket.on('error', (error) => {
-      console.error('[notify] ' + error);
+      if (!isError(error)) {
+        console.error('[notify] invalid error payload ', error);
+        return;
+      }
+      console.error('[notify] error: ', error.message);
     });
 
     socket.on('exception', (error) => {
-      console.error('[notify] ' + error);
+      if (!isError(error)) {
+        console.error('[notify] invalid exception payload ', error);
+        return;
+      }
+      console.error('[notify] exception: ', error.message);
     });
 
     socket.on('notification', (msg) => {
@@ -56,8 +68,11 @@ export const notifyStore = defineStore('notify', () => {
       toast.info(msg.msg);
     });
 
-    watchFriendsOnlineStatus();
+    initWatchFriendsOnlineStatus();
     initChat();
+
+    socket.connect();
+    socket.emit('watch-friends-status');
     isInit = true;
   }
 
@@ -67,8 +82,7 @@ export const notifyStore = defineStore('notify', () => {
     isInit = false;
   }
 
-  function watchFriendsOnlineStatus() {
-    socket.off('watch-friends-status');
+  function initWatchFriendsOnlineStatus() {
     socket.on('watch-friends-status', (data) => {
       if (!isFriendsStatusArray(data)) {
         console.error('[notify] invalid friends status payload', data);
@@ -95,7 +109,6 @@ export const notifyStore = defineStore('notify', () => {
         friendsStatus.value.delete(user.id);
       }
     });
-    socket.emit('watch-friends-status');
   }
 
   function clearAllNotifications() {
@@ -103,11 +116,13 @@ export const notifyStore = defineStore('notify', () => {
     count.value = 0;
   }
 
-  // todo: better create chat menue
-  // todo: more testing /  looking for edgecases...
-  // todo: change all user IDs as numer
   function initChat() {
     socket.on('chat', (data) => {
+      if (!isChatMsgRecive(data)) {
+        console.error('[notify] invalid chat payload', data);
+        return;
+      }
+
       const message: ChatMessage[] = chat.value.get(String(data.peerUserId)) ?? [];
       message.push({
         timestamp: new Date(data.time).toLocaleString(),
@@ -164,4 +179,28 @@ function isFriendsStatus(value: unknown): value is FriendsStatus {
 
 function isFriendsStatusArray(value: unknown): value is FriendsStatus[] {
   return Array.isArray(value) && value.every(isFriendsStatus);
+}
+
+function isChatMsgRecive(value: unknown): value is ChatMsgRecive {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'peerUserId' in value &&
+    typeof (value as Record<string, unknown>).peerUserId === 'number' &&
+    'senderUserId' in value &&
+    typeof (value as Record<string, unknown>).senderUserId === 'number' &&
+    'time' in value &&
+    typeof (value as Record<string, unknown>).time === 'number' &&
+    'msg' in value &&
+    typeof (value as Record<string, unknown>).msg === 'string'
+  );
+}
+
+function isError(value: unknown): value is NotifyError {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'message' in value &&
+    typeof (value as Record<string, unknown>).message === 'string'
+  );
 }

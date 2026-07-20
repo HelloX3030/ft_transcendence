@@ -132,7 +132,7 @@ function sendMessage() {
     senderId: currentUserId.value,
     message: newMessage.value.trim(),
   });
-  notify.sendChatMsg(Number(selectedChat.value.userId), newMessage.value.trim()); // todo: Error handling
+  notify.sendChatMsg(Number(selectedChat.value.userId), newMessage.value.trim());
   newMessage.value = '';
 }
 
