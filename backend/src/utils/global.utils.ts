@@ -30,3 +30,5 @@ export const MOVIE_REMOVED_FROM_WATCHLIST = (user: string, movie: string, watchl
 
 export const WATCHLIST_DELETED = (user: string, watchlist: string) =>
   `${user} deleted the watchlist "${watchlist}".`;
+
+export const SYSTEM_SENDER_ID = -1;

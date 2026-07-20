@@ -3,6 +3,7 @@ import { NotifyGateway } from './notify.gateway';
 import { NotifyMsg } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
 import { FriendUtils } from 'src/utils';
+import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
 
 @Injectable()
 export class NotifyService {
@@ -76,9 +77,9 @@ export class NotifyService {
   // -------------------------
   async hasChatRequirements(meUserId: number, peerUserId: number) {
     const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
-    if (!isFriend) throw new Error('You are not friends with this user.');
+    if (!isFriend) throw new ChatRequiremtnsException('You are not friends with this user.');
 
     const isOnline = this.userStatus.get(peerUserId) !== undefined;
-    if (!isOnline) throw new Error('The user is not online.');
+    if (!isOnline) throw new ChatRequiremtnsException('The user is not online.');
   }
 }

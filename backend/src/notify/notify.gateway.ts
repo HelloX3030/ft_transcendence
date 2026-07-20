@@ -10,10 +10,11 @@ import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
-import { FriendUtils } from 'src/utils';
+import { FriendUtils, SYSTEM_SENDER_ID } from 'src/utils';
+import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -22,6 +23,13 @@ import { FriendUtils } from 'src/utils';
     credentials: true,
   },
 })
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }),
+)
 export class NotifyGateway {
   private readonly logger = new Logger(NotifyGateway.name);
 
@@ -112,8 +120,6 @@ export class NotifyGateway {
   // -------------------------
   // User Chat
   // -------------------------
-
-  // todo: whot happens if the chatMsgDto does throw an error?
   @SubscribeMessage('chat')
   async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
     const meUserId = client.data.user;
@@ -135,11 +141,18 @@ export class NotifyGateway {
         msg: data.msg,
       });
     } catch (error) {
-      const errorMsg =
-        error instanceof Error
-          ? error.message
-          : 'An unknown error occurred while sending this message.';
-      this.server.to(`user:${meUserId}`).emit('chat-error', { peerUserId, msg: errorMsg });
+      let errorMsg = 'An unknown error occurred while sending this message.';
+      if (error instanceof ChatRequiremtnsException) {
+        errorMsg = error.message;
+      } else {
+        this.logger.error(error);
+      }
+      this.server.to(`user:${meUserId}`).emit('chat', {
+        peerUserId,
+        senderUserId: SYSTEM_SENDER_ID,
+        time: Date.now(),
+        msg: errorMsg,
+      });
     }
   }
 }
