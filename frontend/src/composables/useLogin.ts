@@ -3,22 +3,20 @@ import { onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 export function useLogin() {
-  const auth = useAuthStore();
+  const authStore = useAuthStore();
   const router = useRouter();
 
   const mfaRequired = ref(false);
   const errorMessage = ref<string | null>(null);
   const otpVerifyLoading = ref(false);
-  const pendingEmail = ref('');
-  const pendingPassword = ref('');
+  const pendingCredentials = ref<{ email: string; password: string } | null>(null);
 
   async function login(email: string, password: string) {
     errorMessage.value = null;
     try {
-      const result = await auth.login({ email, password });
-      if (result.mfaRequired) {
-        pendingEmail.value = email;
-        pendingPassword.value = password;
+      const result = await authStore.login({ email, password }); // ← Store, nicht API
+      if (result?.mfaRequired) {
+        pendingCredentials.value = { email, password };
         mfaRequired.value = true;
       } else {
         router.push('/');
@@ -31,10 +29,11 @@ export function useLogin() {
   }
 
   async function verifyOtp(otp: string) {
+    if (!pendingCredentials.value) return;
     errorMessage.value = null;
     otpVerifyLoading.value = true;
     try {
-      await auth.login({ email: pendingEmail.value, password: pendingPassword.value, otp });
+      await authStore.login({ ...pendingCredentials.value, otp }); // ← Store
       router.push('/');
     } catch {
       errorMessage.value = 'Invalid code. Please try again.';
@@ -46,10 +45,9 @@ export function useLogin() {
   function resetOtp() {
     mfaRequired.value = false;
     errorMessage.value = null;
-    pendingPassword.value = '';
-    pendingEmail.value = '';
+    pendingCredentials.value = null;
   }
 
-  onUnmounted(resetOtp);
+  onUnmounted(resetOtp); //TODO: do i need it really ??
   return { mfaRequired, errorMessage, otpVerifyLoading, login, verifyOtp, resetOtp };
 }

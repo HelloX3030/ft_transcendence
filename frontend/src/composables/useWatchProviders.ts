@@ -1,7 +1,7 @@
 import { ref, watch, type Ref } from 'vue';
 import type { MovieWatchProviders, WatchProvider } from '@trailertinder/shared';
-import { fetchData } from '@/lib/api';
 import { DEFAULT_REGION } from '@/lib/constants';
+import { backendClient } from '@/api';
 
 /**
  * Fetches the DEFAULT_REGION flatrate (subscription) providers for a movie,
@@ -22,7 +22,7 @@ export function useWatchProviders(movieId: Ref<number | undefined>) {
       providers.value = [];
       if (id == null || Number.isNaN(id)) return;
       try {
-        const data = await fetchData<MovieWatchProviders>(`/v1/tmdb/movies/${id}/providers`);
+        const data = await backendClient<MovieWatchProviders>(`/tmdb/movies/${id}/providers`);
         if (gen !== generation) return;
         providers.value = data.results?.[DEFAULT_REGION]?.flatrate ?? [];
       } catch (error) {

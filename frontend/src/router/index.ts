@@ -18,6 +18,7 @@ import { storeToRefs } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
 import WatchlistsView from '@/views/watchlist/WatchlistsView.vue';
 import ListView from '@/views/watchlist/ListView.vue';
+import { useUserStore } from '@/stores/user';
 import NotificationView from '@/views/NotificationView.vue';
 
 const router = createRouter({
@@ -74,7 +75,7 @@ const router = createRouter({
     {
       path: '/onboarding',
       component: OnboardingView,
-      meta: { requiresOnboarding: true, hideLayout: true, title: 'Onboarding' },
+      meta: { requiresAuth: true, hideLayout: true, title: 'Onboarding' },
     },
     {
       path: '/moviedetail/:id',
@@ -101,18 +102,36 @@ const router = createRouter({
       component: HelpView,
       meta: { requiresAuth: true, title: 'Help' },
     },
+
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/', //TODO: Or show 404 page
+    },
   ],
 });
 
 router.beforeEach((to) => {
-  const { isLoggedIn, requiresOnboarding } = storeToRefs(useAuthStore());
+  const { isLoggedIn } = storeToRefs(useAuthStore());
+  const { requiresOnboarding, isReady } = storeToRefs(useUserStore());
+  if (to.meta.requiresAuth && isLoggedIn.value && !isReady.value) {
+    return;
+  }
 
   if (to.meta.requiresAuth && !isLoggedIn.value) {
     return { path: '/login' };
   }
 
-  if (to.meta.requiresAuth && isLoggedIn.value && requiresOnboarding.value) {
+  if (
+    to.meta.requiresAuth &&
+    isLoggedIn.value &&
+    requiresOnboarding.value &&
+    to.path !== '/onboarding'
+  ) {
     return { path: '/onboarding' };
+  }
+
+  if (to.path === '/onboarding' && isReady.value && !requiresOnboarding.value) {
+    return { path: '/' };
   }
 
   if (to.meta.guestOnly && isLoggedIn.value) {
