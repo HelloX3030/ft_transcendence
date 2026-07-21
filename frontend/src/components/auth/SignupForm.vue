@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router';
 
 import Separator from '@/components/ui/separator/Separator.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/user';
 
 const form = useForm({
   validationSchema: toTypedSchema(registerSchema),
@@ -20,13 +21,15 @@ const form = useForm({
 
 const router = useRouter();
 const auth = useAuthStore();
+const userStore = useUserStore();
 const errorMessage = ref<string | null>(null);
 
 const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
   errorMessage.value = null;
   try {
     await auth.register({ username, email, password, language: 'de' }); //TODO: dynamic language
-    router.push('/onboarding');
+    await userStore.refetchUser();
+    router.push('/');
   } catch (err: unknown) {
     const e = err as { status?: number; message?: string };
     if (e?.status === 403) {

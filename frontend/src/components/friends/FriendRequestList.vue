@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAuthStore } from '@/stores/auth';
 import FriendRequestItem from './FriendRequestItem.vue';
 import { ItemGroup } from '../ui/item/index.ts';
 import { useFriendsStore } from '@/stores/friends.ts';
 import { storeToRefs } from 'pinia';
+import { useUserStore } from '@/stores/user.ts';
 
-const { user: me } = useAuthStore();
+const { state: me } = useUserStore();
 
 const { state: friends } = storeToRefs(useFriendsStore());
 
