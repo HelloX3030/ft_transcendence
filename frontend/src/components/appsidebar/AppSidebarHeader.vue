@@ -2,9 +2,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '../ui/sidebar';
 import { RouterLink } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
+import { useUserStore } from '@/stores/user';
+import { storeToRefs } from 'pinia';
 
-const auth = useAuthStore();
+const userStore = useUserStore();
+
+const { state: user } = storeToRefs(userStore);
 </script>
 
 <template>
@@ -14,14 +17,14 @@ const auth = useAuthStore();
         <SidebarMenuButton size="lg" as-child>
           <RouterLink to="/profile" active-class="border-r-2 border-primary rounded-r-xs">
             <Avatar>
-              <AvatarImage v-if="auth.user?.image" :src="auth.user.image" alt="avatar" />
+              <AvatarImage v-if="user?.image" :src="user.image" alt="avatar" />
               <AvatarFallback>{{
-                auth.user?.username?.slice(0, 2).toUpperCase() ?? '?'
+                user?.username?.slice(0, 2).toUpperCase() ?? '?'
               }}</AvatarFallback>
             </Avatar>
 
             <div class="flex-1 text-left text-sm leading-tight">
-              <span class="truncate font-semibold">{{ auth.user?.username ?? '...' }}</span>
+              <span class="truncate font-semibold">{{ user?.username ?? '...' }}</span>
             </div>
           </RouterLink>
         </SidebarMenuButton>
