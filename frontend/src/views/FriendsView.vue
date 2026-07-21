@@ -9,7 +9,7 @@ import { ItemGroup } from '@/components/ui/item';
 import FriendItem from '@/components/friends/FriendItem.vue';
 
 const store = useFriendsStore();
-const { state: friends, acceptedFriends } = storeToRefs(store);
+const { state: friends, acceptedFriends, friendsDetails } = storeToRefs(store);
 </script>
 
 <template>
@@ -23,7 +23,12 @@ const { state: friends, acceptedFriends } = storeToRefs(store);
         Friends ({{ acceptedFriends.length }})
       </h3>
       <ItemGroup class="gap-2" v-if="acceptedFriends.length > 0">
-        <FriendItem v-for="friend in acceptedFriends" :key="friend.friendId" v-bind="friend" />
+        <FriendItem
+          v-for="friend in friendsDetails"
+          :key="friend.id"
+          v-bind="friend"
+          :createdAt="friends.find((f) => f.friendId === friend.id)?.createdAt"
+        />
       </ItemGroup>
     </div>
     <div

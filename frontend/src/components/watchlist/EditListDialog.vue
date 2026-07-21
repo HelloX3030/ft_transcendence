@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,8 +25,9 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
-import { useEditWatchlistDialog } from '@/composables/watchlist/useEditWatchlistDialog';
+import { useEditWatchlist } from '@/composables/watchlist/useEditWatchlist.ts';
 import EditorListBox from './EditorListBox.vue';
+import { toast } from 'vue-sonner';
 
 const props = defineProps<{
   name: string;
@@ -36,17 +37,51 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ success: [] }>();
+
 const isOpen = defineModel<boolean>('open');
 
-const { selectedMovies, addMovie, removeMovie, isSelected, selectedEditors, submit } =
-  useEditWatchlistDialog({
-    watchlistId: props.watchlistId,
-    name: computed(() => props.name),
-    isOpen,
-    movies: computed(() => props.movies),
-    editors: computed(() => props.editors),
-    onSuccess: () => emit('success'),
-  });
+const {
+  init: initEditWatchlist,
+  reset: resetEditWatchlist,
+  selectedMovies,
+  addMovie,
+  removeMovie,
+  isSelected,
+  selectedEditors,
+  submit,
+} = useEditWatchlist({
+  watchlistId: props.watchlistId,
+  name: computed(() => props.name),
+  movies: computed(() => props.movies),
+  editors: computed(() => props.editors),
+});
+
+async function handleSubmit() {
+  try {
+    const result = await submit();
+    const failedCount = result?.failedCount ?? 0;
+
+    if (failedCount > 0) {
+      toast.error(`${failedCount} action(s) failed`);
+    } else {
+      toast.success('Edit Successfully');
+    }
+    emit('success');
+  } catch (error) {
+    console.log(error);
+    toast.error('Something went wrong');
+  }
+
+  isOpen.value = false;
+}
+
+watch(isOpen, async (open) => {
+  if (open) {
+    await initEditWatchlist();
+  } else {
+    resetEditWatchlist();
+  }
+});
 </script>
 
 <template>
@@ -58,7 +93,7 @@ const { selectedMovies, addMovie, removeMovie, isSelected, selectedEditors, subm
           Rename your list, add new movies or remove existing ones.
         </DialogDescription>
       </DialogHeader>
-      <form @submit.prevent="submit" class="space-y-4">
+      <form @submit.prevent="handleSubmit" class="space-y-4">
         <FormField v-slot="{ componentField }" name="name">
           <FormItem>
             <FormLabel>Name</FormLabel>

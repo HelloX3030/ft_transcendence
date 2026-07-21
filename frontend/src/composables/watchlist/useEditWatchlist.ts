@@ -1,6 +1,4 @@
-// composables/watchlist/useEditWatchlistDialog.ts
-import { computed, ref, watch, type Ref } from 'vue';
-import { toast } from 'vue-sonner';
+import { computed, ref, type Ref } from 'vue';
 import { useForm } from 'vee-validate';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useMovieSelection } from '@/composables/useMovieSelection';
@@ -14,21 +12,12 @@ import type { WatchlistMovieResponse } from '@trailertinder/shared';
 export interface UseEditWatchlistDialogOptions {
   watchlistId: number;
   name: Ref<string>;
-  isOpen: Ref<boolean | undefined>;
   movies?: Ref<WatchlistMovieResponse[] | undefined>;
   editors?: Ref<number[] | undefined>;
-  onSuccess?: () => void;
 }
 
-export function useEditWatchlistDialog(options: UseEditWatchlistDialogOptions) {
-  const {
-    watchlistId,
-    name,
-    isOpen,
-    movies: moviesProp,
-    editors: editorsProp,
-    onSuccess,
-  } = options;
+export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
+  const { watchlistId, name, movies: moviesProp, editors: editorsProp } = options;
 
   const movieStore = useMoviesStore();
   const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
@@ -47,24 +36,13 @@ export function useEditWatchlistDialog(options: UseEditWatchlistDialogOptions) {
     validationSchema: toTypedSchema(updateListSchema),
   });
 
-  // --- Lifecycle: Dialog auf/zu ---
-
-  watch(isOpen, async (open) => {
-    if (open) {
-      await initDialog();
-    } else {
-      resetDialog();
-    }
-  });
-
-  const initDialog = async () => {
+  const init = async () => {
     if (!moviesProp?.value) {
       await refetchMovies();
     }
     for (const m of currentMovies.value) {
       addMovie(m);
     }
-
     if (editorsProp?.value) {
       selectedEditors.value = [...editorsProp.value];
     } else {
@@ -73,14 +51,12 @@ export function useEditWatchlistDialog(options: UseEditWatchlistDialogOptions) {
     }
   };
 
-  const resetDialog = () => {
+  const reset = () => {
     selectedMovies.value = [];
     movieStore.resetSearch();
     selectedEditors.value = [];
     resetForm();
   };
-
-  // --- Diffing ---
 
   const diffMovies = () => {
     const toDelete = currentMovies.value.filter(
@@ -98,8 +74,6 @@ export function useEditWatchlistDialog(options: UseEditWatchlistDialogOptions) {
     return { toDelete, toAdd };
   };
 
-  // --- Persistieren ---
-
   const saveMovies = () => {
     const { toDelete, toAdd } = diffMovies();
     return Promise.allSettled([
@@ -116,46 +90,28 @@ export function useEditWatchlistDialog(options: UseEditWatchlistDialogOptions) {
     ]);
   };
 
-  // --- Submit ---
-
   const submit = handleSubmit(async (values) => {
-    try {
-      const [movieResults, editorResults] = await Promise.all([saveMovies(), saveEditors()]);
+    const [movieResults, editorResults] = await Promise.all([saveMovies(), saveEditors()]);
 
-      const failedCount =
-        movieResults.filter((r) => r.status === 'rejected').length +
-        editorResults.filter((r) => r.status === 'rejected').length;
+    const failedCount =
+      movieResults.filter((r) => r.status === 'rejected').length +
+      editorResults.filter((r) => r.status === 'rejected').length;
 
-      if (failedCount > 0) {
-        toast.error(`${failedCount} action(s) failed`);
-      }
-
-      if (values.name && values.name !== name.value) {
-        await watchlistApi.update(watchlistId, { name: values.name });
-      }
-
-      if (failedCount === 0) {
-        toast.success('Edit Successfully');
-      }
-
-      onSuccess?.();
-    } catch (error) {
-      console.log(error);
-      toast.error('Something went wrong');
+    if (values.name && values.name !== name.value) {
+      await watchlistApi.update(watchlistId, { name: values.name });
     }
 
-    isOpen.value = false;
+    return { failedCount };
   });
 
   return {
-    // movies
     selectedMovies,
     addMovie,
     removeMovie,
     isSelected,
-    // editors
     selectedEditors,
-    // form
     submit,
+    init,
+    reset,
   };
 }

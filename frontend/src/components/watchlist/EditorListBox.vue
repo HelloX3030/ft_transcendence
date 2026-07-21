@@ -20,16 +20,13 @@ import {
 } from '@/components/ui/tags-input';
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
-import { useUserDetails } from '@/composables/useUserDetails';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { GetUserResponse } from '@trailertinder/shared';
 
 const selectedEditors = defineModel<number[]>();
 
 const friendsStore = useFriendsStore();
-const { acceptedFriendsId } = storeToRefs(friendsStore);
-
-const { state: friendsDetails } = useUserDetails(acceptedFriendsId);
+const { friendsDetails } = storeToRefs(friendsStore);
 
 const usersById = computed(() => {
   const map = new Map<number, GetUserResponse>();
@@ -57,8 +54,8 @@ watch(searchTerm, (f) => {
     <ListboxRoot v-model="selectedEditors" highlight-on-hover multiple>
       <PopoverAnchor class="inline-flex w-full">
         <TagsInput v-slot="{ modelValue: tags }" v-model="selectedEditors" class="w-full">
-          <template v-for="(id, idx) in tags" :key="id.toString()">
-            <TagsInputItem v-if="idx !== 0" :value="id">
+          <template v-for="id in tags" :key="id.toString()">
+            <TagsInputItem :value="id">
               <TagsInputItemText>{{
                 usersById.get(Number(id.toString()))?.username ?? id
               }}</TagsInputItemText>

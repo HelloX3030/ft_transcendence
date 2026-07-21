@@ -19,6 +19,8 @@ export const useFriendsStore = defineStore('friends', () => {
   );
   const acceptedFriendsId = computed(() => acceptedFriends.value.map((f) => f.friendId));
 
+  const { state: friendsDetails } = useUserDetails(acceptedFriendsId);
+
   async function acceptRequest(friendId: number) {
     await friendsApi.acceptRequest(friendId);
     await refetchFriends();
@@ -41,8 +43,8 @@ export const useFriendsStore = defineStore('friends', () => {
 
   return {
     state,
+    friendsDetails,
     acceptedFriends,
-    acceptedFriendsId,
     isLoading,
     isReady,
     error,
