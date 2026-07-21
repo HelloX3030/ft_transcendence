@@ -22,15 +22,25 @@ import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { GetUserResponse } from '@trailertinder/shared';
+import { useUserStore } from '@/stores/user';
 
 const selectedEditors = defineModel<number[]>();
+const user = useUserStore();
 
 const friendsStore = useFriendsStore();
 const { friendsDetails } = storeToRefs(friendsStore);
 
 const usersById = computed(() => {
   const map = new Map<number, GetUserResponse>();
-  for (const f of friendsDetails.value) map.set(f.id, f);
+  for (const f of friendsDetails.value) {
+    map.set(f.id, f);
+  }
+  if (user.state)
+    map.set(user.state.id, {
+      username: user.state.username,
+      id: user.state.id,
+      image: user.state.image,
+    });
   return map;
 });
 
