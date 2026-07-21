@@ -36,7 +36,7 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
     validationSchema: toTypedSchema(updateListSchema),
   });
 
-  const init = async () => {
+  async function init() {
     if (!moviesProp?.value) {
       await refetchMovies();
     }
@@ -49,16 +49,16 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
       await refetchWatchlist();
       selectedEditors.value = [...(watchlist.value?.editorIds ?? [])];
     }
-  };
+  }
 
-  const reset = () => {
+  function reset() {
     selectedMovies.value = [];
     movieStore.resetSearch();
     selectedEditors.value = [];
     resetForm();
-  };
+  }
 
-  const diffMovies = () => {
+  function diffMovies() {
     const toDelete = currentMovies.value.filter(
       (m) => !selectedMovies.value.some((d) => d.id === m.tmdbId),
     );
@@ -66,29 +66,29 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
       (m) => !currentMovies.value.some((d) => d.tmdbId === m.id),
     );
     return { toDelete, toAdd };
-  };
+  }
 
-  const diffEditors = () => {
+  function diffEditors() {
     const toDelete = currentEditors.value.filter((id) => !selectedEditors.value.includes(id));
     const toAdd = selectedEditors.value.filter((id) => !currentEditors.value.includes(id));
     return { toDelete, toAdd };
-  };
+  }
 
-  const saveMovies = () => {
+  function saveMovies() {
     const { toDelete, toAdd } = diffMovies();
     return Promise.allSettled([
       ...toDelete.map((m) => watchlistApi.deleteMovie(watchlistId, m.id)),
       ...toAdd.map((m) => watchlistApi.addMovie(watchlistId, { tmdbId: m.id })),
     ]);
-  };
+  }
 
-  const saveEditors = () => {
+  function saveEditors() {
     const { toDelete, toAdd } = diffEditors();
     return Promise.allSettled([
       ...toDelete.map((id) => watchlistApi.deleteUser(watchlistId, id)),
       ...toAdd.map((id) => watchlistApi.addUser(watchlistId, { userId: id, role: 'editor' })),
     ]);
-  };
+  }
 
   const submit = handleSubmit(async (values) => {
     const [movieResults, editorResults] = await Promise.all([saveMovies(), saveEditors()]);

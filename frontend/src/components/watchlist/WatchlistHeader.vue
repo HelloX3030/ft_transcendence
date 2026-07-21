@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserIcon } from '@lucide/vue';
+import { Pen, UserIcon } from '@lucide/vue';
 import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
 import { useUserDetails } from '@/composables/useUserDetails.ts';
+import { Button } from '../ui/button/index.ts';
 
 interface PropsType {
   watchlist: WatchlistResponse;
@@ -28,16 +29,24 @@ const formattedDate = computed(() => {
     year: 'numeric',
   });
 });
+
+const open = ref(false);
 </script>
 
 <template>
   <div class="flex flex-col gap-1 mb-8">
     <div class="flex items-start justify-between">
       <h1 class="font-bold text-2xl md:text-3xl xl:text-4xl">{{ watchlist.name }}</h1>
+      <Button @click="open = !open" variant="ghost">
+        <Pen />
+      </Button>
+
       <EditListDialog
         :name="watchlist.name"
         :watchlist-id="watchlist.id"
         :movies="movies"
+        :editors="watchlist.editorIds"
+        v-model:open="open"
         @success="emit('success')"
       />
     </div>
@@ -48,13 +57,13 @@ const formattedDate = computed(() => {
         <div
           class="*:data-[slot=avatar]:ring-background flex -space-x-2 *:data-[slot=avatar]:ring-2"
         >
-          <div v-if="usersLoading">
+          <template v-if="usersLoading">
             <Skeleton
               v-for="value in watchlist.editorIds"
               :key="value"
               class="size-8 rounded-full"
             />
-          </div>
+          </template>
           <TooltipProvider v-else-if="userDetails">
             <RouterLink
               v-for="(user, idx) in userDetails"
