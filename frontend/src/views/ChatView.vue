@@ -30,7 +30,7 @@ const userStore = useUserStore();
 const { state: user } = storeToRefs(userStore);
 const currentUserId = computed(() => user.value?.id.toString() ?? '');
 
-// ---- Friends (echt, vom Friends-Store) ----
+// ---- Friends
 const friendsStore = useFriendsStore();
 const { acceptedFriends } = storeToRefs(friendsStore);
 const friendIds = computed(() => acceptedFriends.value.map((f) => f.friendId.toString()));
