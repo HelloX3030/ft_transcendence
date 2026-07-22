@@ -4,6 +4,7 @@ import type {
   WatchlistMovieRequest,
   WatchlistMovieResponse,
   WatchlistResponse,
+  WatchlistRole,
   WatchlistUpdateRequest,
 } from '@trailertinder/shared';
 
@@ -33,27 +34,36 @@ export const watchlistApi = {
   delete: (id: number) => backendClient(`/watchlists/${id}`, { method: 'DELETE' }),
 
   addMovie: (id: number, movie: WatchlistMovieRequest) =>
-    backendClient(
-      `/watchlists/${id}/movies`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(movie),
+    backendClient(`/watchlists/${id}/movies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      // { expectData: false },
-    ),
+      body: JSON.stringify(movie),
+    }),
 
   deleteMovie: (id: number, movieId: number) =>
-    backendClient(
-      `/watchlists/${id}/movies/${movieId}`,
-      { method: 'DELETE' },
-      // { expectData: false },
-    ),
+    backendClient(`/watchlists/${id}/movies/${movieId}`, { method: 'DELETE' }),
 
-  getMoviesById: async (id: number) =>
+  getMoviesById: (id: number) =>
     backendClient<WatchlistMovieResponse[]>(`/watchlists/${id}/movies`, {
       method: 'GET',
     }),
+
+  getUsers: (id: number) => backendClient(`/watchlists/${id}/users`),
+
+  addUser: (id: number, payload: { userId: number; role: WatchlistRole }) => {
+    return backendClient(`/watchlists/${id}/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteUser: (id: number, userId: number) => {
+    return backendClient(`/watchlists/${id}/users/${userId}`, {
+      method: 'DELETE',
+    });
+  },
 };

@@ -1,8 +1,9 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { NotifyMsg } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
+import { FriendUtils } from 'src/utils';
+import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
 
 @Injectable()
 export class NotifyService {
@@ -13,7 +14,7 @@ export class NotifyService {
   constructor(
     @Inject(forwardRef(() => NotifyGateway))
     private readonly notifyGateway: NotifyGateway,
-    private readonly prisma: PrismaService,
+    private readonly friendUtils: FriendUtils,
   ) {}
 
   // -------------------------
@@ -58,6 +59,12 @@ export class NotifyService {
     else return false;
   }
 
+  getUserSockets(userId: number) {
+    const sockets = this.userStatus.get(userId);
+    if (sockets !== undefined) return sockets;
+    else throw new Error('User is offline.');
+  }
+
   // -------------------------
   // Send Notifications
   // -------------------------
@@ -65,38 +72,14 @@ export class NotifyService {
     this.notifyGateway.sendNotification(userId, message);
   }
 
-  async getFreinds(userId: number): Promise<number[]> {
-    const user = await this.prisma.users.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        friendsA: {
-          where: {
-            status: 'accepted',
-          },
-        },
-        friendsB: {
-          where: {
-            status: 'accepted',
-          },
-        },
-      },
-    });
+  // -------------------------
+  // User Chat
+  // -------------------------
+  async hasChatRequirements(meUserId: number, peerUserId: number) {
+    const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
+    if (!isFriend) throw new ChatRequiremtnsException('You are not friends with this user.');
 
-    if (user === null) {
-      throw new Error('The user cannot be found.');
-    }
-
-    const friends: number[] = [];
-
-    user.friendsA.forEach((friend) => {
-      friends.push(friend.userBId);
-    });
-
-    user.friendsB.forEach((friend) => {
-      friends.push(friend.userAId);
-    });
-    return friends;
+    const isOnline = this.userStatus.get(peerUserId) !== undefined;
+    if (!isOnline) throw new ChatRequiremtnsException('The user is offline.');
   }
 }

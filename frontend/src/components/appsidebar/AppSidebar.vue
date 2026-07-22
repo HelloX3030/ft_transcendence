@@ -17,6 +17,7 @@ import {
   Clapperboard,
   FileText,
   LogOut,
+  MessageCircle,
   Shield,
   Users,
 } from 'lucide-vue-next';
@@ -44,6 +45,7 @@ async function handleLogout() {
             <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
             <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
             <AppSidebarItem titel="Friends" path="/friends" :icon="Users" />
+            <AppSidebarItem titel="Chat" path="/chat" :icon="MessageCircle" />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

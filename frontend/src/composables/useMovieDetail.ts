@@ -1,6 +1,5 @@
 import { ref, watch, type Ref } from 'vue';
 import type { TmdbMovieDetail } from '@trailertinder/shared';
-import { fetchJson } from '@/api/tmdb.client';
 import { backendClient } from '@/api';
 
 type DetailStatus = 'idle' | 'loading' | 'ready' | 'notFound' | 'error';

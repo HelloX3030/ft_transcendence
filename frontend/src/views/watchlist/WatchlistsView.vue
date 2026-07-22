@@ -5,13 +5,7 @@ import WatchlistOverview from '@/components/watchlist/WatchlistOverview.vue';
 import CreateListDialog from '@/components/watchlist/CreateListDialog.vue';
 import { watchlistApi } from '@/api/index.ts';
 
-const {
-  watchlists,
-  watchlistsLoading: isLoading,
-  watchlistsReady: isReady,
-  watchlistsError: error,
-  refetchWatchlists,
-} = useWatchlists();
+const { state: watchlists, isLoading, isReady, error, refetchWatchlists } = useWatchlists();
 
 async function deleteWatchlist(watchlistId: number) {
   await watchlistApi.delete(watchlistId);

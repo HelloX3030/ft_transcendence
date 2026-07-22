@@ -8,9 +8,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 
 const route = useRoute();
-const { watchlist, watchlistLoading, watchlistError, refetchWatchlist } = useWatchlist(
-  Number(route.params.id),
-);
+const {
+  state: watchlist,
+  isLoading,
+  error,
+  refetchWatchlist,
+} = useWatchlist(Number(route.params.id));
 
 const { movies, moviesLoading } = useWatchlistMovies(Number(route.params.id));
 const router = useRouter();
@@ -18,15 +21,12 @@ const router = useRouter();
 
 <template>
   <section class="flex-1 w-5/6 mx-auto py-8">
-    <div
-      v-if="watchlistLoading || moviesLoading"
-      class="flex items-center justify-center min-h-screen"
-    >
+    <div v-if="isLoading || moviesLoading" class="flex items-center justify-center min-h-screen">
       <Spinner class="size-16" />
     </div>
 
-    <div v-else-if="watchlistError" class="flex items-center justify-center min-h-screen">
-      <p class="text-zinc-500">Couldn't load watchlist: {{ (watchlistError as Error).message }}</p>
+    <div v-else-if="error" class="flex items-center justify-center min-h-screen">
+      <p class="text-zinc-500">Couldn't load watchlist: {{ (error as Error).message }}</p>
     </div>
 
     <div class="h-full flex flex-col" v-else-if="watchlist && movies">

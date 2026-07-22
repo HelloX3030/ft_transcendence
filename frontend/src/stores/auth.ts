@@ -1,6 +1,11 @@
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { LoginRequest, LoginResponse, RegisterRequest } from '@trailertinder/shared';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterRequest,
+  UserMeResponse,
+} from '@trailertinder/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { notifyStore } from './notify';
@@ -8,6 +13,7 @@ import { notifyStore } from './notify';
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
   const notify = notifyStore();
+  const user = ref<UserMeResponse | null | undefined>(null);
 
   async function init() {
     try {
