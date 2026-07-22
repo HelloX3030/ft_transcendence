@@ -1,18 +1,21 @@
 import { watchlistApi } from '@/api';
 import { useAsyncState } from '@vueuse/core';
 
-export function useWatchlist(watchlistId: number) {
+export function useWatchlist(
+  watchlistId: number,
+  options: { immediate?: boolean } = { immediate: true },
+) {
   const {
-    state: watchlist,
-    isLoading: watchlistLoading,
-    error: watchlistError,
+    state,
+    isLoading,
+    error,
     execute: refetchWatchlist,
-  } = useAsyncState(() => watchlistApi.getById(watchlistId), null);
+  } = useAsyncState(() => watchlistApi.getById(watchlistId), null, options);
 
   return {
-    watchlist,
-    watchlistLoading,
-    watchlistError,
+    state,
+    isLoading,
+    error,
     refetchWatchlist,
   };
 }
