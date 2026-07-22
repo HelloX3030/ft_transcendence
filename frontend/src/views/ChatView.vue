@@ -9,9 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
 import { useUserDetails } from '@/composables/useUserDetails';
-import { useAuthStore } from '@/stores/auth';
 import { notifyStore } from '@/stores/notify';
 import { userApi } from '@/api/endpoints/user';
+import { useUserStore } from '@/stores/user';
 
 // ---- Types ----
 interface ChatMessage {
@@ -26,8 +26,8 @@ interface Chat {
 }
 
 // ---- Current user ----
-const authStore = useAuthStore();
-const { user } = storeToRefs(authStore);
+const userStore = useUserStore();
+const { state: user } = storeToRefs(userStore);
 const currentUserId = computed(() => user.value?.id.toString() ?? '');
 
 // ---- Friends (echt, vom Friends-Store) ----
