@@ -38,10 +38,13 @@ import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { watchlistApi } from '@/api';
 import type { TmdbMovie } from '@trailertinder/shared';
+import { useEditorSelection } from '@/composables/watchlist/useEditorSelection';
+import EditorListBox from './EditorListBox.vue';
 
 const emit = defineEmits(['success']);
 const store = useMoviesStore();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
+const { selectedEditors } = useEditorSelection();
 const isOpen = ref(false);
 
 const { handleSubmit, resetForm } = useForm({
@@ -55,6 +58,11 @@ const onSubmit = handleSubmit(async (values) => {
 
     const results = await Promise.allSettled(
       selectedMovies.value.map((m) => watchlistApi.addMovie(watchlistData.id, { tmdbId: m.id })),
+    );
+    await Promise.allSettled(
+      selectedEditors.value.map((id) =>
+        watchlistApi.addUser(watchlistData.id, { userId: id, role: 'editor' }),
+      ),
     );
 
     const failed = results.filter((r) => r.status === 'rejected');
@@ -145,6 +153,7 @@ watch(isOpen, (open) => {
               </template>
             </MovieBrowser>
           </div>
+          <EditorListBox v-model="selectedEditors" />
         </div>
         <DialogFooter>
           <DialogClose as-child>

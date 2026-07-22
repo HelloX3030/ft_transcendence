@@ -9,6 +9,7 @@ import TermsView from '@/views/TermsView.vue';
 import PrivacyView from '@/views/PrivacyView.vue';
 import HelpView from '@/views/HelpView.vue';
 
+import ChatView from '@/views/ChatView.vue';
 import FriendsView from '@/views/FriendsView.vue';
 import ProfileView from '@/views/ProfileView.vue';
 import UserProfileView from '@/views/UserProfileView.vue';
@@ -56,6 +57,11 @@ const router = createRouter({
       path: '/friends',
       component: FriendsView,
       meta: { requiresAuth: true, title: 'Friends' },
+    },
+    {
+      path: '/chat',
+      component: ChatView,
+      meta: { requiresAuth: true, title: 'Chat' },
     },
     {
       path: '/users/:id',

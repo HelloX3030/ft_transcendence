@@ -51,4 +51,10 @@ const notify = notifyStore();
     </div>
   </header>
   <Separator orientation="horizontal" />
+  <div
+    v-if="notify.offline"
+    class="w-full bg-red-600 text-white text-center py-1 px-2 text-sm font-medium"
+  >
+    You are offline.
+  </div>
 </template>
