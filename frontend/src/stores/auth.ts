@@ -30,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (!result?.mfaRequired) {
         isLoggedIn.value = true;
         const userStore = useUserStore();
-        user.value = await userStore.refetchUser();
+        await userStore.refetchUser();
         notify.init();
       }
       return result;
@@ -44,7 +44,6 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.logout();
       notify.stop();
       isLoggedIn.value = false;
-      user.value = null;
     } catch {
       // best-effort — clear local state regardless
     }
@@ -55,13 +54,12 @@ export const useAuthStore = defineStore('auth', () => {
       await authApi.register(payload);
       isLoggedIn.value = true;
       const userStore = useUserStore();
-      user.value = await userStore.refetchUser();
+      await userStore.refetchUser();
       notify.init();
     } catch (error) {}
   }
 
   return {
-    user,
     isLoggedIn,
     init,
     login,
