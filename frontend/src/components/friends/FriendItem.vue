@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import type { Friend, GetUserResponse } from '@trailertinder/shared';
-import { onMounted, ref } from 'vue';
-import { userApi } from '@/api/endpoints/user';
+import type { GetUserResponse } from '@trailertinder/shared';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ArrowUpRight, Ellipsis, Trash, UserIcon } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item';
@@ -17,21 +15,19 @@ import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
 import { notifyStore } from '@/stores/notify';
 
-const props = defineProps<Friend>();
+interface Props extends GetUserResponse {
+  createdAt: string | Date | undefined;
+}
+
+const props = defineProps<Props>();
 const router = useRouter();
 const friendsStore = useFriendsStore();
 
-const userDetail = ref<GetUserResponse>();
-
 const notify = notifyStore();
-
-onMounted(async () => {
-  userDetail.value = await userApi.getById(props.friendId);
-});
 
 async function handleDelete() {
   try {
-    await friendsStore.deleteFriend(props.friendId);
+    await friendsStore.deleteFriend(props.id);
     toast.success('Friend deleted successful');
   } catch (error) {
     const message = (error as Error).message;
@@ -44,17 +40,13 @@ async function handleDelete() {
   <Item variant="outline">
     <ItemMedia>
       <Avatar class="size-10">
-        <AvatarImage
-          v-if="userDetail && userDetail.image"
-          :src="userDetail?.image"
-          :alt="userDetail.username"
-        />
+        <AvatarImage v-if="image" :src="image" :alt="username" />
         <AvatarFallback><UserIcon /></AvatarFallback>
       </Avatar>
     </ItemMedia>
     <ItemContent>
-      <ItemTitle>{{ userDetail?.username }}</ItemTitle>
-      <ItemDescription>
+      <ItemTitle>{{ username }}</ItemTitle>
+      <ItemDescription v-if="createdAt">
         Friend since {{ new Date(createdAt).toLocaleDateString() }}</ItemDescription
       >
     </ItemContent>
@@ -64,10 +56,10 @@ async function handleDelete() {
           <Button variant="ghost" size="icon"> <Ellipsis /> </Button
         ></DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem @click="router.push(`/profile/${friendId}`)">
+          <DropdownMenuItem @click="router.push(`/profile/${id}`)">
             <ArrowUpRight /> Open</DropdownMenuItem
           >
-          <DropdownMenuItem @click="notify.createChat(String(friendId))">
+          <DropdownMenuItem @click="notify.createChat(String(id))">
             <ArrowUpRight /> Chat
           </DropdownMenuItem>
           <DropdownMenuItem @click="handleDelete"><Trash /> Delete </DropdownMenuItem>

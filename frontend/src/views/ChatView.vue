@@ -63,7 +63,7 @@ const allUserIds = computed(() => {
   return Array.from(ids);
 });
 
-const { userDetails, usersLoading } = useUserDetails(allUserIds.value);
+const { state: userDetails, isLoading: usersLoading } = useUserDetails(allUserIds.value);
 
 function getUser(id: string) {
   const u = userDetails.value.find((u) => u.id === Number(id));
