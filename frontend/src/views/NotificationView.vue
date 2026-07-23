@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import Button from '@/components/ui/button/Button.vue';
 import { Card } from '@/components/ui/card';
-import { notifyStore } from '@/stores/notify.ts';
+import { useNotifyStore } from '@/stores/notify.ts';
 
-const notify = notifyStore();
+const notify = useNotifyStore();
 </script>
 
 <template>

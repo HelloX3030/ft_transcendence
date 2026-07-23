@@ -4,7 +4,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth';
-import { notifyStore } from './stores/notify.ts';
+import { useNotifyStore } from './stores/notify.ts';
 import { useUserStore } from './stores/user.ts';
 
 const youtube = {
@@ -28,7 +28,7 @@ const youtube = {
 
   const auth = useAuthStore();
   const userStore = useUserStore();
-  const notify = notifyStore();
+  const notify = useNotifyStore();
   await auth.init();
   if (auth.isLoggedIn) {
     await userStore.refetchUser();
