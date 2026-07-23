@@ -68,15 +68,13 @@ describe('UsersService', () => {
         where: { id: 1 },
         select: ME_SELECT,
       });
-      expect(result).toEqual(mockUser);
+      expect(result.data).toEqual(mockUser);
     });
 
-    it('returns null when user does not exist', async () => {
+    it('throws NotFoundException when user does not exist', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
-      const result = await service.getMe(999);
-
-      expect(result).toBeNull();
+      await expect(service.getMe(999)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -93,7 +91,7 @@ describe('UsersService', () => {
         data: dto,
         select: ME_SELECT,
       });
-      expect(result).toEqual(updated);
+      expect(result.data).toEqual(updated);
     });
 
     it('throws ForbiddenException when username is already taken (P2002)', async () => {
@@ -158,7 +156,7 @@ describe('UsersService', () => {
       const result = await service.deleteMe(1);
 
       expect(mockPrisma.users.delete).toHaveBeenCalledWith({ where: { id: 1 } });
-      expect(result).toEqual({ message: 'Account deleted' });
+      expect(result).toEqual({ success: true, message: 'Account deleted', data: null });
     });
 
     it('deletes MinIO avatar when user has one', async () => {
@@ -221,7 +219,7 @@ describe('UsersService', () => {
         skip: 10,
         take: 10,
       });
-      expect(result).toEqual({ page: 2, limit: 10, total: 1, results: matches });
+      expect(result.data).toEqual({ page: 2, limit: 10, total: 1, results: matches });
     });
 
     it('returns an empty result set when nothing matches', async () => {
@@ -230,7 +228,7 @@ describe('UsersService', () => {
 
       const result = await service.searchUsers(1, { query: 'zzz', page: 1, limit: 20 });
 
-      expect(result).toEqual({ page: 1, limit: 20, total: 0, results: [] });
+      expect(result.data).toEqual({ page: 1, limit: 20, total: 0, results: [] });
     });
   });
 
