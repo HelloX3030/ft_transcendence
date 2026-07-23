@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistUpdateDto } from './dto';
-import { watchlist_role, watchlists } from '@prisma/client';
+import { Prisma, watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import {
   MOVIE_ADDED_TO_WATCHLIST,
@@ -268,14 +268,29 @@ export class WatchlistsService {
   async addUser(id: number, dto: watchlistUserDto, currentUserId: number) {
     const watchlistAccess = await this.checkUserAccess(id, currentUserId);
 
-    const watchlistUser = await this.prisma.watchlist_users.create({
-      data: {
-        watchlistId: id,
-        userId: dto.userId,
-        role: dto.role,
-      },
+    const targetUser = await this.prisma.users.findUnique({
+      where: { id: dto.userId },
+      select: { id: true },
     });
-    if (watchlistUser === null) throw new InternalServerErrorException();
+    if (targetUser === null) {
+      throw new NotFoundException('User not found.');
+    }
+
+    try {
+      await this.prisma.watchlist_users.create({
+        data: {
+          watchlistId: id,
+          userId: dto.userId,
+          role: dto.role,
+        },
+      });
+    } catch (error) {
+      // Composite PK (watchlistId, userId) already exists → already a member.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('User already added.');
+      }
+      throw error;
+    }
 
     const msg = WATCHLIST_USER_ADDED(watchlistAccess.watchlist.name);
     this.notify.sendNotify(dto.userId, {
