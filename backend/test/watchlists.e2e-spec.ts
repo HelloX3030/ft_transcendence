@@ -255,6 +255,17 @@ describe('Watchlists (e2e)', () => {
     expect(body.message).toBe('User not found.');
   });
 
+  it('rejects removing a non-member with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `RemoveUser 404 ${runId}`);
+
+    const response = await ownerAgent
+      .delete(`/watchlists/${created.id}/users/${viewerUserId}`)
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
   async function createWatchlist(agent: TestAgent, name: string) {
     const response = await agent
       .post('/watchlists')
