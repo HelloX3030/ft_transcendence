@@ -243,6 +243,18 @@ describe('Watchlists (e2e)', () => {
     expect(body.message).toBe('User already added.');
   });
 
+  it('rejects updating the role of a non-member with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `UpdateRole 404 ${runId}`);
+
+    const response = await ownerAgent
+      .patch(`/watchlists/${created.id}/users/${viewerUserId}`)
+      .send({ role: 'editor' })
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
   async function createWatchlist(agent: TestAgent, name: string) {
     const response = await agent
       .post('/watchlists')
