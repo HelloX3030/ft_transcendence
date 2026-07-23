@@ -194,12 +194,12 @@ describe('Watchlists (e2e)', () => {
     expect(forbiddenBody.message).toBe('You have read-only access.');
   });
 
-  it('deletes a shared watchlist and returns success (regression: W1)', async () => {
+  it('deletes a shared watchlist and returns success', async () => {
     const created = await createWatchlist(ownerAgent, `Delete Target ${runId}`);
 
-    // Add a second member so the post-delete notify fan-out has recipients —
-    // this is the scenario W1 broke on (cascade wiped every membership row
-    // before the notify ran, surfacing a 404 instead of the deletion).
+    // Add a second member so the post-delete notify fan-out has recipients:
+    // deleting cascades away every membership row, so the notify must not
+    // depend on the caller's membership still existing.
     await ownerAgent
       .post(`/watchlists/${created.id}/users`)
       .send({ userId: viewerUserId, role: 'viewer' })
@@ -212,6 +212,35 @@ describe('Watchlists (e2e)', () => {
     // The watchlist is actually gone for both members.
     await ownerAgent.get(`/watchlists/${created.id}`).expect(404);
     await viewerAgent.get(`/watchlists/${created.id}`).expect(404);
+  });
+
+  it('rejects adding a nonexistent user with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `AddUser 404 ${runId}`);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: 999999999, role: 'viewer' })
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
+  it('rejects adding an already-member user with 409', async () => {
+    const created = await createWatchlist(ownerAgent, `AddUser 409 ${runId}`);
+
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(201);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(409);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User already added.');
   });
 
   async function createWatchlist(agent: TestAgent, name: string) {
