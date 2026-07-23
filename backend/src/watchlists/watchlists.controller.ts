@@ -204,7 +204,7 @@ export class WatchlistsController {
     status: 403,
     description: 'You have read-only access.',
   })
-  @ApiResponse({ status: 404, description: 'Watchlists not found.' })
+  @ApiResponse({ status: 404, description: 'Watchlists not found or user not found.' })
   @ApiBody({
     schema: {
       example: {
