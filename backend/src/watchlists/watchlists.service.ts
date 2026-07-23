@@ -351,6 +351,19 @@ export class WatchlistsService {
       await this.checkUserAccess(id, currentUserId);
     }
 
+    const targetMembership = await this.prisma.watchlist_users.findUnique({
+      where: {
+        watchlistId_userId: {
+          watchlistId: id,
+          userId: userId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (targetMembership === null) {
+      throw new NotFoundException('User not found.');
+    }
+
     const wl = await this.prisma.watchlist_users.delete({
       where: {
         watchlistId_userId: {
