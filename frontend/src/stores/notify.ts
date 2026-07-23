@@ -12,7 +12,7 @@ interface ChatMessage {
   message: string;
 }
 
-export const notifyStore = defineStore('notify', () => {
+export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);

@@ -1,170 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
 import { Search, Send, ArrowLeft } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFriendsStore } from '@/stores/friends';
-import { storeToRefs } from 'pinia';
-import { useUserDetails } from '@/composables/useUserDetails';
-import { notifyStore } from '@/stores/notify';
-import { userApi } from '@/api/endpoints/user';
-import { useUserStore } from '@/stores/user';
 
-// ---- Types ----
-interface ChatMessage {
-  timestamp: string;
-  senderId: string;
-  message: string;
-}
+import { useChatList } from '@/composables/chat/useChatList';
+import { useChatConversation } from '@/composables/chat/useChatConversation';
 
-interface Chat {
-  userId: string;
-  messages: ChatMessage[];
-}
+const {
+  getUser,
+  friendsLoading,
+  selectedUserId,
+  selectedChat,
+  selectChat,
+  searchQuery,
+  filteredChats,
+  filteredNewFriends,
+  startNewChat,
+  lastMessageOf,
+  formatTime,
+} = useChatList();
 
-// ---- Current user ----
-const userStore = useUserStore();
-const { state: user } = storeToRefs(userStore);
-const currentUserId = computed(() => user.value?.id.toString() ?? '');
-
-// ---- Friends
-const friendsStore = useFriendsStore();
-const { acceptedFriends } = storeToRefs(friendsStore);
-const friendIds = computed(() => acceptedFriends.value.map((f) => f.friendId.toString()));
-
-// --- Notify ---
-const notify = notifyStore();
-
-watch(
-  friendIds,
-  async (ids) => {
-    const missingIds = ids.map(Number).filter((id) => !userDetails.value.some((u) => u.id === id));
-
-    if (missingIds.length === 0) return;
-
-    const fetched = await Promise.all(missingIds.map((id) => userApi.getById(id)));
-    userDetails.value.push(...fetched);
-  },
-  { immediate: true },
-);
-
-const chats = computed<Chat[]>(() =>
-  Array.from(notify.chat, ([userId, messages]) => ({ userId, messages })),
-);
-
-// ---- User details laden: Chat-Partner UND Freunde zusammen ----
-const allUserIds = computed(() => {
-  const ids = new Set<number>();
-  chats.value.forEach((c) => ids.add(Number(c.userId)));
-  friendIds.value.forEach((id) => ids.add(Number(id)));
-  return Array.from(ids);
-});
-
-const { state: userDetails, isLoading: usersLoading } = useUserDetails(allUserIds.value);
-
-function getUser(id: string) {
-  const u = userDetails.value.find((u) => u.id === Number(id));
-  if (!u) return undefined;
-  return { displayName: u.username, avatarUrl: u.image ?? undefined };
-}
-
-// ---- Selection state ----
-const selectedUserId = ref<string | null>(chats.value[0]?.userId ?? null);
-
-const selectedChat = computed<Chat | undefined>(() =>
-  chats.value.find((c) => c.userId === selectedUserId.value),
-);
-
-function selectChat(userId: string) {
-  selectedUserId.value = userId;
-}
-
-// ---- Search ----
-const searchQuery = ref('');
-
-const filteredChats = computed(() => {
-  if (!searchQuery.value.trim()) return chats.value;
-  const q = searchQuery.value.toLowerCase();
-  return chats.value.filter((c) => getUser(c.userId)?.displayName.toLowerCase().includes(q));
-});
-
-const lastMessageOf = (chat: Chat) => chat.messages[chat.messages.length - 1];
-
-const formatTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-// ---- New message input ----
-const newMessage = ref('');
-
-function sendMessage() {
-  if (!newMessage.value.trim() || !selectedChat.value) return;
-
-  const peerUserId = selectedChat.value.userId;
-  const messageText = newMessage.value.trim();
-
-  const existing = notify.chat.get(peerUserId) ?? [];
-  existing.push({
-    timestamp: new Date().toISOString(),
-    senderId: currentUserId.value,
-    message: messageText,
-  });
-  notify.chat.set(peerUserId, existing);
-
-  notify.sendChatMsg(Number(peerUserId), messageText);
-  newMessage.value = '';
-}
-
-function getMessageClass(msg: ChatMessage) {
-  if (msg.senderId === currentUserId.value) {
-    return 'self-end items-end';
-  } else if (msg.senderId === notify.SYSTEM_SENDER_ID) {
-    return 'self-center items-center';
-  } else {
-    return 'self-start items-start';
-  }
-}
-
-// ---- Auto-scroll ----
-const messagesEndRef = ref<HTMLElement | null>(null);
-
-function scrollToBottom() {
-  nextTick(() => {
-    messagesEndRef.value?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  });
-}
-
-watch(selectedUserId, () => {
-  scrollToBottom();
-});
-
-watch(
-  () => selectedChat.value?.messages.length,
-  () => {
-    scrollToBottom();
-  },
-);
-
-// ---- Freunde ohne bestehenden Chat ----
-const friendsWithoutChat = computed(() =>
-  friendIds.value.filter((id) => !chats.value.some((c) => c.userId === id)),
-);
-
-const filteredNewFriends = computed(() => {
-  if (!searchQuery.value.trim()) return [];
-  const q = searchQuery.value.toLowerCase();
-  return friendsWithoutChat.value.filter((id) =>
-    getUser(id)?.displayName.toLowerCase().includes(q),
-  );
-});
-
-function startNewChat(userId: string) {
-  notify.createChat(userId);
-  selectChat(userId);
-  searchQuery.value = '';
-}
+const { currentUserId, newMessage, sendMessage, getMessageClass, messagesEndRef, systemSenderId } =
+  useChatConversation(selectedChat);
 </script>
 
 <template>
@@ -187,23 +47,20 @@ function startNewChat(userId: string) {
           :key="chat.userId"
           @click="selectChat(chat.userId)"
           class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors"
-          :class="selectedUserId === chat.userId ? 'bg-white/10' : ''"
+          :class="selectedUserId === chat.userId && 'bg-white/10'"
         >
           <Avatar class="h-10 w-10 shrink-0">
-            <AvatarImage
-              v-if="getUser(chat.userId)?.avatarUrl"
-              :src="getUser(chat.userId)!.avatarUrl!"
-            />
+            <AvatarImage v-if="getUser(chat.userId)?.image" :src="getUser(chat.userId)!.image!" />
             <AvatarFallback>
-              {{ getUser(chat.userId)?.displayName.charAt(0) ?? '?' }}
+              {{ getUser(chat.userId)?.username.charAt(0) ?? '?' }}
             </AvatarFallback>
           </Avatar>
 
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-baseline">
-              <Skeleton v-if="usersLoading" class="h-4 w-20" />
+              <Skeleton v-if="friendsLoading" class="h-4 w-20" />
               <span v-else class="font-medium truncate">
-                {{ getUser(chat.userId)?.displayName ?? chat.userId }}
+                {{ getUser(chat.userId)?.username ?? chat.userId }}
               </span>
               <span v-if="lastMessageOf(chat)" class="text-xs text-muted-foreground shrink-0 ml-2">
                 {{ formatTime(lastMessageOf(chat)!.timestamp) }}
@@ -230,22 +87,19 @@ function startNewChat(userId: string) {
             Start new chat
           </p>
           <button
-            v-for="friendId in filteredNewFriends"
-            :key="friendId"
-            @click="startNewChat(friendId)"
+            v-for="friend in filteredNewFriends"
+            :key="friend.id"
+            @click="startNewChat(friend.id)"
             class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors"
           >
             <Avatar class="h-10 w-10 shrink-0">
-              <AvatarImage
-                v-if="getUser(friendId)?.avatarUrl"
-                :src="getUser(friendId)!.avatarUrl!"
-              />
+              <AvatarImage v-if="friend.image" :src="friend!.image!" />
               <AvatarFallback>
-                {{ getUser(friendId)?.displayName.charAt(0) ?? '?' }}
+                {{ friend.username.charAt(0) ?? '?' }}
               </AvatarFallback>
             </Avatar>
             <span class="font-medium truncate">
-              {{ getUser(friendId)?.displayName ?? friendId }}
+              {{ friend.username }}
             </span>
           </button>
         </template>
@@ -274,16 +128,16 @@ function startNewChat(userId: string) {
 
           <Avatar class="h-9 w-9">
             <AvatarImage
-              v-if="getUser(selectedChat.userId)?.avatarUrl"
-              :src="getUser(selectedChat.userId)!.avatarUrl!"
+              v-if="getUser(selectedChat.userId)?.image"
+              :src="getUser(selectedChat.userId)!.image!"
             />
             <AvatarFallback>
-              {{ getUser(selectedChat.userId)?.displayName.charAt(0) ?? '?' }}
+              {{ getUser(selectedChat.userId)?.username.charAt(0) ?? '?' }}
             </AvatarFallback>
           </Avatar>
-          <Skeleton v-if="usersLoading" class="h-4 w-24" />
+          <Skeleton v-if="friendsLoading" class="h-4 w-24" />
           <span v-else class="font-medium">
-            {{ getUser(selectedChat.userId)?.displayName ?? selectedChat.userId }}
+            {{ getUser(selectedChat.userId)?.username ?? selectedChat.userId }}
           </span>
         </header>
 
@@ -292,7 +146,7 @@ function startNewChat(userId: string) {
             v-if="selectedChat.messages.length === 0"
             class="h-full flex items-center justify-center text-muted-foreground text-sm text-center"
           >
-            Say hi to {{ getUser(selectedChat.userId)?.displayName ?? 'your friend' }} 👋
+            Say hi to {{ getUser(selectedChat.userId)?.username ?? 'your friend' }} 👋
           </div>
           <div v-else class="flex flex-col gap-2">
             <div
@@ -302,7 +156,7 @@ function startNewChat(userId: string) {
               :class="getMessageClass(msg)"
             >
               <div
-                v-if="msg.senderId !== notify.SYSTEM_SENDER_ID"
+                v-if="msg.senderId !== systemSenderId"
                 class="rounded-2xl px-4 py-2 text-sm"
                 :class="
                   msg.senderId === currentUserId
@@ -316,7 +170,7 @@ function startNewChat(userId: string) {
                 {{ msg.message }}
               </div>
               <span
-                v-if="msg.senderId !== notify.SYSTEM_SENDER_ID"
+                v-if="msg.senderId !== systemSenderId"
                 class="text-[11px] text-muted-foreground mt-1"
               >
                 {{ formatTime(msg.timestamp) }}

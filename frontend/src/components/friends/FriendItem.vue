@@ -13,7 +13,7 @@ import { useRouter } from 'vue-router';
 import { Button } from '../ui/button';
 import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
-import { notifyStore } from '@/stores/notify';
+import { useNotifyStore } from '@/stores/notify';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -23,7 +23,7 @@ const props = defineProps<Props>();
 const router = useRouter();
 const friendsStore = useFriendsStore();
 
-const notify = notifyStore();
+const notify = useNotifyStore();
 
 async function handleDelete() {
   try {
