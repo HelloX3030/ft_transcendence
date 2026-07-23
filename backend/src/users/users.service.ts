@@ -57,10 +57,12 @@ export class UsersService {
   ) {}
 
   async getMe(userId: number) {
-    return this.prisma.users.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: ME_SELECT,
     });
+    if (user === null) throw new NotFoundException('User not found');
+    return successResponse(user);
   }
 
   async completeOnboarding(userId: number, dto: OnboardingDto) {
@@ -69,7 +71,7 @@ export class UsersService {
     this.logger.debug(
       `Onboarding user ${userId} with ${dto.movieIds.length} movies — applying mock preferences`,
     );
-    return this.prisma.users.update({
+    const user = await this.prisma.users.update({
       where: { id: userId },
       data: {
         onboardingCompleted: true,
@@ -79,15 +81,17 @@ export class UsersService {
       },
       select: ME_SELECT,
     });
+    return successResponse(user);
   }
 
   async updateMe(userId: number, dto: UpdateUserDto) {
     try {
-      return await this.prisma.users.update({
+      const user = await this.prisma.users.update({
         where: { id: userId },
         data: dto,
         select: ME_SELECT,
       });
+      return successResponse(user);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = (error.meta?.target as string[]) ?? [];
@@ -114,7 +118,7 @@ export class UsersService {
     });
 
     if (oldKey) await this.storage.delete(oldKey);
-    return updated;
+    return successResponse(updated);
   }
 
   async deleteMe(userId: number) {
@@ -127,7 +131,7 @@ export class UsersService {
     await this.prisma.users.delete({ where: { id: userId } });
 
     if (oldKey) await this.storage.delete(oldKey);
-    return { message: 'Account deleted' };
+    return successResponse(null, 'Account deleted');
   }
 
   async searchUsers(requesterId: number, dto: SearchUsersDto) {
@@ -148,7 +152,7 @@ export class UsersService {
       }),
     ]);
 
-    return { page, limit, total, results };
+    return successResponse({ page, limit, total, results });
   }
 
   async getUser(userId: number) {
