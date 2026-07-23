@@ -134,6 +134,18 @@ export class WatchlistsService {
 
   async remove(id: number, currentUserId: number) {
     const watchlistUser = await this.checkUserAccess(id, currentUserId);
+
+    // Collect members before the delete: watchlist_users cascades on delete,
+    // so after `watchlists.delete` there is no membership row left to notify.
+    const members = await this.prisma.watchlist_users.findMany({
+      where: {
+        watchlistId: id,
+      },
+      select: {
+        userId: true,
+      },
+    });
+
     await this.prisma.watchlists.delete({
       where: {
         id,
@@ -142,7 +154,13 @@ export class WatchlistsService {
 
     const username = (await this.userUtils.getUser(currentUserId)).username;
     const msg = WATCHLIST_DELETED(username, watchlistUser.watchlist.name);
-    await this.sendWatchlistNotify(id, currentUserId, msg);
+    for (const member of members) {
+      if (member.userId === currentUserId) continue;
+      this.notify.sendNotify(member.userId, {
+        titel: WATCHLISTS_TITEL,
+        msg,
+      });
+    }
 
     return successResponse(null);
   }
