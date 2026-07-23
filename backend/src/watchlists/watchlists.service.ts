@@ -400,11 +400,8 @@ export class WatchlistsService {
         },
       },
       select: {
-        watchlistId: true,
-        userId: true,
-        user: true,
         role: true,
-        watchlist: {},
+        watchlist: { select: { name: true } },
       },
     });
     if (!watchlistUser) {
