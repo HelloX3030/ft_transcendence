@@ -376,6 +376,26 @@ describe('Watchlists (e2e)', () => {
     expect(moviesA.data[0].id).toBe(moviesB.data[0].id);
   });
 
+  it('rejects adding the same movie twice with 409', async () => {
+    const created = await createWatchlist(ownerAgent, `Duplicate Movie ${runId}`);
+    const tmdbId = tmdbBase + 2;
+
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ original_title: `Dup Mock ${runId}` }),
+    } as unknown as Awaited<ReturnType<typeof fetch>>);
+
+    await ownerAgent.post(`/watchlists/${created.id}/movies`).send({ tmdbId }).expect(201);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/movies`)
+      .send({ tmdbId })
+      .expect(409);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('Movie already added.');
+  });
+
   async function createWatchlist(agent: TestAgent, name: string) {
     const response = await agent
       .post('/watchlists')

@@ -34,6 +34,12 @@ const COVER_INCLUDE = {
     orderBy: { movieId: 'asc' },
     select: { movie: { select: { posterPath: true } } },
   },
+  // Editors folded into the same fetch so editorIds is derived in-memory,
+  // instead of one extra `watchlist_users.findMany` per watchlist (N+1).
+  watchlistUsers: {
+    where: { role: 'editor' },
+    select: { userId: true },
+  },
 } as const;
 import { WatchlistResponse } from '@trailertinder/shared';
 
@@ -62,9 +68,12 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
 
-    const watchlists = await Promise.all(
-      watchlistUsers.map(({ role, watchlist }) =>
-        this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+    const watchlists = watchlistUsers.map(({ role, watchlist }) =>
+      this.toWatchlistDto(
+        role,
+        watchlist,
+        this.extractPosterPaths(watchlist.watchlistMovies),
+        this.extractEditorIds(watchlist.watchlistUsers),
       ),
     );
     return successResponse(watchlists);
@@ -78,10 +87,11 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = await this.toWatchlistDto(
+    const watchlist = this.toWatchlistDto(
       userWatchlist.role,
       userWatchlist.watchlist,
       this.extractPosterPaths(userWatchlist.watchlist.watchlistMovies),
+      this.extractEditorIds(userWatchlist.watchlist.watchlistUsers),
     );
     return successResponse(watchlist);
   }
@@ -103,8 +113,11 @@ export class WatchlistsService {
       },
     });
     const userWatchlist = watchlist.watchlistUsers[0];
+    const editorIds = watchlist.watchlistUsers
+      .filter(({ role }) => role === 'editor')
+      .map(({ userId }) => userId);
     // A freshly created watchlist has no movies yet, so the mosaic is empty.
-    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist, []));
+    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist, [], editorIds));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -124,10 +137,11 @@ export class WatchlistsService {
     });
     if (watchlist === null) throw new InternalServerErrorException();
     return successResponse(
-      await this.toWatchlistDto(
+      this.toWatchlistDto(
         watchlistUser.role,
         watchlist,
         this.extractPosterPaths(watchlist.watchlistMovies),
+        this.extractEditorIds(watchlist.watchlistUsers),
       ),
     );
   }
@@ -191,22 +205,33 @@ export class WatchlistsService {
     });
     if (movie === null) {
       const meta = await this.getMovieMeta(dto.tmdbId);
-      movie = await this.prisma.movies.create({
-        data: {
+      // upsert (not create) so a concurrent first-add of the same tmdbId that
+      // won the race is reused instead of hitting the unique constraint.
+      movie = await this.prisma.movies.upsert({
+        where: { tmdbId: dto.tmdbId },
+        create: {
           tmdbId: dto.tmdbId,
           name: meta.name,
           posterPath: meta.posterPath,
         },
+        update: {},
       });
     }
 
-    const watchlistMovie = await this.prisma.watchlist_movies.create({
-      data: {
-        watchlistId: id,
-        movieId: movie.id,
-      },
-    });
-    if (watchlistMovie === null) throw new InternalServerErrorException();
+    try {
+      await this.prisma.watchlist_movies.create({
+        data: {
+          watchlistId: id,
+          movieId: movie.id,
+        },
+      });
+    } catch (error) {
+      // Composite PK (watchlistId, movieId) already exists → already added.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Movie already added.');
+      }
+      throw error;
+    }
 
     const username = (await this.userUtils.getUser(currentUserId)).username;
     const msg = MOVIE_ADDED_TO_WATCHLIST(username, movie.name, watchlistUser.watchlist.name);
@@ -413,38 +438,31 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  async toWatchlistDto(
+  toWatchlistDto(
     role: watchlist_role,
     watchlistDb: watchlists,
     posterPaths: string[],
-  ): Promise<WatchlistResponse> {
-    const editors: number[] = (
-      await this.prisma.watchlist_users.findMany({
-        where: {
-          watchlistId: watchlistDb.id,
-          role: 'editor',
-        },
-        select: {
-          userId: true,
-        },
-      })
-    ).map((editor) => editor.userId);
-    const watchlist: WatchlistResponse = {
+    editorIds: number[],
+  ): WatchlistResponse {
+    return {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
       posterPaths,
       role: role,
-      editorIds: editors,
+      editorIds,
       createdAt: watchlistDb.createdAt,
     };
-    return watchlist;
   }
 
   extractPosterPaths(watchlistMovies: { movie: { posterPath: string | null } }[]): string[] {
     return watchlistMovies
       .map(({ movie }) => movie.posterPath)
       .filter((path): path is string => path !== null);
+  }
+
+  extractEditorIds(watchlistUsers: { userId: number }[]): number[] {
+    return watchlistUsers.map(({ userId }) => userId);
   }
 
   async getMovieMeta(tmdbId: number): Promise<{ name: string; posterPath: string | null }> {
@@ -482,15 +500,18 @@ export class WatchlistsService {
   }
 
   async sendWatchlistNotify(wlId: number, currentUserId: number, msg: string) {
-    const wlUsers = (await this.getUsers(wlId, currentUserId)).data;
-    if (wlUsers !== null && wlUsers !== undefined) {
-      for (const user of wlUsers) {
-        if (user.userId === currentUserId) continue;
-        this.notify.sendNotify(user.userId, {
-          titel: WATCHLISTS_TITEL,
-          msg,
-        });
-      }
+    // Callers have already verified access, so query recipients directly
+    // rather than re-running the access check via getUsers/checkUserAccess.
+    const members = await this.prisma.watchlist_users.findMany({
+      where: { watchlistId: wlId },
+      select: { userId: true },
+    });
+    for (const member of members) {
+      if (member.userId === currentUserId) continue;
+      this.notify.sendNotify(member.userId, {
+        titel: WATCHLISTS_TITEL,
+        msg,
+      });
     }
   }
 }
