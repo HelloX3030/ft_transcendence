@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -98,10 +97,12 @@ export class UsersService {
       });
       return successResponse(user);
     } catch (error) {
+      // Same 409 as PrismaExceptionFilter maps P2002 to everywhere else; caught
+      // locally only to name the colliding field.
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = (error.meta?.target as string[]) ?? [];
-        if (target.includes('email')) throw new ForbiddenException('Email already taken');
-        throw new ForbiddenException('Username already taken');
+        if (target.includes('email')) throw new ConflictException('Email already taken');
+        throw new ConflictException('Username already taken');
       }
       throw error;
     }

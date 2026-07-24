@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -28,8 +28,12 @@ const mockPrisma = {
   },
 } satisfies { users: Partial<jest.Mocked<PrismaService['users']>> };
 
-function prismaError(code: string): PrismaClientKnownRequestError {
-  return new PrismaClientKnownRequestError('error', { code, clientVersion: '5.0.0' });
+function prismaError(code: string, target?: string[]): PrismaClientKnownRequestError {
+  return new PrismaClientKnownRequestError('error', {
+    code,
+    clientVersion: '5.0.0',
+    meta: target ? { target } : undefined,
+  });
 }
 
 const mockStorage = {
@@ -94,10 +98,20 @@ describe('UsersService', () => {
       expect(result.data).toEqual(updated);
     });
 
-    it('throws ForbiddenException when username is already taken (P2002)', async () => {
-      mockPrisma.users.update.mockRejectedValue(prismaError('P2002'));
+    it('throws ConflictException when username is already taken (P2002)', async () => {
+      mockPrisma.users.update.mockRejectedValue(prismaError('P2002', ['username']));
 
-      await expect(service.updateMe(1, { username: 'taken' })).rejects.toThrow(ForbiddenException);
+      await expect(service.updateMe(1, { username: 'taken' })).rejects.toThrow(
+        new ConflictException('Username already taken'),
+      );
+    });
+
+    it('names the email field when the collision is on email (P2002)', async () => {
+      mockPrisma.users.update.mockRejectedValue(prismaError('P2002', ['email']));
+
+      await expect(service.updateMe(1, { email: 'taken@example.com' })).rejects.toThrow(
+        new ConflictException('Email already taken'),
+      );
     });
 
     it('re-throws non-P2002 Prisma errors', async () => {

@@ -39,7 +39,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Updated user profile' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Username already taken' })
+  @ApiResponse({ status: 409, description: 'Email or username already taken' })
   updateMe(@Request() req: ExpressRequest, @Body() dto: UpdateUserDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.updateMe(user.sub, dto);
