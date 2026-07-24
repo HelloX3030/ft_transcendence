@@ -50,6 +50,8 @@ export class UsersController {
   @ApiResponse({ status: 201, description: 'Updated user profile with onboarding completed' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding payload' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'Onboarding already completed' })
   completeOnboarding(@Request() req: ExpressRequest, @Body() dto: OnboardingDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.completeOnboarding(user.sub, dto);

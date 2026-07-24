@@ -75,16 +75,28 @@ export class UsersService {
     this.logger.debug(
       `Onboarding user ${userId} with ${dto.movieIds.length} movies — applying mock preferences`,
     );
-    const user = await this.prisma.users.update({
-      where: { id: userId },
+    // Guarded on `onboardingCompleted: false` so a repeat call cannot re-stamp the
+    // preference arrays — once real preference extraction exists, whatever it wrote
+    // must never be clobbered from this path.
+    const { count } = await this.prisma.users.updateMany({
+      where: { id: userId, onboardingCompleted: false },
       data: {
         onboardingCompleted: true,
         genreIds: MOCK_ONBOARDING_GENRE_IDS,
         actorIds: MOCK_ONBOARDING_ACTOR_IDS,
         directorIds: MOCK_ONBOARDING_DIRECTOR_IDS,
       },
+    });
+
+    // updateMany cannot return the row, so read it back; it also tells a
+    // deleted user (404) apart from an already-onboarded one (409).
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
       select: ME_SELECT,
     });
+    if (user === null) throw new NotFoundException('User not found');
+    if (count === 0) throw new ConflictException('Onboarding already completed');
+
     return successResponse(user);
   }
 

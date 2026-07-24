@@ -24,6 +24,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     delete: jest.fn(),
   },
 } satisfies { users: Partial<jest.Mocked<PrismaService['users']>> };
@@ -79,6 +80,41 @@ describe('UsersService', () => {
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
       await expect(service.getMe(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('completeOnboarding', () => {
+    const dto = { movieIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+
+    it('stamps preferences and returns the profile on first onboarding', async () => {
+      const onboarded = { ...mockUser, onboardingCompleted: true };
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.users.findUnique.mockResolvedValue(onboarded);
+
+      const result = await service.completeOnboarding(1, dto);
+
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, onboardingCompleted: false },
+        data: expect.objectContaining({ onboardingCompleted: true }) as object,
+      });
+      expect(result.data).toEqual(onboarded);
+    });
+
+    it('throws ConflictException and leaves preferences untouched on a repeat call', async () => {
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.users.findUnique.mockResolvedValue({
+        ...mockUser,
+        onboardingCompleted: true,
+      });
+
+      await expect(service.completeOnboarding(1, dto)).rejects.toThrow(ConflictException);
+    });
+
+    it('throws NotFoundException when the user no longer exists', async () => {
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+
+      await expect(service.completeOnboarding(999, dto)).rejects.toThrow(NotFoundException);
     });
   });
 
