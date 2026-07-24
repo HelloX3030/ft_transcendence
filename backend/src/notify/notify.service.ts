@@ -59,12 +59,6 @@ export class NotifyService {
     else return false;
   }
 
-  getUserSockets(userId: number) {
-    const sockets = this.userStatus.get(userId);
-    if (sockets !== undefined) return sockets;
-    else throw new Error('User is offline.');
-  }
-
   // -------------------------
   // Send Notifications
   // -------------------------
