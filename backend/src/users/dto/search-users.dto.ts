@@ -1,10 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { USERNAME_MAX_LENGTH } from 'src/utils';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class SearchUsersDto {
   @ApiProperty({ description: 'Username search term', minLength: 1, maxLength: 32 })
+  // Trim before the length check, so a whitespace-only query is rejected instead of
+  // running a `contains: " "` scan that matches almost everything.
+  @Transform(({ value }: { value: unknown }): unknown =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(USERNAME_MAX_LENGTH)

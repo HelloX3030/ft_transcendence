@@ -6,7 +6,7 @@ export interface UpdateUserRequest {
   username?: string;
   email?: string;
   language?: LanguageCode;
-  image?: string;
+  /** No `image`: avatars are set only via POST /users/me/avatar. */
 }
 
 export interface OnboardingRequest {
