@@ -1,7 +1,7 @@
-import { Socket } from 'socket.io';
+import { DefaultEventsMap, Socket } from 'socket.io';
 
-interface SocketData {
+export interface SocketData {
   user: number;
 }
 
-type NotifySocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
+export type NotifySocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;

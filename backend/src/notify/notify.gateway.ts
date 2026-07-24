@@ -92,9 +92,15 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   async userStatus(@ConnectedSocket() client: Socket) {
     try {
       const friendIds = await this.friendUtils.getFreinds(client.data.user);
+      const friendsStatus: FriendsStatus[] = [];
+
       for (const userId of friendIds) {
-        this.addClientToStatusUpdate(client, userId);
+        client.join(`online-status:${userId}`);
+        friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
       }
+      // One emit with every friend, only to the tab that subscribed.
+      client.emit('watch-friends-status', friendsStatus);
+      this.logger.debug(`Added user to ${friendsStatus.length} online-status rooms`);
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'Unable to load your friends online status.');
@@ -102,18 +108,16 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   }
 
   addClientToStatusUpdate(client: Socket, userId: number) {
-    const friendsStatus: FriendsStatus[] = [];
-    friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
     client.join(`online-status:${userId}`);
-    this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
+    client.emit('watch-friends-status', [
+      { id: userId, isOnline: this.notifyService.isOnline(userId) },
+    ]);
     this.logger.debug(`Add user to online-status:${userId}`);
   }
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
     client.leave(`online-status:${userId}`);
-    const friendsStatus: FriendsStatus[] = [];
-    friendsStatus.push({ id: userId, isOnline: false });
-    this.server.to(`user:${client.data.user}`).emit('watch-friends-status-rm', friendsStatus);
+    client.emit('watch-friends-status-rm', [{ id: userId, isOnline: false }]);
     this.logger.debug(`Removed user from online-status:${userId}`);
   }
 
