@@ -131,6 +131,8 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
     const meUserId = client.data.user;
     const peerUserId = data.peerUserId;
+    // One timestamp for every emit of this message, so peer and sender agree.
+    const time = Date.now();
 
     try {
       await this.notifyService.hasChatRequirements(meUserId, peerUserId);
@@ -138,13 +140,15 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       this.server.to(`user:${peerUserId}`).emit('chat', {
         peerUserId: meUserId,
         senderUserId: meUserId,
-        time: Date.now(),
+        time,
         msg: data.msg,
       });
-      client.to(`user:${meUserId}`).emit('chat', {
+      // server.to (not client.to) so the sending tab receives its own message too
+      // and every tab renders the same transcript.
+      this.server.to(`user:${meUserId}`).emit('chat', {
         peerUserId: peerUserId,
         senderUserId: meUserId,
-        time: Date.now(),
+        time,
         msg: data.msg,
       });
     } catch (error) {
@@ -154,16 +158,12 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       } else {
         this.logger.error(error);
       }
-      client.to(`user:${meUserId}`).emit('chat', {
-        peerUserId: peerUserId,
-        senderUserId: meUserId,
-        time: Date.now(),
-        msg: data.msg,
-      });
+      // Only the system error — the message was never delivered, so it must not
+      // appear in any transcript.
       this.server.to(`user:${meUserId}`).emit('chat', {
         peerUserId,
         senderUserId: SYSTEM_SENDER_ID,
-        time: Date.now(),
+        time,
         msg: errorMsg,
       });
     }

@@ -105,14 +105,8 @@ function sendMessage() {
   const peerUserId = selectedChat.value.userId;
   const messageText = newMessage.value.trim();
 
-  const existing = notify.chat.get(peerUserId) ?? [];
-  existing.push({
-    timestamp: new Date().toISOString(),
-    senderId: currentUserId.value,
-    message: messageText,
-  });
-  notify.chat.set(peerUserId, existing);
-
+  // No local echo: the backend relays the message back to every tab of the
+  // sender, so rendering it here as well would show it twice.
   notify.sendChatMsg(Number(peerUserId), messageText);
   newMessage.value = '';
 }

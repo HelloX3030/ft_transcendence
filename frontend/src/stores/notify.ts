@@ -131,7 +131,7 @@ export const notifyStore = defineStore('notify', () => {
 
       const message: ChatMessage[] = chat.value.get(String(data.peerUserId)) ?? [];
       message.push({
-        timestamp: new Date(data.time).toLocaleString(),
+        timestamp: new Date(data.time).toISOString(),
         senderId: String(data.senderUserId),
         message: data.msg,
       });
