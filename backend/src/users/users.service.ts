@@ -137,11 +137,21 @@ export class UsersService {
 
     const key = `${userId}-${Date.now()}${image.ext}`;
     const imageUrl = await this.storage.upload(key, file.buffer, image.mime);
-    const updated = await this.prisma.users.update({
-      where: { id: userId },
-      data: { image: imageUrl },
-      select: ME_SELECT,
-    });
+
+    let updated;
+    try {
+      updated = await this.prisma.users.update({
+        where: { id: userId },
+        data: { image: imageUrl },
+        select: ME_SELECT,
+      });
+    } catch (error) {
+      // The object is already in the bucket but nothing references it now — drop it
+      // rather than leak it. `delete` swallows its own failures, so the original
+      // error is what surfaces.
+      await this.storage.delete(key);
+      throw error;
+    }
 
     if (oldKey) await this.storage.delete(oldKey);
     return successResponse(updated);

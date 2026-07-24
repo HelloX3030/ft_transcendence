@@ -192,6 +192,17 @@ describe('UsersService', () => {
       expect(mockStorage.upload).not.toHaveBeenCalled();
     });
 
+    it('deletes the just-uploaded object when the DB update fails', async () => {
+      const error = prismaError('P2025');
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
+      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.png');
+      mockPrisma.users.update.mockRejectedValue(error);
+
+      await expect(service.uploadAvatar(1, file)).rejects.toThrow(error);
+      expect(mockStorage.delete).toHaveBeenCalledWith(expect.stringMatching(/^1-\d+\.png$/));
+    });
+
     it('deletes old MinIO avatar when user has one', async () => {
       const minioUrl = 'http://localhost:9000/avatars/1-old.jpg';
       mockPrisma.users.findUnique.mockResolvedValue({ image: minioUrl });
