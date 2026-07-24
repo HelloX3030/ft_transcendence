@@ -15,7 +15,7 @@ import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
-import { FriendUtils, SYSTEM_SENDER_ID } from 'src/utils';
+import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
 import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
 
 @WebSocketGateway({
@@ -40,6 +40,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     private readonly notifyService: NotifyService,
     private readonly jwtService: JwtService,
     private readonly friendUtils: FriendUtils,
+    private readonly userUtils: UserUtils,
   ) {}
   @WebSocketServer()
   server: Server = new Server();
@@ -55,6 +56,10 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       const payload = await this.jwtService.verifyAsync<JwtAccessPayload>(token, {
         secret: process.env.JWT_ACCESS_SECRET,
       });
+
+      // A token can outlive the account it was issued for. Without this check a
+      // deleted user is added to the presence map and broadcast as online.
+      await this.userUtils.getUser(payload.sub);
 
       client.data.user = payload.sub;
       client.join(`user:${payload.sub}`);
