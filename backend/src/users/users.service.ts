@@ -135,7 +135,9 @@ export class UsersService {
     });
     const oldKey = this.storage.extractKey(current?.image);
 
-    const key = `${userId}-${Date.now()}${image.ext}`;
+    // Random suffix: two uploads within the same millisecond would otherwise share a
+    // key, and the old-object cleanup below would delete the one just written.
+    const key = `${userId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${image.ext}`;
     const imageUrl = await this.storage.upload(key, file.buffer, image.mime);
 
     let updated;

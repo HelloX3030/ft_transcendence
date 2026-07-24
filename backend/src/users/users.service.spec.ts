@@ -175,7 +175,7 @@ describe('UsersService', () => {
       await service.uploadAvatar(1, file);
 
       expect(mockStorage.upload).toHaveBeenCalledWith(
-        expect.stringMatching(/^1-\d+\.png$/),
+        expect.stringMatching(/^1-\d+-[0-9a-f]{8}\.png$/),
         pngBytes,
         'image/png',
       );
@@ -200,7 +200,9 @@ describe('UsersService', () => {
       mockPrisma.users.update.mockRejectedValue(error);
 
       await expect(service.uploadAvatar(1, file)).rejects.toThrow(error);
-      expect(mockStorage.delete).toHaveBeenCalledWith(expect.stringMatching(/^1-\d+\.png$/));
+      expect(mockStorage.delete).toHaveBeenCalledWith(
+        expect.stringMatching(/^1-\d+-[0-9a-f]{8}\.png$/),
+      );
     });
 
     it('deletes old MinIO avatar when user has one', async () => {
