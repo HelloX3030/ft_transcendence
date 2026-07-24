@@ -9,11 +9,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import * as crypto from 'crypto';
-import { encrypt, getMfaKey, successResponse } from 'src/utils';
+import {
+  ALLOWED_IMAGE_LABEL,
+  detectImageType,
+  encrypt,
+  getMfaKey,
+  successResponse,
+} from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
@@ -103,14 +108,22 @@ export class UsersService {
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
+    // The declared mimetype and the filename are both client-controlled, and the
+    // bucket is publicly readable — so the stored type and the key extension are
+    // derived from the actual bytes, never from the request.
+    const image = detectImageType(file.buffer);
+    if (image === null) {
+      throw new BadRequestException(`Unsupported image format. Allowed: ${ALLOWED_IMAGE_LABEL}`);
+    }
+
     const current = await this.prisma.users.findUnique({
       where: { id: userId },
       select: { image: true },
     });
     const oldKey = this.storage.extractKey(current?.image);
 
-    const key = `${userId}-${Date.now()}${extname(file.originalname)}`;
-    const imageUrl = await this.storage.upload(key, file.buffer, file.mimetype);
+    const key = `${userId}-${Date.now()}${image.ext}`;
+    const imageUrl = await this.storage.upload(key, file.buffer, image.mime);
     const updated = await this.prisma.users.update({
       where: { id: userId },
       data: { image: imageUrl },

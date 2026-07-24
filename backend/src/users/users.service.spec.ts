@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -109,11 +109,38 @@ describe('UsersService', () => {
   });
 
   describe('uploadAvatar', () => {
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
     const file = {
       originalname: 'photo.jpg',
-      buffer: Buffer.from('img'),
+      buffer: pngBytes,
       mimetype: 'image/jpeg',
     } as Express.Multer.File;
+
+    it('stores the sniffed type and extension, ignoring the client-supplied ones', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
+      mockStorage.extractKey.mockReturnValue(null);
+      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.png');
+      mockPrisma.users.update.mockResolvedValue(mockUser);
+
+      await service.uploadAvatar(1, file);
+
+      expect(mockStorage.upload).toHaveBeenCalledWith(
+        expect.stringMatching(/^1-\d+\.png$/),
+        pngBytes,
+        'image/png',
+      );
+    });
+
+    it('rejects an SVG that declares an image mimetype', async () => {
+      const svg = {
+        originalname: 'x.png',
+        buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>'),
+        mimetype: 'image/png',
+      } as Express.Multer.File;
+
+      await expect(service.uploadAvatar(1, svg)).rejects.toThrow(BadRequestException);
+      expect(mockStorage.upload).not.toHaveBeenCalled();
+    });
 
     it('deletes old MinIO avatar when user has one', async () => {
       const minioUrl = 'http://localhost:9000/avatars/1-old.jpg';
