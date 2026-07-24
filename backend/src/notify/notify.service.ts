@@ -55,8 +55,7 @@ export class NotifyService {
   }
 
   isOnline(userId: number) {
-    if (this.userStatus.get(userId) !== undefined) return true;
-    else return false;
+    return this.userStatus.has(userId);
   }
 
   // -------------------------
@@ -73,7 +72,6 @@ export class NotifyService {
     const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
     if (!isFriend) throw new ChatRequiremtnsException('You are not friends with this user.');
 
-    const isOnline = this.userStatus.get(peerUserId) !== undefined;
-    if (!isOnline) throw new ChatRequiremtnsException('The user is offline.');
+    if (!this.isOnline(peerUserId)) throw new ChatRequiremtnsException('The user is offline.');
   }
 }

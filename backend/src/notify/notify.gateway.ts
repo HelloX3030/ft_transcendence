@@ -7,7 +7,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Namespace } from 'socket.io';
 import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
@@ -17,6 +17,7 @@ import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
 import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { onlineStatusRoom, userRoom } from './notify.rooms';
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -42,8 +43,10 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     private readonly friendUtils: FriendUtils,
     private readonly userUtils: UserUtils,
   ) {}
+  // @WebSocketServer() injects the `notify` namespace, not the root Server, so
+  // every emit below is already scoped to it.
   @WebSocketServer()
-  server: Server = new Server();
+  private server: Namespace;
 
   async handleConnection(client: Socket) {
     try {
@@ -62,9 +65,9 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       await this.userUtils.getUser(payload.sub);
 
       client.data.user = payload.sub;
-      client.join(`user:${payload.sub}`);
+      client.join(userRoom(payload.sub));
       this.notifyService.setUserAsActive(payload.sub, client);
-      this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
+      this.server.emit(onlineStatusRoom(payload.sub), { id: payload.sub, isOnline: true });
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'No token provided or the token is invalid.');
@@ -79,7 +82,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       return;
     }
     this.notifyService.setUserAsInative(userId, client);
-    this.server.emit(`online-status:${userId}`, {
+    this.server.emit(onlineStatusRoom(userId), {
       id: userId,
       isOnline: false,
     });
@@ -95,7 +98,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       const friendsStatus: FriendsStatus[] = [];
 
       for (const userId of friendIds) {
-        client.join(`online-status:${userId}`);
+        client.join(onlineStatusRoom(userId));
         friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
       }
       // One emit with every friend, only to the tab that subscribed.
@@ -108,7 +111,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   }
 
   addClientToStatusUpdate(client: Socket, userId: number) {
-    client.join(`online-status:${userId}`);
+    client.join(onlineStatusRoom(userId));
     client.emit('watch-friends-status', [
       { id: userId, isOnline: this.notifyService.isOnline(userId) },
     ]);
@@ -116,7 +119,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   }
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
-    client.leave(`online-status:${userId}`);
+    client.leave(onlineStatusRoom(userId));
     client.emit('watch-friends-status-rm', [{ id: userId, isOnline: false }]);
     this.logger.debug(`Removed user from online-status:${userId}`);
   }
@@ -125,7 +128,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   // Send Notifications
   // -------------------------
   sendNotification(userId: number, message: NotifyMsg) {
-    this.server.to(`user:${userId}`).emit('notification', message);
+    this.server.to(userRoom(userId)).emit('notification', message);
   }
 
   // -------------------------
@@ -141,7 +144,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     try {
       await this.notifyService.hasChatRequirements(meUserId, peerUserId);
 
-      this.server.to(`user:${peerUserId}`).emit('chat', {
+      this.server.to(userRoom(peerUserId)).emit('chat', {
         peerUserId: meUserId,
         senderUserId: meUserId,
         time,
@@ -149,7 +152,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       });
       // server.to (not client.to) so the sending tab receives its own message too
       // and every tab renders the same transcript.
-      this.server.to(`user:${meUserId}`).emit('chat', {
+      this.server.to(userRoom(meUserId)).emit('chat', {
         peerUserId: peerUserId,
         senderUserId: meUserId,
         time,
@@ -164,7 +167,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       }
       // Only the system error — the message was never delivered, so it must not
       // appear in any transcript.
-      this.server.to(`user:${meUserId}`).emit('chat', {
+      this.server.to(userRoom(meUserId)).emit('chat', {
         peerUserId,
         senderUserId: SYSTEM_SENDER_ID,
         time,
