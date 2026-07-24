@@ -1,6 +1,8 @@
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -30,7 +32,7 @@ import { ChatRequiremtnsException } from './exceptions/chat-requirements-excepti
     transform: true,
   }),
 )
-export class NotifyGateway {
+export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisconnect<Socket> {
   private readonly logger = new Logger(NotifyGateway.name);
 
   constructor(
