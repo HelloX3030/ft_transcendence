@@ -11,8 +11,10 @@ import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
+import { cacheKeys } from './tmdb.keys';
 import {
   TmdbGenreListResponse,
+  TmdbListResponse,
   TmdbMovieDetailResponse,
   TmdbPersonResponse,
   TmdbVideo,
@@ -22,7 +24,6 @@ const CACHE_TTL_SECONDS = 3600;
 
 // Genres are a small, near-static catalogue, so cache them under one fixed key
 // and refresh only daily rather than hourly like the paginated movie endpoints.
-const GENRES_CACHE_KEY = 'tmdb:genres';
 const GENRES_CACHE_TTL_SECONDS = 86_400;
 
 // A person's name/photo changes very rarely, so cache each one for a week.
@@ -125,10 +126,8 @@ export class TmdbService {
     if (releaseDateGte) params.set('primary_release_date.gte', releaseDateGte);
     if (releaseDateLte) params.set('primary_release_date.lte', releaseDateLte);
 
-    // The full query string is the cache key, so every distinct filter
-    // combination (and page) maps to its own entry and never collides.
     const movies = await this.getCachedMovies(
-      `tmdb:discover:${params.toString()}:${filtered ? 'filtered' : 'raw'}`,
+      cacheKeys.discover(params.toString(), filtered),
       `/discover/movie?${params}`,
       filtered,
     );
@@ -150,7 +149,7 @@ export class TmdbService {
       page: String(page),
     });
     const movies = await this.getCachedMovies(
-      `tmdb:search:${normalized}:page:${page}:${filtered ? 'filtered' : 'raw'}`,
+      cacheKeys.search(normalized, page, filtered),
       `/search/movie?${params}`,
       filtered,
     );
@@ -158,7 +157,7 @@ export class TmdbService {
   }
 
   async getWatchProviders(movieId: number): Promise<apiResponse<MovieWatchProviders>> {
-    const key = `tmdb:providers:movie:${movieId}`;
+    const key = cacheKeys.providers(movieId);
     const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as MovieWatchProviders);
 
@@ -176,7 +175,7 @@ export class TmdbService {
   // single trailer key and flattening the paginated similar list — so the client
   // doesn't have to. Similar movies pass through filterMovies for consistency.
   async getMovieDetail(movieId: number): Promise<apiResponse<TmdbMovieDetail>> {
-    const key = `tmdb:movie:${movieId}`;
+    const key = cacheKeys.movie(movieId);
     const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as TmdbMovieDetail);
 
@@ -214,17 +213,14 @@ export class TmdbService {
   }
 
   async getGenres(): Promise<apiResponse<TmdbGenre[]>> {
-    const cached = await this.redis.get(GENRES_CACHE_KEY);
+    const key = cacheKeys.genres();
+    const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as TmdbGenre[]);
 
     const response = await this.client.get<TmdbGenreListResponse>(
       '/genre/movie/list?language=en-US',
     );
-    await this.redis.set(
-      GENRES_CACHE_KEY,
-      JSON.stringify(response.genres),
-      GENRES_CACHE_TTL_SECONDS,
-    );
+    await this.redis.set(key, JSON.stringify(response.genres), GENRES_CACHE_TTL_SECONDS);
     return successResponse(response.genres);
   }
 
@@ -242,7 +238,7 @@ export class TmdbService {
   }
 
   private async getPerson(id: number): Promise<TmdbPerson | null> {
-    const key = `tmdb:person:${id}`;
+    const key = cacheKeys.person(id);
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as TmdbPerson;
 
@@ -281,7 +277,7 @@ export class TmdbService {
     if (cached) return JSON.parse(cached) as PaginatedMovies;
 
     return this.singleFlight(key, async () => {
-      const response = await this.client.get(path);
+      const response = await this.client.get<TmdbListResponse>(path);
       const result: PaginatedMovies = {
         results: filtered ? filterMovies(response.results) : response.results,
         hasMore: response.page < response.total_pages,

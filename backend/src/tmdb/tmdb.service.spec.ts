@@ -100,7 +100,7 @@ describe('TmdbService', () => {
       await service.discoverMovies();
 
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -122,7 +122,7 @@ describe('TmdbService', () => {
         '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5',
       );
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -268,7 +268,7 @@ describe('TmdbService', () => {
       await service.searchMovies('  Batman ');
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('query=batman'));
-      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
@@ -292,7 +292,7 @@ describe('TmdbService', () => {
 
       await service.searchMovies('batman');
 
-      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -301,7 +301,7 @@ describe('TmdbService', () => {
       await service.searchMovies('batman', 3);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
-      expectCached('tmdb:search:batman:page:3:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:3:filtered', expectedLastPage);
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -366,7 +366,7 @@ describe('TmdbService', () => {
 
       await service.getGenres();
 
-      expectCached('tmdb:genres', genres, 86_400);
+      expectCached('tmdb:v1:genres', genres, 86_400);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -414,7 +414,7 @@ describe('TmdbService', () => {
 
       await service.getWatchProviders(providers.id);
 
-      expectCached('tmdb:providers:movie:1', providers);
+      expectCached('tmdb:v1:providers:movie:1', providers);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -513,7 +513,7 @@ describe('TmdbService', () => {
 
       await service.getMovieDetail(7);
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:movie:7', expect.any(String), 3600);
+      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:v1:movie:7', expect.any(String), 3600);
     });
   });
 
@@ -570,7 +570,7 @@ describe('TmdbService', () => {
 
       await service.getPeople([287]);
 
-      expectCached('tmdb:person:287', expectedPerson, 604_800);
+      expectCached('tmdb:v1:person:287', expectedPerson, 604_800);
     });
 
     it('de-duplicates repeated ids into a single upstream call', async () => {
@@ -649,7 +649,7 @@ describe('TmdbService', () => {
 
     it('fetches only the ids that missed the cache', async () => {
       mockRedisClient.get.mockImplementation((key: string) =>
-        Promise.resolve(key === 'tmdb:person:287' ? JSON.stringify(expectedPerson) : null),
+        Promise.resolve(key === 'tmdb:v1:person:287' ? JSON.stringify(expectedPerson) : null),
       );
       mockPeopleByPath();
 
@@ -678,7 +678,7 @@ describe('TmdbService', () => {
       await service.discoverMovies({ page: 1, filtered: false });
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
         expect.any(String),
         3600,
       );
