@@ -1,4 +1,4 @@
-import { BadGatewayException } from '@nestjs/common';
+import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TmdbMovie } from '@trailertinder/shared';
 import { makeMovie } from './tmdb.fixtures';
@@ -8,10 +8,10 @@ process.env.TMDB_API_KEY = 'test-api-key';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
 
-function mockFetchWith(body: unknown, ok = true): void {
+function mockFetchWith(body: unknown, ok = true, status = ok ? 200 : 500): void {
   jest.spyOn(global, 'fetch').mockResolvedValue({
     ok,
-    status: ok ? 200 : 500,
+    status,
     json: jest.fn().mockResolvedValue(body),
   } as unknown as Response);
 }
@@ -87,6 +87,22 @@ describe('TmdbClient', () => {
         BadGatewayException,
       );
       expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the resource does not exist upstream', async () => {
+      mockFetchWith({}, false, 404);
+      const warnSpy = jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
+
+      await expect(client.get('/person/999999?language=en-US')).rejects.toThrow(NotFoundException);
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('keeps a 5xx as BadGatewayException so an outage is distinguishable from a 404', async () => {
+      mockFetchWith({}, false, 503);
+      jest.spyOn(client['logger'], 'warn').mockImplementation(() => {});
+
+      await expect(client.get('/person/287?language=en-US')).rejects.toThrow(BadGatewayException);
+      await expect(client.get('/person/287?language=en-US')).rejects.not.toThrow(NotFoundException);
     });
 
     it('throws BadGatewayException and logs a warning when fetch throws a network error', async () => {

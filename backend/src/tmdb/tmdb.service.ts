@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   apiResponse,
   MovieWatchProviders,
@@ -28,6 +28,11 @@ const GENRES_CACHE_TTL_SECONDS = 86_400;
 // A person's name/photo changes very rarely, so cache each one for a week.
 const PERSON_CACHE_TTL_SECONDS = 604_800;
 
+// TMDB rate-limits at roughly 50 requests per 10s per key, and a people lookup
+// can ask for up to MAX_IDS ids at once. On a cold cache those would all fan out
+// simultaneously, so they run through a fixed-size worker pool instead.
+const PERSON_CONCURRENCY = 5;
+
 // Inputs for the discover feed. Structurally matched by DiscoverQueryDto, so the
 // controller can forward the validated DTO straight through. All optional: an
 // empty object yields the popular list (sort_by=popularity.desc, no filters).
@@ -42,6 +47,28 @@ export interface DiscoverFilters {
 
 // Picks the single trailer key to embed: the first official YouTube trailer,
 // then any YouTube trailer, then a YouTube teaser, else null (no trailer).
+// Runs `fn` over `items` with at most `limit` in flight at once, preserving
+// input order in the result. A rejection propagates (the first one wins) exactly
+// like Promise.all; the workers still in flight simply finish and are discarded.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
 function pickTrailerKey(videos: TmdbVideo[]): string | null {
   const youtube = videos.filter((v) => v.site === 'YouTube');
   const trailer =
@@ -54,6 +81,11 @@ function pickTrailerKey(videos: TmdbVideo[]): string | null {
 @Injectable()
 export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
+
+  // Upstream fetches currently in flight, keyed by their cache key. See
+  // singleFlight() — this is what keeps a cold cache (or a Redis outage, where
+  // every request is a miss) from multiplying load onto TMDB.
+  private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly client: TmdbClient,
@@ -203,7 +235,9 @@ export class TmdbService {
   // whole batch.
   async getPeople(ids: number[]): Promise<apiResponse<TmdbPerson[]>> {
     const uniqueIds = [...new Set(ids)];
-    const people = await Promise.all(uniqueIds.map((id) => this.getPerson(id)));
+    const people = await mapWithConcurrency(uniqueIds, PERSON_CONCURRENCY, (id) =>
+      this.getPerson(id),
+    );
     return successResponse(people.filter((person): person is TmdbPerson => person !== null));
   }
 
@@ -213,17 +247,23 @@ export class TmdbService {
     if (cached) return JSON.parse(cached) as TmdbPerson;
 
     try {
-      const response = await this.client.get<TmdbPersonResponse>(`/person/${id}?language=en-US`);
-      const person: TmdbPerson = {
-        id: response.id,
-        name: response.name,
-        profile_path: response.profile_path,
-        known_for_department: response.known_for_department,
-      };
-      await this.redis.set(key, JSON.stringify(person), PERSON_CACHE_TTL_SECONDS);
-      return person;
+      return await this.singleFlight(key, async () => {
+        const response = await this.client.get<TmdbPersonResponse>(`/person/${id}?language=en-US`);
+        const person: TmdbPerson = {
+          id: response.id,
+          name: response.name,
+          profile_path: response.profile_path,
+          known_for_department: response.known_for_department,
+        };
+        await this.redis.set(key, JSON.stringify(person), PERSON_CACHE_TTL_SECONDS);
+        return person;
+      });
     } catch (error) {
-      this.logger.warn(`Failed to resolve TMDB person ${id}: ${(error as Error).message}`);
+      // Only "no such person" is skippable. Anything else (5xx, timeout, TMDB
+      // unreachable) has to propagate — swallowing it would turn a total outage
+      // into an empty 200 that callers can't tell from "none of these exist".
+      if (!(error instanceof NotFoundException)) throw error;
+      this.logger.warn(`Skipping unresolvable TMDB person ${id}`);
       return null;
     }
   }
@@ -240,13 +280,28 @@ export class TmdbService {
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as PaginatedMovies;
 
-    const response = await this.client.get(path);
-    const result: PaginatedMovies = {
-      results: filtered ? filterMovies(response.results) : response.results,
-      hasMore: response.page < response.total_pages,
-      totalResults: response.total_results,
-    };
-    await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
-    return result;
+    return this.singleFlight(key, async () => {
+      const response = await this.client.get(path);
+      const result: PaginatedMovies = {
+        results: filtered ? filterMovies(response.results) : response.results,
+        hasMore: response.page < response.total_pages,
+        totalResults: response.total_results,
+      };
+      await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
+      return result;
+    });
+  }
+
+  // Collapses concurrent misses on the same key into a single upstream call: the
+  // first caller runs `fetch`, everyone else awaits its promise (including its
+  // rejection, so one outage error fans out instead of N more TMDB requests).
+  // Per-process only — it bounds one instance's fan-out, not the whole cluster.
+  private singleFlight<T>(key: string, fetch: () => Promise<T>): Promise<T> {
+    const existing = this.inFlight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const pending = fetch().finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, pending);
+    return pending;
   }
 }

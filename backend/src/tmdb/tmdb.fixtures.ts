@@ -1,5 +1,10 @@
 import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@trailertinder/shared';
-import { TmdbGenreListResponse, TmdbListResponse, TmdbMovieDetailResponse } from './tmdb.types';
+import {
+  TmdbGenreListResponse,
+  TmdbListResponse,
+  TmdbMovieDetailResponse,
+  TmdbPersonResponse,
+} from './tmdb.types';
 
 /**
  * Test-only factory: builds a complete TmdbMovie with valid defaults (has a
@@ -83,6 +88,25 @@ export function makeMovieDetailResponse(
       ],
     },
     similar: makeListResponse(),
+    ...overrides,
+  };
+}
+
+/**
+ * Test-only factory: builds a raw TMDB /person/{id} response. The extra fields
+ * (biography, birthday, popularity) are the ones the service must strip.
+ */
+export function makePersonResponse(
+  overrides: Partial<TmdbPersonResponse> = {},
+): TmdbPersonResponse {
+  return {
+    id: 287,
+    name: 'Brad Pitt',
+    profile_path: '/bp.jpg',
+    known_for_department: 'Acting',
+    biography: 'An actor.',
+    birthday: '1963-12-18',
+    popularity: 42.5,
     ...overrides,
   };
 }
