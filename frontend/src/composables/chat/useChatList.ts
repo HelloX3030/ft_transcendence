@@ -68,9 +68,6 @@ export function useChatList() {
 
   const lastMessageOf = (chat: Chat) => chat.messages[chat.messages.length - 1];
 
-  const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
   return {
     chats,
     getUser,
@@ -84,6 +81,5 @@ export function useChatList() {
     filteredNewFriends,
     startNewChat,
     lastMessageOf,
-    formatTime,
   };
 }

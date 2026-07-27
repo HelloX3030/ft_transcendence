@@ -1,16 +1,17 @@
 import { ref } from 'vue';
-import { defineStore } from 'pinia';
+import { defineStore, storeToRefs } from 'pinia';
 import { io } from 'socket.io-client';
 import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
+import { useChatStore } from './chat';
 
 // ---- Types ----
-interface ChatMessage {
-  timestamp: string;
-  senderId: string;
-  message: string;
-}
+// interface ChatMessage {
+//   timestamp: string;
+//   senderId: string;
+//   message: string;
+// }
 
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
@@ -19,9 +20,12 @@ export const useNotifyStore = defineStore('notify', () => {
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
-  const chat = ref(new Map<string, ChatMessage[]>());
+  // const chat = ref(new Map<string, ChatMessage[]>());
   const SYSTEM_SENDER_ID = '-1';
   const offline = ref<boolean>(true);
+
+  const chatStore = useChatStore();
+  const { chats } = storeToRefs(chatStore);
 
   function init() {
     if (isInit) return;
@@ -85,7 +89,7 @@ export const useNotifyStore = defineStore('notify', () => {
     notifyMsg.value = [];
     friendsStatus.value = new Map();
     offline.value = true;
-    chat.value = new Map();
+    // chat.value = new Map();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -129,23 +133,18 @@ export const useNotifyStore = defineStore('notify', () => {
         return;
       }
 
-      const message: ChatMessage[] = chat.value.get(String(data.peerUserId)) ?? [];
-      message.push({
-        timestamp: new Date(data.time).toLocaleString(),
-        senderId: String(data.senderUserId),
-        message: data.msg,
-      });
-      chat.value.set(String(data.peerUserId), message);
+      const chat = chats.value.get(data.peerUserId);
+      if (chat) chatStore.addMessage(chat, data.peerUserId, data.msg);
 
       if (data.senderUserId === data.peerUserId)
         addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
     });
   }
 
-  function createChat(peerUserId: string) {
-    const message: ChatMessage[] = chat.value.get(peerUserId) ?? [];
-    chat.value.set(peerUserId, message);
-  }
+  // function createChat(peerUserId: string) {
+  //   const message: ChatMessage[] = chat.value.get(peerUserId) ?? [];
+  //   chat.value.set(peerUserId, message);
+  // }
 
   function sendChatMsg(peerUserId: number, msg: string) {
     socket.emit('chat', { peerUserId, msg });
@@ -161,13 +160,14 @@ export const useNotifyStore = defineStore('notify', () => {
   return {
     SYSTEM_SENDER_ID,
     offline,
+    friendsStatus,
     count,
     notifyMsg,
-    chat,
+    // chat,
     init,
     stop,
     clearAllNotifications,
-    createChat,
+    // createChat,
     sendChatMsg,
   };
 });

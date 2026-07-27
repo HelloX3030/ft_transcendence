@@ -3,7 +3,7 @@ import { useUserDetails } from '@/composables/useUserDetails';
 
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 
 export const useFriendsStore = defineStore('friends', () => {
   const {
