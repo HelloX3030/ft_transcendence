@@ -1,107 +1,160 @@
 <script setup lang="ts">
-import { CheckIcon, ChevronDown, UserIcon } from '@lucide/vue';
+import { useFilter } from 'reka-ui';
+import { computed, ref, nextTick, watch } from 'vue';
 import {
-  ListboxContent,
-  ListboxFilter,
-  ListboxItem,
-  ListboxItemIndicator,
-  ListboxRoot,
-  useFilter,
-} from 'reka-ui';
-import { computed, ref, watch } from 'vue';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { TagsInput, TagsInputInput } from '@/components/ui/tags-input';
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
+
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import type { GetUserResponse } from '@trailertinder/shared';
-import { useUserStore } from '@/stores/user';
 
-const selectedEditors = defineModel<number[]>();
-const user = useUserStore();
+import { useChatStore, type Chat } from '@/stores/chat';
+import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '../ui/button';
+import { Skeleton } from '../ui/skeleton';
+import { Search, X } from '@lucide/vue';
 
+const chatStore = useChatStore();
+const { activeChat, sortedChats } = storeToRefs(chatStore);
 const friendsStore = useFriendsStore();
-const { friendsDetails } = storeToRefs(friendsStore);
-
-const usersById = computed(() => {
-  const map = new Map<number, GetUserResponse>();
-  for (const f of friendsDetails.value) {
-    map.set(f.id, f);
-  }
-  if (user.state)
-    map.set(user.state.id, {
-      username: user.state.username,
-      id: user.state.id,
-      image: user.state.image,
-    });
-  return map;
-});
+const { friendsDetails, isLoading: friendsLoading } = storeToRefs(friendsStore);
 
 const searchTerm = ref('');
-const open = ref(false);
 const { contains } = useFilter({ sensitivity: 'base' });
 
-const filteredFriends = computed(() =>
-  searchTerm.value === ''
-    ? friendsDetails.value
-    : friendsDetails.value.filter((option) => contains(option.username, searchTerm.value)),
-);
+const filteredChats = computed(() => {
+  const term = searchTerm.value.trim();
 
-watch(searchTerm, (f) => {
-  if (f) open.value = true;
+  if (!term) return sortedChats.value;
+
+  const matched = sortedChats.value.filter((chat) => contains(chat.friend.username, term));
+
+  return matched;
 });
+
+const filteredFriendsWithoutChat = computed(() => {
+  const term = searchTerm.value.trim();
+  if (!term) return [];
+
+  return friendsDetails.value.filter((f) => contains(f.username, term) && !chatStore.getChat(f.id));
+});
+
+function lastMessageOf(chat: Chat) {
+  if (chat.messages.length > 0) return chat.messages[chat.messages.length - 1];
+  return null;
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function clearSearch() {
+  searchTerm.value = '';
+}
 </script>
 
 <template>
-  <Popover v-model:open="open">
-    <ListboxRoot v-model="selectedEditors" highlight-on-hover multiple>
-      <PopoverAnchor class="inline-flex w-full">
-        <TagsInput v-slot="{ modelValue: tags }" v-model="selectedEditors" class="w-full">
-          <ListboxFilter v-model="searchTerm" as-child>
-            <TagsInputInput
-              placeholder="Add User to list..."
-              @keydown.enter.prevent
-              @keydown.down="open = true"
-            />
-          </ListboxFilter>
+  <aside
+    class="w-full h-full sm:w-80 border-r border-white/10 flex-col"
+    :class="activeChat ? 'hidden sm:flex' : 'flex'"
+  >
+    <div class="p-4 border-b border-white/10 bg-slate-700">
+      <InputGroup>
+        <InputGroupInput v-model="searchTerm" placeholder="Search chats or friends..." />
+        <InputGroupAddon>
+          <InputGroupButton>
+            <Search />
+          </InputGroupButton>
+        </InputGroupAddon>
+        <InputGroupAddon v-if="searchTerm" align="inline-end">
+          {{ filteredFriendsWithoutChat.length }} results
+          <InputGroupButton @click="clearSearch">
+            <X />
+          </InputGroupButton>
+        </InputGroupAddon>
+      </InputGroup>
+    </div>
 
-          <PopoverTrigger as-child>
-            <Button size="icon-sm" variant="ghost" class="order-last self-start ml-auto">
-              <ChevronDown class="size-3.5" />
-            </Button>
-          </PopoverTrigger>
-        </TagsInput>
-      </PopoverAnchor>
+    <ScrollArea class="max-h-1/3">
+      <Button
+        variant="ghost"
+        v-for="chat in sortedChats"
+        :key="chat.friend.id"
+        @click="chatStore.selectChat(chat)"
+        class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors h-auto justify-start"
+        :class="activeChat?.friend.id === chat.friend.id && 'bg-white/10'"
+      >
+        <Avatar class="h-10 w-10 shrink-0">
+          <AvatarImage v-if="chat.friend.image" :src="chat.friend.image" />
+          <AvatarFallback>
+            {{ chat.friend.username.charAt(0) ?? '?' }}
+          </AvatarFallback>
+        </Avatar>
 
-      <PopoverContent class="p-1 w-[var(--reka-popper-anchor-width)]" @open-auto-focus.prevent>
-        <ListboxContent
-          class="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto empty:after:content-['No_options'] empty:p-1 empty:after:block"
-          tabindex="0"
+        <div class="flex-1 min-w-0">
+          <div class="flex justify-between items-baseline">
+            <Skeleton v-if="friendsLoading" class="h-4 w-20" />
+            <span v-else class="font-medium truncate">
+              {{ chat.friend.username }}
+            </span>
+            <span v-if="lastMessageOf(chat)" class="text-xs text-muted-foreground shrink-0 ml-2">
+              {{ formatTime(lastMessageOf(chat)!.timestamp) }}
+            </span>
+          </div>
+          <p class="text-sm text-muted-foreground truncate">
+            {{ lastMessageOf(chat)?.message ?? 'No messages yet' }}
+          </p>
+        </div>
+      </Button>
+    </ScrollArea>
+
+    <p
+      v-if="filteredChats.length === 0 && !searchTerm.trim()"
+      class="p-4 text-sm text-muted-foreground text-center"
+    >
+      No chats yet.
+    </p>
+
+    <!-- Start new chat: nur während der Suche, Friends ohne bestehenden Chat -->
+    <ScrollArea class="bg-amber-400 max-h-2/3">
+      <template v-if="searchTerm.trim() && filteredFriendsWithoutChat.length > 0">
+        <p class="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Start new chat
+        </p>
+        <Button
+          variant="ghost"
+          v-for="friend in filteredFriendsWithoutChat"
+          :key="friend.id"
+          @click="
+            chatStore.createChat(friend);
+            searchTerm = '';
+          "
+          class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors h-auto justify-start"
         >
-          <ListboxItem
-            v-for="item in filteredFriends"
-            :key="item.id"
-            class="data-[highlighted]:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            :value="item.id"
-            @select="
-              () => {
-                searchTerm = '';
-              }
-            "
-          >
-            <Avatar class="size-8">
-              <AvatarImage v-if="item.image" :src="item.image" :alt="item.username" />
-              <AvatarFallback><UserIcon /></AvatarFallback>
-            </Avatar>
-            <span>{{ item.username }}</span>
+          <Avatar class="h-10 w-10 shrink-0">
+            <AvatarImage v-if="friend.image" :src="friend.image!" />
+            <AvatarFallback>
+              {{ friend.username.charAt(0) ?? '?' }}
+            </AvatarFallback>
+          </Avatar>
+          <span class="font-medium truncate">
+            {{ friend.username }}
+          </span>
+        </Button>
+      </template>
+    </ScrollArea>
 
-            <ListboxItemIndicator class="ml-auto inline-flex items-center justify-center">
-              <CheckIcon />
-            </ListboxItemIndicator>
-          </ListboxItem>
-        </ListboxContent>
-      </PopoverContent>
-    </ListboxRoot>
-  </Popover>
+    <p
+      v-if="
+        searchTerm.trim() && filteredChats.length === 0 && filteredFriendsWithoutChat.length === 0
+      "
+      class="p-4 text-sm text-muted-foreground text-center"
+    >
+      No results found.
+    </p>
+  </aside>
 </template>
