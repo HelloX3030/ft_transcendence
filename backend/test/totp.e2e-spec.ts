@@ -8,7 +8,7 @@ import { RegisterDto } from 'src/auth/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { apiResponse, LoginResponse } from '@trailertinder/shared';
 import * as OTPAuth from 'otpauth';
-import { decryptTOTPSecret } from 'src/utils/otp.utils';
+import { decryptSecret } from 'src/utils/crypto.utils';
 
 describe('TOTP MFA (e2e)', () => {
   let app: INestApplication;
@@ -228,7 +228,7 @@ describe('TOTP MFA (e2e)', () => {
   }
 
   function generateOtpFromStoredSecret(secret: string) {
-    secret = decryptTOTPSecret(secret);
+    secret = decryptSecret(secret);
 
     const totp = new OTPAuth.TOTP({
       algorithm: 'SHA1',
