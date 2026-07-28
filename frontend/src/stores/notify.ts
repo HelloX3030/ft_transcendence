@@ -73,8 +73,11 @@ export const notifyStore = defineStore('notify', () => {
     initWatchFriendsOnlineStatus();
     initChat();
 
+    // No `watch-friends-status` emit here: the gateway seeds the presence rooms
+    // and pushes the snapshot itself on every connect. Emitting from here fired
+    // once and never again, so presence used to die after any reconnect — the
+    // socket comes back with a new server-side id and no rooms.
     socket.connect();
-    socket.emit('watch-friends-status');
     isInit = true;
   }
 
