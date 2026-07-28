@@ -8,11 +8,11 @@ import type {
 } from '@trailertinder/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
-import { notifyStore } from './notify';
+import { useNotifyStore } from './notify';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
-  const notify = notifyStore();
+  const notify = useNotifyStore();
   const user = ref<UserMeResponse | null | undefined>(null);
 
   async function init() {

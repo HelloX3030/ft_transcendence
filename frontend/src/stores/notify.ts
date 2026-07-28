@@ -12,10 +12,10 @@ interface ChatMessage {
   message: string;
 }
 
-export const notifyStore = defineStore('notify', () => {
+export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
-  const nofiyId = ref<number>(0);
+  const notifyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; title: string; msg: string; date: string }[]>([]);
   // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
   // by the server on every (re)connect, then kept current by `online-status:<id>`.
@@ -86,7 +86,7 @@ export const notifyStore = defineStore('notify', () => {
     socket.close();
     isInit = false;
     count.value = 0;
-    nofiyId.value = 0;
+    notifyId.value = 0;
     notifyMsg.value = [];
     friendsStatus.value = new Map();
     offline.value = true;
@@ -167,7 +167,7 @@ export const notifyStore = defineStore('notify', () => {
   function addNotification(msg: NotifyMsg) {
     count.value++;
     const date = new Date(Date.now()).toLocaleString();
-    notifyMsg.value.unshift({ id: nofiyId.value++, title: msg.title, msg: msg.msg, date });
+    notifyMsg.value.unshift({ id: notifyId.value++, title: msg.title, msg: msg.msg, date });
     toast.info(msg.msg);
   }
 

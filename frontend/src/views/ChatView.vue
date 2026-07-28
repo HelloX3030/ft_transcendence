@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
 import { useUserDetails } from '@/composables/useUserDetails';
-import { notifyStore } from '@/stores/notify';
+import { useNotifyStore } from '@/stores/notify';
 import { userApi } from '@/api/endpoints/user';
 import { useUserStore } from '@/stores/user';
 import PresenceDot from '@/components/PresenceDot.vue';
@@ -37,7 +37,7 @@ const { acceptedFriends } = storeToRefs(friendsStore);
 const friendIds = computed(() => acceptedFriends.value.map((f) => f.friendId.toString()));
 
 // --- Notify ---
-const notify = notifyStore();
+const notify = useNotifyStore();
 
 watch(
   friendIds,

@@ -4,13 +4,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Namespace } from 'socket.io';
 import type { NotifySocket } from 'src/types';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
-import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 import { NotifyGateway } from './notify.gateway';
 import { NotifyService } from './notify.service';
 
 const mockNotifyService = {
   setUserAsActive: jest.fn(),
-  setUserAsInative: jest.fn(),
+  setUserAsInactive: jest.fn(),
   isOnline: jest.fn(),
   hasChatRequirements: jest.fn(),
 } satisfies Partial<jest.Mocked<NotifyService>>;
@@ -204,7 +204,7 @@ describe('NotifyGateway', () => {
 
       gateway.handleDisconnect(asSocket(client));
 
-      expect(mockNotifyService.setUserAsInative).toHaveBeenCalledWith(7, client);
+      expect(mockNotifyService.setUserAsInactive).toHaveBeenCalledWith(7, client);
       expect(roomEmits).toContainEqual({
         room: 'online-status:7',
         event: 'online-status:7',
@@ -219,7 +219,7 @@ describe('NotifyGateway', () => {
 
       gateway.handleDisconnect(asSocket(client));
 
-      expect(mockNotifyService.setUserAsInative).toHaveBeenCalledWith(7, client);
+      expect(mockNotifyService.setUserAsInactive).toHaveBeenCalledWith(7, client);
       expect(roomEmits).toHaveLength(0);
     });
 
@@ -228,7 +228,7 @@ describe('NotifyGateway', () => {
 
       gateway.handleDisconnect(asSocket(client));
 
-      expect(mockNotifyService.setUserAsInative).not.toHaveBeenCalled();
+      expect(mockNotifyService.setUserAsInactive).not.toHaveBeenCalled();
       expect(roomEmits).toHaveLength(0);
     });
   });
@@ -356,7 +356,7 @@ describe('NotifyGateway', () => {
     it('sends only a system error when the requirements are not met', async () => {
       const client = createMockSocket(1);
       mockNotifyService.hasChatRequirements.mockRejectedValue(
-        new ChatRequiremtnsException('The user is offline.'),
+        new ChatRequirementsException('The user is offline.'),
       );
 
       await gateway.chat(dto, asSocket(client));
@@ -378,7 +378,7 @@ describe('NotifyGateway', () => {
     it('never echoes an undelivered message body', async () => {
       const client = createMockSocket(1);
       mockNotifyService.hasChatRequirements.mockRejectedValue(
-        new ChatRequiremtnsException('You are not friends with this user.'),
+        new ChatRequirementsException('You are not friends with this user.'),
       );
 
       await gateway.chat(dto, asSocket(client));

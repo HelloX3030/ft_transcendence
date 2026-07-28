@@ -3,7 +3,7 @@ import { NotifyGateway } from './notify.gateway';
 import { NotifyMsg } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
 import { FriendUtils } from 'src/utils';
-import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 
 @Injectable()
 export class NotifyService {
@@ -27,7 +27,7 @@ export class NotifyService {
     this.logger.debug('User ' + userId + ' set to active.');
   }
 
-  setUserAsInative(userId: number, client: Socket) {
+  setUserAsInactive(userId: number, client: Socket) {
     const cSocketSet = this.userStatus.get(userId);
     if (cSocketSet === undefined) {
       this.logger.error('The user could not be removed from the active list.');
@@ -70,8 +70,8 @@ export class NotifyService {
   // -------------------------
   async hasChatRequirements(meUserId: number, peerUserId: number) {
     const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
-    if (!isFriend) throw new ChatRequiremtnsException('You are not friends with this user.');
+    if (!isFriend) throw new ChatRequirementsException('You are not friends with this user.');
 
-    if (!this.isOnline(peerUserId)) throw new ChatRequiremtnsException('The user is offline.');
+    if (!this.isOnline(peerUserId)) throw new ChatRequirementsException('The user is offline.');
   }
 }
