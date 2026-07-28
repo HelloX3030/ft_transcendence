@@ -1,3 +1,4 @@
+import { ApiError } from '@/api/api-error';
 import { useAuthStore } from '@/stores/auth';
 import { onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -22,9 +23,16 @@ export function useLogin() {
         router.push('/');
       }
     } catch (err: unknown) {
-      const e = err as { status?: number; message?: string };
-      errorMessage.value =
-        e?.status === 403 ? 'Invalid email or password.' : (e?.message ?? 'Something went wrong.');
+      if (!(err instanceof ApiError)) {
+        errorMessage.value = 'Could not reach the server.';
+      } else {
+        // The backend answers a wrong email and a wrong password identically,
+        // on purpose — do not narrow this message down to one of the two.
+        errorMessage.value =
+          err.status === 403
+            ? 'Invalid email or password.'
+            : err.message || 'Something went wrong.';
+      }
     }
   }
 
