@@ -126,8 +126,9 @@ export class UsersController {
   @ApiOperation({ summary: 'Activate TOTP using verification code' })
   @ApiBody({
     schema: {
+      // Quoted: otpDto.otp is @IsString(), so a JSON number is rejected with a 400.
       example: {
-        otp: 213846,
+        otp: '213846',
       },
     },
   })
