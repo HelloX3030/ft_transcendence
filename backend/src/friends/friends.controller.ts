@@ -39,10 +39,12 @@ export class FriendsController {
     status: 200,
     description: 'Friendship status was updated successfully.',
   })
-  @ApiResponse({ status: 400, description: "You can't be friends with yourself." })
-  @ApiResponse({ status: 400, description: 'You cannot accept your own friendship request.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      "You can't be friends with yourself, you cannot accept your own friendship request, or the friendship is already accepted.",
+  })
   @ApiResponse({ status: 404, description: 'This friendship does not exist.' })
-  @ApiResponse({ status: 400, description: 'Friendship is already accepted.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   acceptFriendship(@Request() req: ExpressRequest, @Param('id', ParseIntPipe) id: number) {
     const user = req.user as JwtAccessPayload;
