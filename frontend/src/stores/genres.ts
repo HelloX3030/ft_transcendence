@@ -2,6 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { TmdbGenre } from '@trailertinder/shared';
 import { backendClient } from '@/api';
+import { logger } from '@/lib/logger';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -35,7 +36,7 @@ export const useGenresStore = defineStore('genres', () => {
         status.value = 'ready';
       })
       .catch((error) => {
-        console.error(error);
+        logger.error(error);
         status.value = 'error';
       })
       .finally(() => {

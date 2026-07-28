@@ -56,6 +56,8 @@ export function useLogin() {
     pendingCredentials.value = null;
   }
 
-  onUnmounted(resetOtp); //TODO: do i need it really ??
+  // Yes, this is needed: pendingCredentials holds the plaintext password between
+  // the two login steps, so it must not outlive the form.
+  onUnmounted(resetOtp);
   return { mfaRequired, errorMessage, otpVerifyLoading, login, verifyOtp, resetOtp };
 }

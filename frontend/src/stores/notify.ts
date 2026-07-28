@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
+import { logger } from '@/lib/logger';
 
 // ---- Types ----
 interface ChatMessage {
@@ -27,43 +28,42 @@ export const useNotifyStore = defineStore('notify', () => {
 
   function init() {
     if (isInit) return;
-    console.log('[notify] init...');
 
     socket.removeAllListeners();
 
     socket.on('connect', () => {
-      console.log('[notify] connected.');
+      logger.debug('[notify] connected.');
       offline.value = false;
     });
 
     socket.on('connect_error', (error) => {
       if (!isError(error)) {
-        console.error('[notify] invalid connect_error payload ', error);
+        logger.error('[notify] invalid connect_error payload ', error);
         return;
       }
-      console.error('[notify] connect error: ', error.message);
+      logger.error('[notify] connect error: ', error.message);
       offline.value = true;
     });
 
     socket.on('error', (error) => {
       if (!isError(error)) {
-        console.error('[notify] invalid error payload ', error);
+        logger.error('[notify] invalid error payload ', error);
         return;
       }
-      console.error('[notify] error: ', error.message);
+      logger.error('[notify] error: ', error.message);
     });
 
     socket.on('exception', (error) => {
       if (!isError(error)) {
-        console.error('[notify] invalid exception payload ', error);
+        logger.error('[notify] invalid exception payload ', error);
         return;
       }
-      console.error('[notify] exception: ', error.message);
+      logger.error('[notify] exception: ', error.message);
     });
 
     socket.on('notification', (msg) => {
       if (!isNotifyMsg(msg)) {
-        console.error('[notify] invalid notification payload', msg);
+        logger.error('[notify] invalid notification payload', msg);
         return;
       }
 
@@ -82,7 +82,6 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   function stop() {
-    console.log('[notify] stop.');
     socket.close();
     isInit = false;
     count.value = 0;
@@ -96,27 +95,24 @@ export const useNotifyStore = defineStore('notify', () => {
   function initWatchFriendsOnlineStatus() {
     socket.on('watch-friends-status', (data) => {
       if (!isFriendsStatusArray(data)) {
-        console.error('[notify] invalid friends status payload', data);
+        logger.error('[notify] invalid friends status payload', data);
         return;
       }
       for (const user of data) {
         socket.off(`online-status:${user.id}`);
-        socket.on(`online-status:${user.id}`, (user) => {
-          console.log(user);
-          friendsStatus.value.set(user.id, user.isOnline);
+        socket.on(`online-status:${user.id}`, (update) => {
+          friendsStatus.value.set(update.id, update.isOnline);
         });
         friendsStatus.value.set(user.id, user.isOnline);
-        console.log('add watch user Id: ' + user.id);
       }
     });
     socket.on('watch-friends-status-rm', (data) => {
       if (!isFriendsStatusArray(data)) {
-        console.error('[notify] invalid friends status payload', data);
+        logger.error('[notify] invalid friends status payload', data);
         return;
       }
       for (const user of data) {
         socket.off(`online-status:${user.id}`);
-        console.log('removed watch user Id: ' + user.id);
         friendsStatus.value.delete(user.id);
       }
     });
@@ -138,7 +134,7 @@ export const useNotifyStore = defineStore('notify', () => {
   function initChat() {
     socket.on('chat', (data) => {
       if (!isChatMsgRecive(data)) {
-        console.error('[notify] invalid chat payload', data);
+        logger.error('[notify] invalid chat payload', data);
         return;
       }
 
