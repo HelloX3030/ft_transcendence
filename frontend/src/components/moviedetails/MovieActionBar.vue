@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Heart, X, Bookmark } from 'lucide-vue-next';
+import { Heart, X, Bookmark } from '@lucide/vue';
 import { ref } from 'vue';
 
 // Whether the movie has a playable trailer — drives the trailer button's state.

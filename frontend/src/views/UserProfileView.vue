@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue';
-import { UserRound, MessageCircle } from 'lucide-vue-next';
+import { UserRound, MessageCircle } from '@lucide/vue';
 
 interface PublicProfile {
   id: number;

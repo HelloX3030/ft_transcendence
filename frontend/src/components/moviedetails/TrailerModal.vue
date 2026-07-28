@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ArrowLeft } from 'lucide-vue-next';
+import { ArrowLeft } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
 import type { TmdbMovieDetail } from '@trailertinder/shared';
