@@ -56,6 +56,17 @@ export async function backendClient<T>(
     throw new ApiError(response.status, errorMessage(body, response.status), body);
   }
 
-  const json: apiResponse<T> = await response.json();
-  return ('data' in json ? json.data : json) as T; // TODO: remove fallback once all backend endpoints consistently return { data: ... } wrapper
+  // Read as text first: an empty body makes response.json() throw a SyntaxError
+  // that surfaces to the caller as an opaque failure rather than as the 2xx it is.
+  const text = await response.text();
+  if (text === '') return undefined as T;
+
+  const json: apiResponse<T> = JSON.parse(text);
+  // `in` throws a TypeError on null and on primitives, both of which are valid
+  // JSON bodies, so the envelope check has to be narrowed to objects first.
+  // TODO: remove the fallback once every backend endpoint returns { data: ... }
+  if (typeof json === 'object' && json !== null && 'data' in json) {
+    return json.data as T;
+  }
+  return json as T;
 }
