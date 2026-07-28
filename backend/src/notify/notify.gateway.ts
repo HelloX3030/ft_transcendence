@@ -92,7 +92,11 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       return;
     }
     this.notifyService.setUserAsInative(userId, client);
-    this.publishPresence(userId, false);
+    // Sockets are ref-counted per user, so closing one of several open tabs
+    // must not announce the user as offline while the others are still up.
+    if (!this.notifyService.isOnline(userId)) {
+      this.publishPresence(userId, false);
+    }
   }
 
   /**
