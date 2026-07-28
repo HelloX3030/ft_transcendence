@@ -11,7 +11,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
 import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
 import { verifyTOTP } from 'src/utils/otp.utils';
-import { decryptSecret } from 'src/utils/crypto.utils';
+import { CRYPTO_FORMAT, decryptSecret } from 'src/utils/crypto.utils';
 
 jest.mock('src/utils/otp.utils');
 const mockVerifyTOTP = jest.mocked(verifyTOTP);
@@ -400,11 +400,13 @@ describe('UsersService', () => {
       expect(JSON.stringify(result)).not.toContain(plaintext);
     });
 
-    it('stores the secret encrypted in the `iv:cipher` format', async () => {
+    it('stores the secret encrypted in the authenticated `iv:tag:cipher` format', async () => {
       await service.createTOTP(1);
 
       const stored = storedSecretArg();
-      expect(stored).toMatch(/^[0-9a-f]{32}:[0-9a-f]+$/);
+      const ivHex = CRYPTO_FORMAT.IV_BYTES * 2;
+      const tagHex = CRYPTO_FORMAT.AUTH_TAG_BYTES * 2;
+      expect(stored).toMatch(new RegExp(`^[0-9a-f]{${ivHex}}:[0-9a-f]{${tagHex}}:[0-9a-f]+$`));
       expect(decryptSecret(stored)).toMatch(/^[A-Z2-7]+$/); // base32
     });
 
