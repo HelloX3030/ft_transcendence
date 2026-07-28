@@ -1,3 +1,4 @@
+import { ApiError } from '@/api/api-error';
 import { useUserStore } from '@/stores/user';
 import { computed, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -61,8 +62,8 @@ export function useUserEdit() {
 
       await router.push('/profile');
     } catch (err: unknown) {
-      const e = err as { status?: number; message?: string };
-      updateError.value = e?.message ?? 'An error occurred while updating your profile';
+      updateError.value =
+        err instanceof ApiError ? err.message : 'An error occurred while updating your profile';
     } finally {
       isLoading.value = false;
     }

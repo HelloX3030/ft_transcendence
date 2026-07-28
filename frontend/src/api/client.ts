@@ -1,6 +1,19 @@
 import type { apiResponse } from '@trailertinder/shared';
+import { ApiError } from './api-error';
 
 let refreshPromise: Promise<void> | null = null;
+
+/**
+ * Pulls a displayable message out of a backend error body. Nest sends
+ * `{ message: string }`, except ValidationPipe, which sends one string per
+ * rejected field.
+ */
+function errorMessage(body: unknown, status: number): string {
+  const message = (body as { message?: unknown } | null)?.message;
+  if (typeof message === 'string' && message !== '') return message;
+  if (Array.isArray(message) && message.length > 0) return message.join(', ');
+  return `Request failed: ${status}`;
+}
 
 async function refreshToken() {
   const response = await fetch('http://localhost:3000/v1/auth/refresh', {
@@ -34,13 +47,13 @@ export async function backendClient<T>(
       await refreshPromise;
       return backendClient<T>(path, options, true);
     } catch {
-      throw new Error('Not authenticated');
+      throw new ApiError(401, 'Not authenticated');
     }
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => null);
-    throw new Error(error?.message ?? `Request failed: ${response.status}`);
+    const body = await response.json().catch(() => null);
+    throw new ApiError(response.status, errorMessage(body, response.status), body);
   }
 
   const json: apiResponse<T> = await response.json();
