@@ -5,6 +5,10 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
 import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
+import { verifyTOTP } from 'src/utils/otp.utils';
+
+jest.mock('src/utils/otp.utils');
+const mockVerifyTOTP = jest.mocked(verifyTOTP);
 
 const mockUser = {
   id: 1,
@@ -339,6 +343,58 @@ describe('UsersService', () => {
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
       await expect(service.getUser(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('activateTOTP', () => {
+    const totpUser = { totpSecret: 'iv:cipher', totpActive: false };
+
+    it('activates a pending secret and reports success', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(true);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.activateTOTP(1, '213846');
+
+      expect(result.success).toBe(true);
+    });
+
+    // A8 — the update must only match a not-yet-active row, so re-posting a
+    // valid code to an already-active account conflicts instead of succeeding.
+    it('scopes the update to a currently inactive secret', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(true);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.activateTOTP(1, '213846');
+
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, totpSecret: totpUser.totpSecret, totpActive: false },
+        data: { totpActive: true },
+      });
+    });
+
+    it('throws ConflictException when the secret is already active', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(true);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.activateTOTP(1, '213846')).rejects.toThrow(ConflictException);
+    });
+
+    it('throws BadRequestException when no TOTP secret is set', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ totpSecret: null, totpActive: false });
+
+      await expect(service.activateTOTP(1, '213846')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on an invalid code without touching the row', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(false);
+
+      await expect(service.activateTOTP(1, '000000')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
     });
   });
 });
