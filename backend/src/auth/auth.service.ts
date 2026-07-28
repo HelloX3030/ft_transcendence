@@ -105,9 +105,14 @@ export class AuthService {
       throw new ForbiddenException('Invalid session id');
     }
 
+    if (session.userId !== payload.sub) {
+      this.logger.error('refresh token subject does not match the owner of the session');
+      throw new ForbiddenException('Invalid session id');
+    }
+
     const user = await this.prisma.users.findUnique({
       where: {
-        id: payload.sub,
+        id: session.userId,
       },
     });
     if (user === null) {
