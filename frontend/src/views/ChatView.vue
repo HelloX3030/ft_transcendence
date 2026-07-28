@@ -12,6 +12,7 @@ import { useUserDetails } from '@/composables/useUserDetails';
 import { notifyStore } from '@/stores/notify';
 import { userApi } from '@/api/endpoints/user';
 import { useUserStore } from '@/stores/user';
+import PresenceDot from '@/components/PresenceDot.vue';
 
 // ---- Types ----
 interface ChatMessage {
@@ -99,8 +100,14 @@ const formatTime = (iso: string) =>
 // ---- New message input ----
 const newMessage = ref('');
 
+// The gateway refuses to relay to an offline peer, so sending would come straight
+// back as a system error in the transcript. Block it at the composer instead.
+const peerOnline = computed(() =>
+  selectedChat.value ? notify.isUserOnline(selectedChat.value.userId) : false,
+);
+
 function sendMessage() {
-  if (!newMessage.value.trim() || !selectedChat.value) return;
+  if (!newMessage.value.trim() || !selectedChat.value || !peerOnline.value) return;
 
   const peerUserId = selectedChat.value.userId;
   const messageText = newMessage.value.trim();
@@ -183,15 +190,18 @@ function startNewChat(userId: string) {
           class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors"
           :class="selectedUserId === chat.userId ? 'bg-white/10' : ''"
         >
-          <Avatar class="h-10 w-10 shrink-0">
-            <AvatarImage
-              v-if="getUser(chat.userId)?.avatarUrl"
-              :src="getUser(chat.userId)!.avatarUrl!"
-            />
-            <AvatarFallback>
-              {{ getUser(chat.userId)?.displayName.charAt(0) ?? '?' }}
-            </AvatarFallback>
-          </Avatar>
+          <span class="relative inline-flex shrink-0">
+            <Avatar class="h-10 w-10">
+              <AvatarImage
+                v-if="getUser(chat.userId)?.avatarUrl"
+                :src="getUser(chat.userId)!.avatarUrl!"
+              />
+              <AvatarFallback>
+                {{ getUser(chat.userId)?.displayName.charAt(0) ?? '?' }}
+              </AvatarFallback>
+            </Avatar>
+            <PresenceDot overlay :online="notify.isUserOnline(chat.userId)" />
+          </span>
 
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-baseline">
@@ -266,19 +276,27 @@ function startNewChat(userId: string) {
             <ArrowLeft class="h-5 w-5" />
           </Button>
 
-          <Avatar class="h-9 w-9">
-            <AvatarImage
-              v-if="getUser(selectedChat.userId)?.avatarUrl"
-              :src="getUser(selectedChat.userId)!.avatarUrl!"
-            />
-            <AvatarFallback>
-              {{ getUser(selectedChat.userId)?.displayName.charAt(0) ?? '?' }}
-            </AvatarFallback>
-          </Avatar>
-          <Skeleton v-if="usersLoading" class="h-4 w-24" />
-          <span v-else class="font-medium">
-            {{ getUser(selectedChat.userId)?.displayName ?? selectedChat.userId }}
+          <span class="relative inline-flex shrink-0">
+            <Avatar class="h-9 w-9">
+              <AvatarImage
+                v-if="getUser(selectedChat.userId)?.avatarUrl"
+                :src="getUser(selectedChat.userId)!.avatarUrl!"
+              />
+              <AvatarFallback>
+                {{ getUser(selectedChat.userId)?.displayName.charAt(0) ?? '?' }}
+              </AvatarFallback>
+            </Avatar>
+            <PresenceDot overlay :online="notify.isUserOnline(selectedChat.userId)" />
           </span>
+          <Skeleton v-if="usersLoading" class="h-4 w-24" />
+          <div v-else class="flex flex-col">
+            <span class="font-medium">
+              {{ getUser(selectedChat.userId)?.displayName ?? selectedChat.userId }}
+            </span>
+            <span class="text-xs text-muted-foreground">
+              {{ notify.isUserOnline(selectedChat.userId) ? 'Online' : 'Offline' }}
+            </span>
+          </div>
         </header>
 
         <ScrollArea class="flex-1 p-4">
@@ -324,8 +342,17 @@ function startNewChat(userId: string) {
           @submit.prevent="sendMessage"
           class="p-4 border-t sticky bottom-0 bg-background border-white/10 flex gap-2"
         >
-          <Input v-model="newMessage" placeholder="Type a message..." class="flex-1" />
-          <Button type="submit" size="icon">
+          <Input
+            v-model="newMessage"
+            :disabled="!peerOnline"
+            :placeholder="
+              peerOnline
+                ? 'Type a message...'
+                : `${getUser(selectedChat.userId)?.displayName ?? 'This user'} is offline`
+            "
+            class="flex-1"
+          />
+          <Button type="submit" size="icon" :disabled="!peerOnline">
             <Send class="h-4 w-4" />
           </Button>
         </form>
