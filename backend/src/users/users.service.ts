@@ -254,25 +254,28 @@ export class UsersService {
     });
     if (user === null) throw new NotFoundException('User not found.');
     if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
-    const isValid = verifyTOTP(user.totpSecret, otp);
-    if (isValid) {
-      const result = await this.prisma.users.updateMany({
-        where: {
-          id: userId,
-          totpSecret: user.totpSecret,
-          // Without this a re-post of a still-valid code to an already-active
-          // account updates the row again and reports success a second time.
-          totpActive: false,
-        },
-        data: {
-          totpActive: true,
-        },
-      });
-      if (result.count === 0) {
-        throw new ConflictException('TOTP setup already in progress or active.');
-      }
-    } else {
+    const counter = verifyTOTP(user.totpSecret, otp);
+    if (counter === null) {
       throw new BadRequestException('TOTP code is invalid.');
+    }
+
+    const result = await this.prisma.users.updateMany({
+      where: {
+        id: userId,
+        totpSecret: user.totpSecret,
+        // Without this a re-post of a still-valid code to an already-active
+        // account updates the row again and reports success a second time.
+        totpActive: false,
+      },
+      data: {
+        totpActive: true,
+        // Burn the counter on activation too, so the code that switched TOTP on
+        // cannot immediately be replayed against login.
+        totpLastCounter: counter,
+      },
+    });
+    if (result.count === 0) {
+      throw new ConflictException('TOTP setup already in progress or active.');
     }
     return successResponse(null, 'TOTP verified and activated successfully.');
   }

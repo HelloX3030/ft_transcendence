@@ -36,14 +36,14 @@ describe('verifyTOTP', () => {
   it('accepts the code generated from the stored secret', () => {
     const code = totpFor(plaintextSecret).generate();
 
-    expect(verifyTOTP(storedSecret, code)).toBe(true);
+    expect(verifyTOTP(storedSecret, code)).toBe(currentStep());
   });
 
   it('rejects a wrong code', () => {
     const code = totpFor(plaintextSecret).generate();
     const wrong = code === '000000' ? '111111' : '000000';
 
-    expect(verifyTOTP(storedSecret, wrong)).toBe(false);
+    expect(verifyTOTP(storedSecret, wrong)).toBeNull();
   });
 
   it('rejects a code generated from a different secret', () => {
@@ -51,11 +51,11 @@ describe('verifyTOTP', () => {
       .base32;
     const code = totpFor(otherSecret).generate();
 
-    expect(verifyTOTP(storedSecret, code)).toBe(false);
+    expect(verifyTOTP(storedSecret, code)).toBeNull();
   });
 
-  it('returns a boolean rather than a truthy value', () => {
-    expect(typeof verifyTOTP(storedSecret, '000000')).toBe('boolean');
+  it('returns null rather than a falsy number for a non-match', () => {
+    expect(verifyTOTP(storedSecret, '000000')).toBeNull();
   });
 
   it('accepts a code from the previous time step, for clock skew', () => {
@@ -64,18 +64,19 @@ describe('verifyTOTP', () => {
     const accepted = verifyTOTP(storedSecret, previous);
 
     if (currentStep() !== before) return; // rolled over, the code is two steps old now
-    expect(accepted).toBe(true);
+    // The counter identifies the step the code belongs to, not the current one.
+    expect(accepted).toBe(before - 1);
   });
 
   it('accepts a code from the next time step, for clock skew', () => {
     const next = totpFor(plaintextSecret).generate({ timestamp: Date.now() + PERIOD_MS });
 
-    expect(verifyTOTP(storedSecret, next)).toBe(true);
+    expect(verifyTOTP(storedSecret, next)).toBe(currentStep() + 1);
   });
 
   it('rejects a code from two time steps ago, outside the window', () => {
     const stale = totpFor(plaintextSecret).generate({ timestamp: Date.now() - 2 * PERIOD_MS });
 
-    expect(verifyTOTP(storedSecret, stale)).toBe(false);
+    expect(verifyTOTP(storedSecret, stale)).toBeNull();
   });
 });

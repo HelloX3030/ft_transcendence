@@ -68,7 +68,10 @@ model users {
   email    String  @unique @db.VarChar(255)
   image    String? @db.VarChar(255)
   totpSecret String?  @db.VarChar(512) @map("totp_secret")
-  totpActive Boolean @map("totp_active")
+  totpActive Boolean @default(false) @map("totp_active")
+  // Highest TOTP counter already spent. A code is only accepted above this, so
+  // a captured one cannot be replayed for the rest of its acceptance window.
+  totpLastCounter Int? @map("totp_last_counter")
 
   language language_code
   role     user_role

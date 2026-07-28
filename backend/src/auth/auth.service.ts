@@ -83,8 +83,21 @@ export class AuthService {
         this.logger.error('TOTP is enabled, but no totpSecret has been set.');
         throw new InternalServerErrorException();
       }
-      const isValid = verifyTOTP(user.totpSecret, dto.otp);
-      if (!isValid) throw new ForbiddenException('Invalid TOTP');
+      const counter = verifyTOTP(user.totpSecret, dto.otp);
+      if (counter === null) throw new ForbiddenException('Invalid TOTP');
+
+      // A code stays valid across three time steps, so spending it has to be
+      // recorded or a captured one can be replayed for the rest of that span.
+      // updateMany with the counter in the filter makes the check and the write
+      // one atomic statement, so two racing logins cannot both consume it.
+      const { count } = await this.prisma.users.updateMany({
+        where: {
+          id: user.id,
+          OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: counter } }],
+        },
+        data: { totpLastCounter: counter },
+      });
+      if (count === 0) throw new ForbiddenException('Invalid TOTP');
     }
 
     const tokens = await this.createJwt(user.id, user.email, req);
