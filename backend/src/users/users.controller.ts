@@ -111,7 +111,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Generate TOTP secret for authenticated user' })
   @ApiResponse({
     status: 201,
-    description: 'TOTP secret generated successfully. Returns QR code and secret.',
+    description:
+      'TOTP secret generated successfully. Returns the QR code only — the plaintext secret is never sent to the client.',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User not found' })
