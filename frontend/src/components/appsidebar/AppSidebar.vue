@@ -20,7 +20,7 @@ import {
   MessageCircle,
   Shield,
   Users,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
 import AppSidebarHeader from './AppSidebarHeader.vue';
 import AppSidebarItem from './AppSidebarItem.vue';

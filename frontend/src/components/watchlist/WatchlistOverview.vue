@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ChevronRight } from 'lucide-vue-next';
+import { ArrowUpRight, ChevronRight, Ellipsis, Pen, Trash } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { WatchlistResponse } from '@trailertinder/shared';
-import { ArrowUpRight, Ellipsis, Pen, Trash } from '@lucide/vue';
 import {
   DropdownMenu,
   DropdownMenuContent,

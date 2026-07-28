@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleAlert, RotateCcw } from 'lucide-vue-next';
+import { CircleAlert, RotateCcw } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 
 withDefaults(defineProps<{ message?: string }>(), {
