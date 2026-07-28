@@ -1,5 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
+import { SKIP_AUTH_THROTTLE } from 'src/throttle.config';
 import { DiscoverQueryDto } from './dto/discover-query.dto';
 import { PeopleQueryDto } from './dto/people-query.dto';
 import { SearchQueryDto } from './dto/search-query.dto';
@@ -9,7 +11,9 @@ import { TmdbService } from './tmdb.service';
 @ApiTags('tmdb')
 @ApiTooManyRequestsResponse({ description: 'Per-user request limit for the TMDB proxy exceeded' })
 // Every route here proxies to TMDB, whose rate limit is shared by all users, so
-// they are throttled per account (see TmdbModule for the windows).
+// they are throttled per account on the burst/sustained windows. The tight auth
+// window is for credential endpoints and must not apply to browsing.
+@SkipThrottle(SKIP_AUTH_THROTTLE)
 @UseGuards(TmdbThrottlerGuard)
 @Controller('tmdb')
 export class TmdbController {
