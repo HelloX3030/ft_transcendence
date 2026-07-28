@@ -79,19 +79,19 @@ describe('crypto.utils', () => {
     it('rejects a modified ciphertext', () => {
       const [iv, tag, ciphertext] = encryptSecret(PLAINTEXT).split(':');
 
-      expect(() => decryptSecret(`${iv}:${tag}:${flipLastHexDigit(ciphertext!)}`)).toThrow();
+      expect(() => decryptSecret(`${iv}:${tag}:${flipLastHexDigit(ciphertext)}`)).toThrow();
     });
 
     it('rejects a modified auth tag', () => {
       const [iv, tag, ciphertext] = encryptSecret(PLAINTEXT).split(':');
 
-      expect(() => decryptSecret(`${iv}:${flipLastHexDigit(tag!)}:${ciphertext}`)).toThrow();
+      expect(() => decryptSecret(`${iv}:${flipLastHexDigit(tag)}:${ciphertext}`)).toThrow();
     });
 
     it('rejects a modified IV', () => {
       const [iv, tag, ciphertext] = encryptSecret(PLAINTEXT).split(':');
 
-      expect(() => decryptSecret(`${flipLastHexDigit(iv!)}:${tag}:${ciphertext}`)).toThrow();
+      expect(() => decryptSecret(`${flipLastHexDigit(iv)}:${tag}:${ciphertext}`)).toThrow();
     });
   });
 

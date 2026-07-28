@@ -120,8 +120,8 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     if (sockets === undefined) return;
 
     const now = Date.now();
-    for (const socket of sockets.values()) {
-      const expiresAt = (socket as Socket).data?.tokenExpiresAt;
+    for (const socket of sockets.values() as Iterable<Socket>) {
+      const expiresAt = socket.data?.tokenExpiresAt;
       if (expiresAt !== undefined && expiresAt <= now) {
         this.logger.debug(`Disconnecting socket of user ${socket.data.user}: token expired`);
         socket.emit('error', 'Your session expired.');

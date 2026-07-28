@@ -10,6 +10,8 @@ import { apiResponse, LoginResponse } from '@trailertinder/shared';
 import * as OTPAuth from 'otpauth';
 import { decryptSecret } from 'src/utils/crypto.utils';
 
+const TOTP_PERIOD_MS = 30_000;
+
 describe('TOTP MFA (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -113,27 +115,18 @@ describe('TOTP MFA (e2e)', () => {
       mfaRequired: true,
       mfaType: 'totp',
     });
+    // The challenge token replaces re-sending the password on the second step.
+    expect(typeof body.data?.mfaToken).toBe('string');
   });
 
-  it('logs in successfully with valid TOTP code', async () => {
-    const user = await prisma.users.findUnique({
-      where: {
-        id: userId,
-      },
-    });
-
-    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
-
+  it('logs in successfully by exchanging the challenge token for a session', async () => {
     const loginAgent = request.agent(app.getHttpServer());
+    const mfaToken = await startMfaLogin(loginAgent);
 
-    const response = await loginAgent
-      .post('/auth/login')
-      .send({
-        email: credentials.email,
-        password: credentials.password,
-        otp,
-      })
-      .expect(200);
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    const otp = nextWindowOtp(user!.totpSecret!);
+
+    const response = await loginAgent.post('/auth/mfa/verify').send({ mfaToken, otp }).expect(200);
 
     const body = response.body as apiResponse<LoginResponse>;
 
@@ -146,21 +139,69 @@ describe('TOTP MFA (e2e)', () => {
     checkCookies(response);
   });
 
-  it('rejects invalid TOTP during login', async () => {
+  it('never accepts an otp on the password step', async () => {
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
+
+    const response = await request
+      .agent(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: credentials.email, password: credentials.password, otp })
+      .expect(400);
+
+    // forbidNonWhitelisted: a one-shot login carrying the code is no longer a
+    // thing the API offers, rather than being quietly ignored.
+    expect((response.body as { statusCode: number }).statusCode).toBe(400);
+  });
+
+  it('rejects an invalid TOTP against a valid challenge token', async () => {
     const loginAgent = request.agent(app.getHttpServer());
+    const mfaToken = await startMfaLogin(loginAgent);
 
     const response = await loginAgent
-      .post('/auth/login')
-      .send({
-        email: credentials.email,
-        password: credentials.password,
-        otp: '123456',
-      })
+      .post('/auth/mfa/verify')
+      .send({ mfaToken, otp: '123456' })
       .expect(403);
 
-    const body = response.body as { message: string };
+    expect((response.body as { message: string }).message).toBe('Invalid TOTP');
+  });
 
-    expect(body.message).toBe('Invalid TOTP');
+  it('rejects a forged challenge token', async () => {
+    const user = await prisma.users.findUnique({ where: { id: userId } });
+    const otp = generateOtpFromStoredSecret(user!.totpSecret!);
+
+    const response = await request
+      .agent(app.getHttpServer())
+      .post('/auth/mfa/verify')
+      .send({ mfaToken: 'not.a.token', otp })
+      .expect(403);
+
+    // Same message as a wrong code, so this cannot be used to tell a valid
+    // challenge token from an invalid one.
+    expect((response.body as { message: string }).message).toBe('Invalid TOTP');
+  });
+
+  // Needs an untouched account: only one code per time step can ever be spent,
+  // and the tests above have already spent this window's on the shared user.
+  it('refuses to spend the same code twice', async () => {
+    const other = buildRegisterDto('totp-replay');
+    const otherAgent = await registerUser(app, other);
+    const otherId = await getCurrentUserId(otherAgent);
+    const secret = await enableTotpFor(otherAgent, otherId);
+
+    const otp = nextWindowOtp(secret);
+
+    const first = request.agent(app.getHttpServer());
+    await first
+      .post('/auth/mfa/verify')
+      .send({ mfaToken: await startMfaLogin(first, other), otp })
+      .expect(200);
+
+    const second = request.agent(app.getHttpServer());
+    await second
+      .post('/auth/mfa/verify')
+      .send({ mfaToken: await startMfaLogin(second, other), otp })
+      .expect(403);
   });
 
   it('deletes TOTP successfully', async () => {
@@ -180,6 +221,33 @@ describe('TOTP MFA (e2e)', () => {
     expect(user?.totpSecret).toBeNull();
     expect(user?.totpActive).toBe(false);
   });
+
+  /** Runs the password step and returns the challenge token it hands back. */
+  async function startMfaLogin(
+    agent: ReturnType<typeof request.agent>,
+    as: RegisterDto = credentials,
+  ): Promise<string> {
+    const response = await agent
+      .post('/auth/login')
+      .send({ email: as.email, password: as.password })
+      .expect(200);
+
+    const body = response.body as apiResponse<LoginResponse>;
+    return body.data!.mfaToken!;
+  }
+
+  /** Turns TOTP on for an arbitrary account and hands back its stored secret. */
+  async function enableTotpFor(agent: TestAgent, id: number): Promise<string> {
+    await agent.post('/users/mfa/totp/setup').expect(201);
+
+    const user = await prisma.users.findUnique({ where: { id } });
+    await agent
+      .post('/users/mfa/totp/activate')
+      .send({ otp: generateOtpFromStoredSecret(user!.totpSecret!) })
+      .expect(201);
+
+    return user!.totpSecret!;
+  }
 
   async function enableTotp() {
     await userAgent.post('/users/mfa/totp/setup').expect(201);
@@ -227,7 +295,7 @@ describe('TOTP MFA (e2e)', () => {
     return body.sub;
   }
 
-  function generateOtpFromStoredSecret(secret: string) {
+  function generateOtpFromStoredSecret(secret: string, offsetMs = 0) {
     secret = decryptSecret(secret);
 
     const totp = new OTPAuth.TOTP({
@@ -236,7 +304,19 @@ describe('TOTP MFA (e2e)', () => {
       period: 30,
       secret: secret,
     });
-    return totp.generate();
+    return totp.generate({ timestamp: Date.now() + offsetMs });
+  }
+
+  /**
+   * A code from the next time step, which the ±1 skew window still accepts.
+   *
+   * Activation spends the current step's counter, and a spent counter is never
+   * accepted again, so a login test generating a code the ordinary way inside
+   * the same 30 seconds would be refused as a replay. Reaching one step forward
+   * keeps these tests instant instead of sleeping out the window.
+   */
+  function nextWindowOtp(secret: string) {
+    return generateOtpFromStoredSecret(secret, TOTP_PERIOD_MS);
   }
 });
 

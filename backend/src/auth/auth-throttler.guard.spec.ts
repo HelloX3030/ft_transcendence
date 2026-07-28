@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
-import { THROTTLERS, THROTTLE_AUTH } from '../throttle.config';
+import { AUTH_ATTEMPTS_PER_WINDOW, AUTH_WINDOW_MS, THROTTLERS } from '../throttle.config';
 
 describe('AuthThrottlerGuard', () => {
   let guard: AuthThrottlerGuard;
@@ -47,13 +47,13 @@ describe('AuthThrottlerGuard', () => {
 
 describe('auth throttle window', () => {
   it('is tight enough to put a 6-digit TOTP out of reach', () => {
-    const attemptsPerDay = THROTTLE_AUTH.limit * (86_400_000 / THROTTLE_AUTH.ttl);
+    const attemptsPerDay = AUTH_ATTEMPTS_PER_WINDOW * (86_400_000 / AUTH_WINDOW_MS);
     const daysToExhaustTotpSpace = 1_000_000 / attemptsPerDay;
 
     expect(daysToExhaustTotpSpace).toBeGreaterThan(30);
   });
 
   it('still leaves room for real users sharing one NAT address', () => {
-    expect(THROTTLE_AUTH.limit).toBeGreaterThanOrEqual(20);
+    expect(AUTH_ATTEMPTS_PER_WINDOW).toBeGreaterThanOrEqual(20);
   });
 });
