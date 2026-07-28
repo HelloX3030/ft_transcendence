@@ -8,7 +8,7 @@ const notify = useNotifyStore();
 </script>
 
 <template>
-  <header class="flex h-14 shrink-0 items-center">
+  <header class="flex h-[var(--header-height)] shrink-0 items-center">
     <div class="grid grid-cols-3 w-full items-center px-9">
       <!-- Links: Sidebar -->
       <div class="flex justify-start">
