@@ -21,14 +21,12 @@ export const useUserStore = defineStore('user', () => {
   });
 
   async function uploadAvatar(file: File) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      userApi.uploadAvatar(formData);
-      await refetchUser();
-    } catch (error) {
-      throw error;
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    // Awaited, so refetchUser() reads the new avatar rather than racing the
+    // upload, and a rejection reaches the caller instead of going unhandled.
+    await userApi.uploadAvatar(formData);
+    await refetchUser();
   }
 
   async function updateUser(payload: UpdateUserRequest) {
