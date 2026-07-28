@@ -66,6 +66,15 @@ export class FriendsService {
 
   async addFriend(payload: JwtAccessPayload, id: number) {
     if (payload.sub === id) throw new BadRequestException("You can't be friends with yourself.");
+
+    const targetUser = await this.prisma.users.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (targetUser === null) {
+      throw new NotFoundException('User not found.');
+    }
+
     const friendsKey = this.friendUtils.getFriendsKey(payload.sub, id);
 
     await this.prisma.friends.create({
