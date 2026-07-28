@@ -11,13 +11,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import * as crypto from 'crypto';
-import {
-  ALLOWED_IMAGE_LABEL,
-  detectImageType,
-  encrypt,
-  getMfaKey,
-  successResponse,
-} from 'src/utils';
+import { ALLOWED_IMAGE_LABEL, detectImageType, encryptSecret, successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
@@ -231,10 +225,7 @@ export class UsersService {
     const secret = totp.secret.base32;
     const qrCode = await this.generateQRCode(totp.toString());
 
-    const key = getMfaKey();
-    const iv = crypto.randomBytes(16);
-    let encryptedSecret = iv.toString('hex') + ':';
-    encryptedSecret += encrypt(secret, key, iv);
+    const encryptedSecret = encryptSecret(secret);
 
     const result = await this.prisma.users.updateMany({
       where: {
