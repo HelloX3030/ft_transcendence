@@ -115,7 +115,12 @@ describe('NotifyGateway', () => {
       expect(client.data.user).toBe(7);
       expect(client.join).toHaveBeenCalledWith('user:7');
       expect(mockNotifyService.setUserAsActive).toHaveBeenCalledWith(7, client);
-      expect(server.emit).toHaveBeenCalledWith('online-status:7', { id: 7, isOnline: true });
+      expect(roomEmits).toContainEqual({
+        room: 'online-status:7',
+        event: 'online-status:7',
+        payload: { id: 7, isOnline: true },
+      });
+      expect(server.emit).not.toHaveBeenCalled();
       expect(client.disconnect).not.toHaveBeenCalled();
     });
 
@@ -147,7 +152,11 @@ describe('NotifyGateway', () => {
       await gateway.handleConnection(asSocket(client));
 
       expect(mockNotifyService.setUserAsActive).toHaveBeenCalledWith(7, client);
-      expect(server.emit).toHaveBeenCalledWith('online-status:7', { id: 7, isOnline: true });
+      expect(roomEmits).toContainEqual({
+        room: 'online-status:7',
+        event: 'online-status:7',
+        payload: { id: 7, isOnline: true },
+      });
       expect(client.disconnect).not.toHaveBeenCalled();
     });
 
@@ -169,7 +178,7 @@ describe('NotifyGateway', () => {
       await gateway.handleConnection(asSocket(client));
 
       expect(mockNotifyService.setUserAsActive).not.toHaveBeenCalled();
-      expect(server.emit).not.toHaveBeenCalled();
+      expect(roomEmits).toHaveLength(0);
       expect(client.disconnect).toHaveBeenCalledWith(true);
     });
 
@@ -183,7 +192,7 @@ describe('NotifyGateway', () => {
       expect(mockUserUtils.getUser).toHaveBeenCalledWith(7);
       expect(mockNotifyService.setUserAsActive).not.toHaveBeenCalled();
       expect(client.join).not.toHaveBeenCalled();
-      expect(server.emit).not.toHaveBeenCalled();
+      expect(roomEmits).toHaveLength(0);
       expect(client.disconnect).toHaveBeenCalledWith(true);
     });
   });
@@ -195,7 +204,12 @@ describe('NotifyGateway', () => {
       gateway.handleDisconnect(asSocket(client));
 
       expect(mockNotifyService.setUserAsInative).toHaveBeenCalledWith(7, client);
-      expect(server.emit).toHaveBeenCalledWith('online-status:7', { id: 7, isOnline: false });
+      expect(roomEmits).toContainEqual({
+        room: 'online-status:7',
+        event: 'online-status:7',
+        payload: { id: 7, isOnline: false },
+      });
+      expect(server.emit).not.toHaveBeenCalled();
     });
 
     it('ignores a socket that never authenticated', () => {
@@ -204,7 +218,7 @@ describe('NotifyGateway', () => {
       gateway.handleDisconnect(asSocket(client));
 
       expect(mockNotifyService.setUserAsInative).not.toHaveBeenCalled();
-      expect(server.emit).not.toHaveBeenCalled();
+      expect(roomEmits).toHaveLength(0);
     });
   });
 

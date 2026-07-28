@@ -67,7 +67,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       client.data.user = payload.sub;
       client.join(userRoom(payload.sub));
       this.notifyService.setUserAsActive(payload.sub, client);
-      this.server.emit(onlineStatusRoom(payload.sub), { id: payload.sub, isOnline: true });
+      this.publishPresence(payload.sub, true);
 
       // Reconcile this socket's presence rooms from the DB on every (re)connect.
       // Rooms are per-socket, so a fresh socket (initial load or a silent
@@ -92,10 +92,19 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       return;
     }
     this.notifyService.setUserAsInative(userId, client);
-    this.server.emit(onlineStatusRoom(userId), {
-      id: userId,
-      isOnline: false,
-    });
+    this.publishPresence(userId, false);
+  }
+
+  /**
+   * Publishes a presence transition to the watchers of `userId` only. The room
+   * and the event share a name, so the emit reaches exactly the sockets that
+   * `seedFriendStatusRooms` subscribed — a plain `server.emit` would put every
+   * user's presence on the wire for every connected socket.
+   */
+  private publishPresence(userId: number, isOnline: boolean) {
+    this.server
+      .to(onlineStatusRoom(userId))
+      .emit(onlineStatusRoom(userId), { id: userId, isOnline });
   }
 
   // -------------------------
