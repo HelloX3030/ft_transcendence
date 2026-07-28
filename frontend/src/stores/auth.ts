@@ -24,19 +24,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Like register(), errors bubble: useLogin turns them into errorMessage.
   async function login(payload: LoginRequest): Promise<LoginResponse | null> {
-    try {
-      const result = await authApi.login(payload);
-      if (!result?.mfaRequired) {
-        isLoggedIn.value = true;
-        const userStore = useUserStore();
-        await userStore.refetchUser();
-        notify.init();
-      }
-      return result;
-    } catch (error) {
-      throw error; //TODO: modify Backend Error message for ui
+    const result = await authApi.login(payload);
+    if (!result?.mfaRequired) {
+      isLoggedIn.value = true;
+      const userStore = useUserStore();
+      await userStore.refetchUser();
+      notify.init();
     }
+    return result;
   }
 
   async function logout() {
