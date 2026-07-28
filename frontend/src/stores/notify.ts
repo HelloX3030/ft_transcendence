@@ -6,13 +6,6 @@ import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { useChatStore } from './chat';
 
-// ---- Types ----
-// interface ChatMessage {
-//   timestamp: string;
-//   senderId: string;
-//   message: string;
-// }
-
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
@@ -20,7 +13,6 @@ export const useNotifyStore = defineStore('notify', () => {
   const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
-  // const chat = ref(new Map<string, ChatMessage[]>());
   const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
@@ -89,7 +81,6 @@ export const useNotifyStore = defineStore('notify', () => {
     notifyMsg.value = [];
     friendsStatus.value = new Map();
     offline.value = true;
-    // chat.value = new Map();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -141,11 +132,6 @@ export const useNotifyStore = defineStore('notify', () => {
     });
   }
 
-  // function createChat(peerUserId: string) {
-  //   const message: ChatMessage[] = chat.value.get(peerUserId) ?? [];
-  //   chat.value.set(peerUserId, message);
-  // }
-
   function sendChatMsg(peerUserId: number, msg: string) {
     socket.emit('chat', { peerUserId, msg });
   }
@@ -163,11 +149,9 @@ export const useNotifyStore = defineStore('notify', () => {
     friendsStatus,
     count,
     notifyMsg,
-    // chat,
     init,
     stop,
     clearAllNotifications,
-    // createChat,
     sendChatMsg,
   };
 });

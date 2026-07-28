@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia';
-import { useNotifyStore } from './notify';
 import { computed, ref, watch } from 'vue';
 import type { GetUserResponse } from '@trailertinder/shared';
 
