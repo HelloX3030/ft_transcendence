@@ -49,14 +49,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Errors bubble to the caller: SignupForm needs them to render errorMessage.
   async function register(payload: RegisterRequest) {
-    try {
-      await authApi.register(payload);
-      isLoggedIn.value = true;
-      const userStore = useUserStore();
-      await userStore.refetchUser();
-      notify.init();
-    } catch (error) {}
+    await authApi.register(payload);
+    isLoggedIn.value = true;
+    const userStore = useUserStore();
+    await userStore.refetchUser();
+    notify.init();
   }
 
   return {
