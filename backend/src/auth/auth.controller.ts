@@ -25,7 +25,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Creates a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created' })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 403, description: 'Credentials taken' })
+  @ApiResponse({ status: 409, description: 'Credentials taken' })
   async register(
     @Request() req: ExpressRequest,
     @Body() dto: RegisterDto,

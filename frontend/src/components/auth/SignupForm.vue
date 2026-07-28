@@ -32,7 +32,7 @@ const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
     router.push('/');
   } catch (err: unknown) {
     const e = err as { status?: number; message?: string };
-    if (e?.status === 403) {
+    if (e?.status === 409) {
       errorMessage.value = 'Email or username is already taken.';
     } else if (e?.status) {
       errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
