@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -47,7 +48,9 @@ export class AuthService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ForbiddenException('Credentials taken');
+          // Deliberately generic: does not reveal whether the email or the
+          // username collided. See A6 in _meta/reviews/CODE_REVIEW_AUTH_TOTP.md.
+          throw new ConflictException('Credentials taken');
         }
       }
       throw error;
