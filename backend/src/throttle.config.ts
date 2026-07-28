@@ -34,7 +34,20 @@ export const THROTTLE_SUSTAINED: FixedWindow = { name: 'sustained', ttl: 60_000,
  * window — they are not guessable, and a shared IP would exhaust it on
  * ordinary traffic.
  */
-export const THROTTLE_AUTH: FixedWindow = { name: 'auth', ttl: 60_000, limit: 20 };
+export const AUTH_WINDOW_MS = 60_000;
+export const AUTH_ATTEMPTS_PER_WINDOW = 20;
+
+export const THROTTLE_AUTH: ThrottlerOptions = {
+  name: 'auth',
+  ttl: AUTH_WINDOW_MS,
+  // Resolved per request so the e2e suite, which registers and logs in far more
+  // often than any real client and all from one address, is not stopped on 429
+  // instead of on whatever it was actually testing. Only this window is lifted:
+  // the TMDB windows stay live, and their own e2e test asserts they still bite.
+  // Jest sets NODE_ENV=test when it is not already set; nothing else here does.
+  limit: () =>
+    process.env.NODE_ENV === 'test' ? Number.MAX_SAFE_INTEGER : AUTH_ATTEMPTS_PER_WINDOW,
+};
 
 export const THROTTLERS = [THROTTLE_BURST, THROTTLE_SUSTAINED, THROTTLE_AUTH];
 
