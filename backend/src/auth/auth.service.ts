@@ -80,7 +80,7 @@ export class AuthService {
         );
       }
       if (user.totpSecret === null) {
-        console.error('TOTP is enabled, but no totpSecret has been set.');
+        this.logger.error('TOTP is enabled, but no totpSecret has been set.');
         throw new InternalServerErrorException();
       }
       const isValid = verifyTOTP(user.totpSecret, dto.otp);

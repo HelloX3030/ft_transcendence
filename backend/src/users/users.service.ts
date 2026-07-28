@@ -216,7 +216,7 @@ export class UsersService {
 
     const appName = process.env.APP_NAME;
     if (appName === undefined) {
-      console.error('The env "APP_NAME" is not set.');
+      this.logger.error('The env "APP_NAME" is not set.');
       throw new InternalServerErrorException();
     }
 
@@ -301,7 +301,7 @@ export class UsersService {
       const qrCode = await QRCode.toString(uri, { type: 'svg' });
       return qrCode;
     } catch (error) {
-      console.error('Error during QR code generation: ', error);
+      this.logger.error('Error during QR code generation', error as Error);
       throw new InternalServerErrorException();
     }
   }

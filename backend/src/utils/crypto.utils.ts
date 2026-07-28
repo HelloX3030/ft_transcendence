@@ -1,12 +1,15 @@
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
 const algorithm = 'aes-256-cbc';
 
+// Standalone functions, so there is no injected logger to reach for.
+const logger = new Logger('CryptoUtils');
+
 export function getMfaKey() {
   const key = process.env.MFA_KEY;
   if (key === undefined || key.length !== 64) {
-    console.error('The env "MFA_KEY" is not set or is not 32-bytes long.');
+    logger.error('The env "MFA_KEY" is not set or is not 32-bytes long.');
     throw new InternalServerErrorException();
   }
   return Buffer.from(key, 'hex');
