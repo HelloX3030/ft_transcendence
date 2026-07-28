@@ -4,9 +4,17 @@ import { verifyTOTP } from './otp.utils';
 
 const TEST_KEY = 'a3f1c9d4b2e8f0c1d3a4b5c6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f6071';
 
+const PERIOD_MS = 30_000;
+
 // Mirrors the parameters createTOTP/verifyTOTP agree on.
 function totpFor(secret: string): OTPAuth.TOTP {
   return new OTPAuth.TOTP({ algorithm: 'SHA1', digits: 6, period: 30, secret });
+}
+
+// verifyTOTP reads its own Date.now(), so a period boundary crossed mid-test
+// shifts the accepted window. Tests compare this before and after to skip that run.
+function currentStep(): number {
+  return Math.floor(Date.now() / PERIOD_MS);
 }
 
 describe('verifyTOTP', () => {
@@ -50,14 +58,24 @@ describe('verifyTOTP', () => {
     expect(typeof verifyTOTP(storedSecret, '000000')).toBe('boolean');
   });
 
-  // Documents current behaviour, not desired behaviour: there is no acceptance
-  // window, so a code from the previous step is refused. See H5 in
-  // _meta/reviews/CODE_REVIEW_FINDINGS.md — this expectation flips when that is fixed.
-  it('rejects a code from the previous time step (no clock-skew window yet)', () => {
-    const previous = totpFor(plaintextSecret).generate({ timestamp: Date.now() - 30_000 });
-    const current = totpFor(plaintextSecret).generate();
+  it('accepts a code from the previous time step, for clock skew', () => {
+    const before = currentStep();
+    const previous = totpFor(plaintextSecret).generate({ timestamp: Date.now() - PERIOD_MS });
+    const accepted = verifyTOTP(storedSecret, previous);
 
-    if (previous === current) return; // straddled a period boundary; nothing to assert
-    expect(verifyTOTP(storedSecret, previous)).toBe(false);
+    if (currentStep() !== before) return; // rolled over, the code is two steps old now
+    expect(accepted).toBe(true);
+  });
+
+  it('accepts a code from the next time step, for clock skew', () => {
+    const next = totpFor(plaintextSecret).generate({ timestamp: Date.now() + PERIOD_MS });
+
+    expect(verifyTOTP(storedSecret, next)).toBe(true);
+  });
+
+  it('rejects a code from two time steps ago, outside the window', () => {
+    const stale = totpFor(plaintextSecret).generate({ timestamp: Date.now() - 2 * PERIOD_MS });
+
+    expect(verifyTOTP(storedSecret, stale)).toBe(false);
   });
 });

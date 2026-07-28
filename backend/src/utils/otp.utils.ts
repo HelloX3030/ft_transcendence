@@ -10,5 +10,8 @@ export function verifyTOTP(totpSecret: string, otp: string) {
     secret: secret,
   });
 
-  return totp.generate() === otp;
+  // window: 1 also accepts the adjacent steps (±30s). Without it a code read
+  // near a period boundary, or any client clock drift, reads as "invalid code".
+  // validate() returns the delta, or null when nothing in the window matches.
+  return totp.validate({ token: otp, window: 1 }) !== null;
 }
