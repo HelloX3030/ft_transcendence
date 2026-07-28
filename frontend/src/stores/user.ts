@@ -30,21 +30,13 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function updateUser(payload: UpdateUserRequest) {
-    try {
-      await userApi.update(payload);
-      await refetchUser();
-    } catch (error) {
-      throw error;
-    }
+    await userApi.update(payload);
+    await refetchUser();
   }
 
   async function completeOnboarding(movieIds: number[]) {
-    try {
-      await userApi.onboarding(movieIds);
-      await refetchUser();
-    } catch (error) {
-      throw error; //TODO: do i need to catch in the first place? or just let it bubble up to the component?
-    }
+    await userApi.onboarding(movieIds);
+    await refetchUser();
   }
 
   async function activateTotp(otp: string) {
