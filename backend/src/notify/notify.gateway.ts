@@ -13,11 +13,15 @@ import { JwtService } from '@nestjs/jwt';
 import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
 import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
+
+/** How often to look for sockets whose access token has run out. */
+const TOKEN_EXPIRY_SWEEP_MS = 60_000;
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -56,15 +60,18 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       if (!token) {
         throw new Error('No token provided.');
       }
-      const payload = await this.jwtService.verifyAsync<JwtAccessPayload>(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
+      const payload = await this.jwtService.verifyAsync<JwtAccessPayload & { exp?: number }>(
+        token,
+        { secret: process.env.JWT_ACCESS_SECRET },
+      );
 
       // A token can outlive the account it was issued for. Without this check a
       // deleted user is added to the presence map and broadcast as online.
       await this.userUtils.getUser(payload.sub);
 
       client.data.user = payload.sub;
+      // exp is in seconds; the sweep below compares it against Date.now().
+      client.data.tokenExpiresAt = typeof payload.exp === 'number' ? payload.exp * 1000 : undefined;
       client.join(userRoom(payload.sub));
       this.notifyService.setUserAsActive(payload.sub, client);
       this.publishPresence(payload.sub, true);
@@ -96,6 +103,30 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     // must not announce the user as offline while the others are still up.
     if (!this.notifyService.isOnline(userId)) {
       this.publishPresence(userId, false);
+    }
+  }
+
+  /**
+   * Drops sockets whose access token has run out.
+   *
+   * The token is only checked during the handshake, so without this a socket
+   * opened with a valid token keeps its authorisation for as long as it stays
+   * connected — indefinitely. Disconnecting lets the client reconnect, which
+   * re-runs the handshake against whatever cookie it holds by then.
+   */
+  @Interval(TOKEN_EXPIRY_SWEEP_MS)
+  disconnectExpiredSockets() {
+    const sockets = this.server?.sockets;
+    if (sockets === undefined) return;
+
+    const now = Date.now();
+    for (const socket of sockets.values()) {
+      const expiresAt = (socket as Socket).data?.tokenExpiresAt;
+      if (expiresAt !== undefined && expiresAt <= now) {
+        this.logger.debug(`Disconnecting socket of user ${socket.data.user}: token expired`);
+        socket.emit('error', 'Your session expired.');
+        socket.disconnect(true);
+      }
     }
   }
 

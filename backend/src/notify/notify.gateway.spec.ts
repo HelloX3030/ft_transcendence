@@ -54,7 +54,7 @@ function createMockServer() {
 
 function createMockSocket(userId?: number, cookie = 'access_token=valid-token') {
   return {
-    data: { user: userId } as { user: number },
+    data: { user: userId } as { user: number; tokenExpiresAt?: number },
     handshake: { headers: { cookie } },
     join: jest.fn(),
     leave: jest.fn(),
@@ -104,6 +104,18 @@ describe('NotifyGateway', () => {
   });
 
   describe('handleConnection', () => {
+    it('records the token expiry so the sweep can act on it', async () => {
+      const client = createMockSocket();
+      const exp = Math.floor(Date.now() / 1000) + 900;
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com', exp });
+      mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
+      mockFriendUtils.getFriends.mockResolvedValue([]);
+
+      await gateway.handleConnection(asSocket(client));
+
+      expect(client.data.tokenExpiresAt).toBe(exp * 1000);
+    });
+
     it('joins the user room and broadcasts online for a valid token', async () => {
       const client = createMockSocket();
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
@@ -194,6 +206,64 @@ describe('NotifyGateway', () => {
       expect(client.join).not.toHaveBeenCalled();
       expect(roomEmits).toHaveLength(0);
       expect(client.disconnect).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('disconnectExpiredSockets', () => {
+    /** Stands in for namespace.sockets, which the sweep iterates. */
+    function attachSockets(...sockets: MockSocket[]) {
+      (server as unknown as { sockets: Map<string, unknown> }).sockets = new Map(
+        sockets.map((socket, i) => [String(i), socket]),
+      );
+    }
+
+    it('drops a socket whose token has already expired', () => {
+      const expired = createMockSocket(7);
+      expired.data.tokenExpiresAt = Date.now() - 1_000;
+      attachSockets(expired);
+
+      gateway.disconnectExpiredSockets();
+
+      expect(expired.emit).toHaveBeenCalledWith('error', expect.any(String));
+      expect(expired.disconnect).toHaveBeenCalledWith(true);
+    });
+
+    it('leaves a socket whose token is still valid alone', () => {
+      const live = createMockSocket(7);
+      live.data.tokenExpiresAt = Date.now() + 60_000;
+      attachSockets(live);
+
+      gateway.disconnectExpiredSockets();
+
+      expect(live.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('drops only the expired sockets', () => {
+      const expired = createMockSocket(1);
+      expired.data.tokenExpiresAt = Date.now() - 1;
+      const live = createMockSocket(2);
+      live.data.tokenExpiresAt = Date.now() + 60_000;
+      attachSockets(expired, live);
+
+      gateway.disconnectExpiredSockets();
+
+      expect(expired.disconnect).toHaveBeenCalledWith(true);
+      expect(live.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('leaves a socket with no recorded expiry alone', () => {
+      const socket = createMockSocket(7);
+      attachSockets(socket);
+
+      gateway.disconnectExpiredSockets();
+
+      expect(socket.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('does nothing before the namespace is attached', () => {
+      attachServer(gateway, undefined);
+
+      expect(() => gateway.disconnectExpiredSockets()).not.toThrow();
     });
   });
 

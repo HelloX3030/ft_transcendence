@@ -19,6 +19,20 @@ function errorMessage(body: unknown, status: number): string {
   return `Request failed: ${status}`;
 }
 
+/**
+ * Renews the access cookie, coalescing concurrent callers onto one request.
+ * Exported for the notify socket, whose handshake fails once the cookie
+ * expires and which has no other way to recover.
+ */
+export function refreshSession(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = refreshToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 async function refreshToken() {
   const response = await fetch(API_BASE + '/auth/refresh', {
     method: 'GET',
@@ -40,14 +54,8 @@ export async function backendClient<T>(
   });
 
   if (response.status === 401 && !retried) {
-    if (!refreshPromise) {
-      refreshPromise = refreshToken().finally(() => {
-        refreshPromise = null;
-      });
-    }
-
     try {
-      await refreshPromise;
+      await refreshSession();
       return backendClient<T>(path, options, true);
     } catch {
       throw new ApiError(401, 'Not authenticated');

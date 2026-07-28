@@ -5,6 +5,7 @@ import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trai
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
+import { refreshSession } from '@/api/client';
 
 // ---- Types ----
 interface ChatMessage {
@@ -37,12 +38,18 @@ export const useNotifyStore = defineStore('notify', () => {
     });
 
     socket.on('connect_error', (error) => {
+      offline.value = true;
       if (!isError(error)) {
         logger.error('[notify] invalid connect_error payload ', error);
-        return;
+      } else {
+        logger.error('[notify] connect error: ', error.message);
       }
-      logger.error('[notify] connect error: ', error.message);
-      offline.value = true;
+      // The gateway drops sockets once their access cookie expires, and the
+      // handshake then rejects the retry for the same reason. Renewing the
+      // cookie lets socket.io's next attempt through instead of looping.
+      void refreshSession().catch(() => {
+        // Refresh token is gone too — stay offline until the user logs in again.
+      });
     });
 
     socket.on('error', (error) => {
