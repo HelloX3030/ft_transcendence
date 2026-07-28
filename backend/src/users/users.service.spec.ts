@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -6,6 +11,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
 import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
 import { verifyTOTP } from 'src/utils/otp.utils';
+import { decryptSecret } from 'src/utils/crypto.utils';
 
 jest.mock('src/utils/otp.utils');
 const mockVerifyTOTP = jest.mocked(verifyTOTP);
@@ -343,6 +349,103 @@ describe('UsersService', () => {
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
       await expect(service.getUser(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('createTOTP', () => {
+    // The prisma mock is deliberately untyped, so read its recorded call through
+    // a narrow shape rather than sprinkling `any` access across the assertions.
+    type UpdateManyArg = { where: unknown; data: { totpSecret: string } };
+
+    function updateManyArg(): UpdateManyArg {
+      return (mockPrisma.users.updateMany.mock.calls as unknown[][])[0][0] as UpdateManyArg;
+    }
+
+    function storedSecretArg(): string {
+      return updateManyArg().data.totpSecret;
+    }
+
+    const TEST_KEY = 'a3f1c9d4b2e8f0c1d3a4b5c6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f6071';
+    const originalKey = process.env.MFA_KEY;
+    const originalAppName = process.env.APP_NAME;
+
+    beforeEach(() => {
+      process.env.MFA_KEY = TEST_KEY;
+      process.env.APP_NAME = 'TrailerTinder';
+      mockPrisma.users.findUnique.mockResolvedValue({
+        username: 'testuser',
+        totpActive: false,
+      });
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    afterAll(() => {
+      if (originalKey === undefined) delete process.env.MFA_KEY;
+      else process.env.MFA_KEY = originalKey;
+      if (originalAppName === undefined) delete process.env.APP_NAME;
+      else process.env.APP_NAME = originalAppName;
+    });
+
+    it('returns a QR code', async () => {
+      const result = await service.createTOTP(1);
+
+      expect(result.data).toContain('<svg');
+    });
+
+    // A3 — the plaintext secret is deliberately never sent to the client.
+    it('never returns the plaintext secret', async () => {
+      const result = await service.createTOTP(1);
+
+      const plaintext = decryptSecret(storedSecretArg());
+      expect(JSON.stringify(result)).not.toContain(plaintext);
+    });
+
+    it('stores the secret encrypted in the `iv:cipher` format', async () => {
+      await service.createTOTP(1);
+
+      const stored = storedSecretArg();
+      expect(stored).toMatch(/^[0-9a-f]{32}:[0-9a-f]+$/);
+      expect(decryptSecret(stored)).toMatch(/^[A-Z2-7]+$/); // base32
+    });
+
+    it('throws NotFoundException when the user does not exist', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+
+      await expect(service.createTOTP(999)).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when APP_NAME is not configured', async () => {
+      delete process.env.APP_NAME;
+
+      await expect(service.createTOTP(1)).rejects.toThrow(InternalServerErrorException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+    });
+
+    // The overwrite guard: a re-setup must not clobber an already-active secret.
+    it('throws ConflictException when TOTP is already active', async () => {
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.createTOTP(1)).rejects.toThrow(ConflictException);
+    });
+
+    it('scopes the write to a user without active TOTP', async () => {
+      await service.createTOTP(1);
+
+      expect(updateManyArg().where).toEqual({ id: 1, totpActive: false });
+      expect(typeof storedSecretArg()).toBe('string');
+    });
+  });
+
+  describe('deleteTOTP', () => {
+    it('clears both the secret and the active flag', async () => {
+      mockPrisma.users.update.mockResolvedValue(mockUser);
+
+      await service.deleteTOTP(1);
+
+      expect(mockPrisma.users.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { totpSecret: null, totpActive: false },
+      });
     });
   });
 

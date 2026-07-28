@@ -39,7 +39,7 @@ describe('Auth (e2e)', () => {
       .set('Accept', 'application/json')
       .send(mockUserRegister)
       .expect('Content-Type', /json/)
-      .expect(403);
+      .expect(409);
 
     const body = response.body as apiResponse<null>;
     expect(body.message).toBe('Credentials taken');
