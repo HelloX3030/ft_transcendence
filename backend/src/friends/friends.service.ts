@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Friend } from '@trailertinder/shared';
 import {
   FRIEND_REMOVED,
@@ -40,7 +35,7 @@ export class FriendsService {
       select: FRIENDS_SELECT,
     });
 
-    if (user === null) throw new InternalServerErrorException();
+    if (user === null) throw new NotFoundException('User not found.');
 
     const friends: Friend[] = [];
 
