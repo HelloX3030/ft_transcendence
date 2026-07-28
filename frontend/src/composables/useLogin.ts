@@ -10,14 +10,16 @@ export function useLogin() {
   const mfaRequired = ref(false);
   const errorMessage = ref<string | null>(null);
   const otpVerifyLoading = ref(false);
-  const pendingCredentials = ref<{ email: string; password: string } | null>(null);
+  // The backend's challenge token, held between the two login steps. It stands
+  // in for the password, which is never kept and never sent twice.
+  const pendingMfaToken = ref<string | null>(null);
 
   async function login(email: string, password: string) {
     errorMessage.value = null;
     try {
-      const result = await authStore.login({ email, password }); // ← Store, nicht API
+      const result = await authStore.login({ email, password });
       if (result?.mfaRequired) {
-        pendingCredentials.value = { email, password };
+        pendingMfaToken.value = result.mfaToken ?? null;
         mfaRequired.value = true;
       } else {
         router.push('/');
@@ -37,14 +39,17 @@ export function useLogin() {
   }
 
   async function verifyOtp(otp: string) {
-    if (!pendingCredentials.value) return;
+    if (!pendingMfaToken.value) return;
     errorMessage.value = null;
     otpVerifyLoading.value = true;
     try {
-      await authStore.login({ ...pendingCredentials.value, otp }); // ← Store
+      await authStore.verifyMfa({ mfaToken: pendingMfaToken.value, otp });
       router.push('/');
     } catch {
-      errorMessage.value = 'Invalid code. Please try again.';
+      // The challenge token expires after a few minutes, and the backend cannot
+      // tell the user which of the two went stale without leaking whether the
+      // token was valid, so the message has to cover both.
+      errorMessage.value = 'Invalid or expired code. Please try again.';
     } finally {
       otpVerifyLoading.value = false;
     }
@@ -53,11 +58,11 @@ export function useLogin() {
   function resetOtp() {
     mfaRequired.value = false;
     errorMessage.value = null;
-    pendingCredentials.value = null;
+    pendingMfaToken.value = null;
   }
 
-  // Yes, this is needed: pendingCredentials holds the plaintext password between
-  // the two login steps, so it must not outlive the form.
+  // The challenge token is a live credential until it expires; drop it with the
+  // form rather than leaving it in memory.
   onUnmounted(resetOtp);
   return { mfaRequired, errorMessage, otpVerifyLoading, login, verifyOtp, resetOtp };
 }

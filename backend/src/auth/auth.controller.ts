@@ -9,7 +9,7 @@ import {
   Response,
   HttpCode,
 } from '@nestjs/common';
-import { LoginDto, RegisterDto } from './dto';
+import { LoginDto, MfaVerifyDto, RegisterDto } from './dto';
 import { AuthService } from './auth.service';
 import { JwtRefreshGuard, Public } from './guard';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
@@ -58,6 +58,22 @@ export class AuthController {
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
     return this.authService.login(req, dto, res);
+  }
+
+  @Public()
+  @Post('mfa/verify')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Second step of an MFA login: challenge token + TOTP' })
+  @ApiResponse({ status: 200, description: 'User login successful' })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 403, description: 'Invalid or expired challenge token, or invalid TOTP' })
+  @ApiResponse({ status: 429, description: 'Too many attempts from this IP' })
+  async verifyMfa(
+    @Request() req: ExpressRequest,
+    @Body() dto: MfaVerifyDto,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
+    return this.authService.verifyMfa(req, dto, res);
   }
 
   // Cookie-authenticated, so there is nothing here to guess; a shared IP would

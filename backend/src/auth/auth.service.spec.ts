@@ -59,6 +59,7 @@ const mockPrisma = {
 
 const mockJwt = {
   signAsync: jest.fn(),
+  verifyAsync: jest.fn(),
 } satisfies Partial<jest.Mocked<JwtService>>;
 
 // Returns the cookie spy alongside the response so assertions never reference
@@ -222,37 +223,75 @@ describe('AuthService', () => {
       expect(unknown).toBe(wrongPw);
     });
 
-    it('asks for a TOTP code instead of logging in when MFA is active', async () => {
+    it('hands back a challenge token instead of logging in when MFA is active', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
       const { res, cookie } = mockResponse();
 
       const result = await service.login(mockRequest(), loginDto, res);
 
-      expect(result.data).toEqual({ mfaRequired: true, mfaType: 'totp' });
+      expect(result.data).toEqual({
+        mfaRequired: true,
+        mfaType: 'totp',
+        mfaToken: 'signed-token',
+      });
       // No session may be established until the second factor is supplied.
       expect(cookie).not.toHaveBeenCalled();
       expect(mockPrisma.sessions.create).not.toHaveBeenCalled();
     });
 
-    it('completes the login when a valid TOTP code is supplied', async () => {
+    it('signs the challenge token with a key the access secret cannot produce', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+
+      await service.login(mockRequest(), loginDto, mockResponse().res);
+
+      const [, options] = mockJwt.signAsync.mock.calls.at(-1) as [unknown, { secret: string }];
+      // Derived, so a challenge token can never validate as an access token —
+      // it is issued before the second factor and carries no authority.
+      expect(options.secret).not.toBe(process.env.JWT_ACCESS_SECRET);
+      expect(options.secret).toEqual(expect.any(String));
+    });
+
+    it('fails closed when MFA is active but no secret is stored', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ ...totpUser, totpSecret: null });
+      const { res, cookie } = mockResponse();
+
+      await expect(service.login(mockRequest(), loginDto, res)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(cookie).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('verifyMfa', () => {
+    const totpUser = { ...mockUser, totpActive: true, totpSecret: 'iv:tag:cipher' };
+    const dto = { mfaToken: 'challenge-token', otp: '213846' };
+
+    beforeEach(() => {
+      mockJwt.signAsync.mockResolvedValue('signed-token');
+      mockJwt.verifyAsync.mockResolvedValue({ sub: totpUser.id, purpose: 'mfa' });
+      mockPrisma.sessions.create.mockResolvedValue(mockSession);
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
       mockVerifyTOTP.mockReturnValue(58_000_000);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it('issues a session for a valid challenge token and code', async () => {
       const { res, cookie } = mockResponse();
 
-      const result = await service.login(mockRequest(), { ...loginDto, otp: '213846' }, res);
+      const result = await service.verifyMfa(mockRequest(), dto, res);
 
       expect(result.data).toEqual({ mfaRequired: false, mfaType: 'none' });
       expect(cookie).toHaveBeenCalledTimes(2);
     });
 
-    it('burns the counter of a used code so it cannot be replayed', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(58_000_000);
-      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
-      const { res } = mockResponse();
+    it('never asks for the password again', async () => {
+      await service.verifyMfa(mockRequest(), dto, mockResponse().res);
 
-      await service.login(mockRequest(), { ...loginDto, otp: '213846' }, res);
+      expect(mockArgon2.verify).not.toHaveBeenCalled();
+    });
+
+    it('burns the counter of a used code so it cannot be replayed', async () => {
+      await service.verifyMfa(mockRequest(), dto, mockResponse().res);
 
       // The counter is both filter and payload, so the check and the write are
       // a single statement and two racing logins cannot both spend it.
@@ -266,38 +305,68 @@ describe('AuthService', () => {
     });
 
     it('rejects a code whose counter was already spent', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(58_000_000);
-      // No row matched: this counter is not above the stored one.
       mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
       const { res, cookie } = mockResponse();
 
-      await expect(
-        service.login(mockRequest(), { ...loginDto, otp: '213846' }, res),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
       expect(cookie).not.toHaveBeenCalled();
     });
 
-    it('rejects an invalid TOTP code', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+    it('rejects an invalid code without touching the row', async () => {
       mockVerifyTOTP.mockReturnValue(null);
       const { res, cookie } = mockResponse();
 
-      await expect(
-        service.login(mockRequest(), { ...loginDto, otp: '000000' }, res),
-      ).rejects.toThrow(ForbiddenException);
-      expect(cookie).not.toHaveBeenCalled();
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
       expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+      expect(cookie).not.toHaveBeenCalled();
     });
 
-    it('fails closed when MFA is active but no secret is stored', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ ...totpUser, totpSecret: null });
+    it('rejects a challenge token that does not verify', async () => {
+      mockJwt.verifyAsync.mockRejectedValue(new Error('jwt expired'));
       const { res, cookie } = mockResponse();
 
-      await expect(
-        service.login(mockRequest(), { ...loginDto, otp: '213846' }, res),
-      ).rejects.toThrow(InternalServerErrorException);
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
+      expect(mockVerifyTOTP).not.toHaveBeenCalled();
       expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token signed for some other purpose', async () => {
+      mockJwt.verifyAsync.mockResolvedValue({ sub: totpUser.id, email: 'a@b.c' });
+      const { res, cookie } = mockResponse();
+
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('rejects a challenge for a user who has since disabled TOTP', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ ...totpUser, totpActive: false });
+      const { res, cookie } = mockResponse();
+
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('rejects a challenge for a user who has since been deleted', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      const { res, cookie } = mockResponse();
+
+      await expect(service.verifyMfa(mockRequest(), dto, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('answers a bad token and a bad code identically', async () => {
+      mockJwt.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+      const badToken = await service
+        .verifyMfa(mockRequest(), dto, mockResponse().res)
+        .catch((e: Error) => e.message);
+
+      mockJwt.verifyAsync.mockResolvedValue({ sub: totpUser.id, purpose: 'mfa' });
+      mockVerifyTOTP.mockReturnValue(null);
+      const badCode = await service
+        .verifyMfa(mockRequest(), dto, mockResponse().res)
+        .catch((e: Error) => e.message);
+
+      expect(badToken).toBe(badCode);
     });
   });
 
