@@ -1,4 +1,9 @@
-import type { LoginRequest, LoginResponse, RegisterRequest } from '@trailertinder/shared';
+import type {
+  LoginRequest,
+  LoginResponse,
+  MfaVerifyRequest,
+  RegisterRequest,
+} from '@trailertinder/shared';
 import { backendClient } from '../client';
 
 export const authApi = {
@@ -6,6 +11,13 @@ export const authApi = {
 
   login: (payload: LoginRequest) =>
     backendClient<LoginResponse>('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+
+  verifyMfa: (payload: MfaVerifyRequest) =>
+    backendClient<LoginResponse>('/auth/mfa/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
