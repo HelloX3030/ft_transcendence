@@ -1,4 +1,4 @@
-export class ChatRequiremtnsException extends Error {
+export class ChatRequirementsException extends Error {
   constructor(msg: string) {
     super(msg);
   }

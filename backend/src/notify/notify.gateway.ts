@@ -16,7 +16,7 @@ import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/co
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
-import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
 
 @WebSocketGateway({
@@ -91,7 +91,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     if (!userId) {
       return;
     }
-    this.notifyService.setUserAsInative(userId, client);
+    this.notifyService.setUserAsInactive(userId, client);
     // Sockets are ref-counted per user, so closing one of several open tabs
     // must not announce the user as offline while the others are still up.
     if (!this.notifyService.isOnline(userId)) {
@@ -193,7 +193,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       });
     } catch (error) {
       let errorMsg = 'An unknown error occurred while sending this message.';
-      if (error instanceof ChatRequiremtnsException) {
+      if (error instanceof ChatRequirementsException) {
         errorMsg = error.message;
       } else {
         this.logger.error(error);

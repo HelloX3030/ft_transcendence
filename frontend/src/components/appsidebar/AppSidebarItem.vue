@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-vue-next';
 import { SidebarMenuButton, SidebarMenuItem } from '../ui/sidebar';
 
 interface PropsType {
-  titel: string;
+  title: string;
   path: string;
   icon?: LucideIcon;
 }
@@ -16,7 +16,7 @@ defineProps<PropsType>();
     <SidebarMenuButton as-child>
       <RouterLink :to="path" active-class="border-r-2 border-primary rounded-r-xs">
         <icon />
-        {{ titel }}
+        {{ title }}
       </RouterLink>
     </SidebarMenuButton>
   </SidebarMenuItem>

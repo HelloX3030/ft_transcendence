@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { NotifySocket } from 'src/types';
 import { FriendUtils } from 'src/utils';
-import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 import { NotifyGateway } from './notify.gateway';
 import { NotifyService } from './notify.service';
 
@@ -59,7 +59,7 @@ describe('NotifyService', () => {
       service.setUserAsActive(1, tabA);
       service.setUserAsActive(1, tabB);
 
-      service.setUserAsInative(1, tabA);
+      service.setUserAsInactive(1, tabA);
 
       expect(service.isOnline(1)).toBe(true);
     });
@@ -70,8 +70,8 @@ describe('NotifyService', () => {
       service.setUserAsActive(1, tabA);
       service.setUserAsActive(1, tabB);
 
-      service.setUserAsInative(1, tabA);
-      service.setUserAsInative(1, tabB);
+      service.setUserAsInactive(1, tabA);
+      service.setUserAsInactive(1, tabB);
 
       expect(service.isOnline(1)).toBe(false);
     });
@@ -83,7 +83,7 @@ describe('NotifyService', () => {
     });
 
     it('survives a disconnect for a user that was never active', () => {
-      expect(() => service.setUserAsInative(99, socket('a'))).not.toThrow();
+      expect(() => service.setUserAsInactive(99, socket('a'))).not.toThrow();
       expect(service.isOnline(99)).toBe(false);
     });
   });
@@ -142,7 +142,7 @@ describe('NotifyService', () => {
       service.setUserAsActive(2, socket('peer'));
 
       await expect(service.hasChatRequirements(1, 2)).rejects.toBeInstanceOf(
-        ChatRequiremtnsException,
+        ChatRequirementsException,
       );
     });
 

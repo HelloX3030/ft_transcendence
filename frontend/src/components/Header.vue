@@ -2,9 +2,9 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Bell } from 'lucide-vue-next';
 import Separator from './ui/separator/Separator.vue';
-import { notifyStore } from '@/stores/notify.ts';
+import { useNotifyStore } from '@/stores/notify.ts';
 
-const notify = notifyStore();
+const notify = useNotifyStore();
 </script>
 
 <template>
