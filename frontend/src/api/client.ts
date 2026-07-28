@@ -1,5 +1,9 @@
 import type { apiResponse } from '@trailertinder/shared';
+import { BACKEND_URL } from '@/lib/constants';
 import { ApiError } from './api-error';
+
+/** Every backend route is versioned; callers pass the path below that prefix. */
+const API_BASE = BACKEND_URL + '/v1';
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -16,7 +20,7 @@ function errorMessage(body: unknown, status: number): string {
 }
 
 async function refreshToken() {
-  const response = await fetch('http://localhost:3000/v1/auth/refresh', {
+  const response = await fetch(API_BASE + '/auth/refresh', {
     method: 'GET',
     credentials: 'include',
   });
@@ -25,13 +29,12 @@ async function refreshToken() {
   }
 }
 
-//TODO: use env for url
 export async function backendClient<T>(
   path: string,
   options?: RequestInit,
   retried = false,
 ): Promise<T> {
-  const response = await fetch('http://localhost:3000/v1' + path, {
+  const response = await fetch(API_BASE + path, {
     credentials: 'include',
     ...options,
   });
