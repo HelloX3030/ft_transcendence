@@ -11,6 +11,7 @@ export class FriendsController {
   @Get()
   @ApiOperation({ summary: 'It gets all friends of the current user.' })
   @ApiResponse({ status: 200, description: 'A list with all friends' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   getFriends(@Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
