@@ -16,7 +16,7 @@ export const notifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);
-  const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
+  const notifyMsg = ref<{ id: number; title: string; msg: string; date: string }[]>([]);
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   const chat = ref(new Map<string, ChatMessage[]>());
@@ -138,7 +138,7 @@ export const notifyStore = defineStore('notify', () => {
       chat.value.set(String(data.peerUserId), message);
 
       if (data.senderUserId === data.peerUserId)
-        addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
+        addNotification({ title: 'Chat', msg: 'You have a new Chat message.' });
     });
   }
 
@@ -154,7 +154,7 @@ export const notifyStore = defineStore('notify', () => {
   function addNotification(msg: NotifyMsg) {
     count.value++;
     const date = new Date(Date.now()).toLocaleString();
-    notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
+    notifyMsg.value.unshift({ id: nofiyId.value++, title: msg.title, msg: msg.msg, date });
     toast.info(msg.msg);
   }
 
@@ -176,8 +176,8 @@ function isNotifyMsg(value: unknown): value is NotifyMsg {
   return (
     typeof value === 'object' &&
     value !== null &&
-    'titel' in value &&
-    typeof (value as Record<string, unknown>).titel === 'string' &&
+    'title' in value &&
+    typeof (value as Record<string, unknown>).title === 'string' &&
     'msg' in value &&
     typeof (value as Record<string, unknown>).msg === 'string'
   );

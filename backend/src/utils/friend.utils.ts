@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Friend } from '@trailertinder/shared';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey } from 'src/types';
 
@@ -22,39 +23,52 @@ export class FriendUtils {
     return true;
   }
 
-  async getFreinds(userId: number): Promise<number[]> {
+  /**
+   * All friendships of `userId` (both directions of the canonical pair),
+   * normalized so `friendId` is always the *other* party. Single source of the
+   * `friendsA`/`friendsB` unpacking — project from this instead of re-querying.
+   */
+  async listFriends(userId: number): Promise<Friend[]> {
     const user = await this.prisma.users.findUnique({
-      where: {
-        id: userId,
-      },
+      where: { id: userId },
       select: {
-        friendsA: {
-          where: {
-            status: 'accepted',
-          },
-        },
-        friendsB: {
-          where: {
-            status: 'accepted',
-          },
-        },
+        friendsA: true,
+        friendsB: true,
       },
     });
 
     if (user === null) {
-      throw new Error('The user cannot be found.');
+      throw new NotFoundException('User not found.');
     }
 
-    const friends: number[] = [];
+    const friends: Friend[] = [];
 
     user.friendsA.forEach((friend) => {
-      friends.push(friend.userBId);
+      friends.push({
+        friendId: friend.userBId,
+        status: friend.status,
+        initiatorId: friend.initiatorId,
+        createdAt: friend.createdAt,
+      });
     });
 
     user.friendsB.forEach((friend) => {
-      friends.push(friend.userAId);
+      friends.push({
+        friendId: friend.userAId,
+        status: friend.status,
+        initiatorId: friend.initiatorId,
+        createdAt: friend.createdAt,
+      });
     });
     return friends;
+  }
+
+  /** Accepted friends' user IDs — used to wire up presence rooms. */
+  async getFriends(userId: number): Promise<number[]> {
+    const friends = await this.listFriends(userId);
+    return friends
+      .filter((friend) => friend.status === 'accepted')
+      .map((friend) => friend.friendId);
   }
 
   getFriendsKey(userXId: number, userYId: number): FriendKey {
