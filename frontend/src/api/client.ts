@@ -45,6 +45,6 @@ export async function backendClient<T>(
   }
 
   const json: apiResponse<T> = await response.json();
-  console.log('frontend request:', path, options, 'response:', response.status, 'data:', json);
+  // console.log('frontend request:', path, options, 'response:', response.status, 'data:', json);
   return ('data' in json ? json.data : json) as T; // TODO: remove fallback once all backend endpoints consistently return { data: ... } wrapper
 }

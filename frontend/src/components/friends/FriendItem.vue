@@ -13,7 +13,6 @@ import { useRouter } from 'vue-router';
 import { Button } from '../ui/button';
 import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
-import { notifyStore } from '@/stores/notify';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -22,8 +21,6 @@ interface Props extends GetUserResponse {
 const props = defineProps<Props>();
 const router = useRouter();
 const friendsStore = useFriendsStore();
-
-const notify = notifyStore();
 
 async function handleDelete() {
   try {
@@ -59,9 +56,6 @@ async function handleDelete() {
           <DropdownMenuItem @click="router.push(`/profile/${id}`)">
             <ArrowUpRight /> Open</DropdownMenuItem
           >
-          <DropdownMenuItem @click="notify.createChat(String(id))">
-            <ArrowUpRight /> Chat
-          </DropdownMenuItem>
           <DropdownMenuItem @click="handleDelete"><Trash /> Delete </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
