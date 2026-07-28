@@ -48,6 +48,7 @@ const mockPrisma = {
   users: {
     findUnique: jest.fn(),
     create: jest.fn(),
+    updateMany: jest.fn(),
   },
   sessions: {
     findUnique: jest.fn(),
@@ -235,7 +236,8 @@ describe('AuthService', () => {
 
     it('completes the login when a valid TOTP code is supplied', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(true);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
       const { res, cookie } = mockResponse();
 
       const result = await service.login(mockRequest(), { ...loginDto, otp: '213846' }, res);
@@ -244,15 +246,48 @@ describe('AuthService', () => {
       expect(cookie).toHaveBeenCalledTimes(2);
     });
 
+    it('burns the counter of a used code so it cannot be replayed', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+      const { res } = mockResponse();
+
+      await service.login(mockRequest(), { ...loginDto, otp: '213846' }, res);
+
+      // The counter is both filter and payload, so the check and the write are
+      // a single statement and two racing logins cannot both spend it.
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: totpUser.id,
+          OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: 58_000_000 } }],
+        },
+        data: { totpLastCounter: 58_000_000 },
+      });
+    });
+
+    it('rejects a code whose counter was already spent', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
+      // No row matched: this counter is not above the stored one.
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+      const { res, cookie } = mockResponse();
+
+      await expect(
+        service.login(mockRequest(), { ...loginDto, otp: '213846' }, res),
+      ).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
     it('rejects an invalid TOTP code', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(false);
+      mockVerifyTOTP.mockReturnValue(null);
       const { res, cookie } = mockResponse();
 
       await expect(
         service.login(mockRequest(), { ...loginDto, otp: '000000' }, res),
       ).rejects.toThrow(ForbiddenException);
       expect(cookie).not.toHaveBeenCalled();
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
     });
 
     it('fails closed when MFA is active but no secret is stored', async () => {

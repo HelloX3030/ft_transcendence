@@ -454,7 +454,7 @@ describe('UsersService', () => {
 
     it('activates a pending secret and reports success', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(true);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
 
       const result = await service.activateTOTP(1, '213846');
@@ -462,24 +462,37 @@ describe('UsersService', () => {
       expect(result.success).toBe(true);
     });
 
-    // A8 — the update must only match a not-yet-active row, so re-posting a
-    // valid code to an already-active account conflicts instead of succeeding.
+    // The update must only match a not-yet-active row, so re-posting a valid
+    // code to an already-active account conflicts instead of succeeding.
     it('scopes the update to a currently inactive secret', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(true);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
 
       await service.activateTOTP(1, '213846');
 
       expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
         where: { id: 1, totpSecret: totpUser.totpSecret, totpActive: false },
-        data: { totpActive: true },
+        data: { totpActive: true, totpLastCounter: 58_000_000 },
       });
+    });
+
+    it('burns the activating code so it cannot be replayed against login', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(totpUser);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.activateTOTP(1, '213846');
+
+      const arg = (mockPrisma.users.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { totpLastCounter?: number };
+      };
+      expect(arg.data.totpLastCounter).toBe(58_000_000);
     });
 
     it('throws ConflictException when the secret is already active', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(true);
+      mockVerifyTOTP.mockReturnValue(58_000_000);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.activateTOTP(1, '213846')).rejects.toThrow(ConflictException);
@@ -494,7 +507,7 @@ describe('UsersService', () => {
 
     it('throws BadRequestException on an invalid code without touching the row', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(totpUser);
-      mockVerifyTOTP.mockReturnValue(false);
+      mockVerifyTOTP.mockReturnValue(null);
 
       await expect(service.activateTOTP(1, '000000')).rejects.toThrow(BadRequestException);
       expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
