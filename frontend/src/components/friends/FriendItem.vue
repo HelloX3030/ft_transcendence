@@ -14,6 +14,7 @@ import { Button } from '../ui/button';
 import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
 import { notifyStore } from '@/stores/notify';
+import PresenceDot from '../PresenceDot.vue';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -39,10 +40,13 @@ async function handleDelete() {
 <template>
   <Item variant="outline">
     <ItemMedia>
-      <Avatar class="size-10">
-        <AvatarImage v-if="image" :src="image" :alt="username" />
-        <AvatarFallback><UserIcon /></AvatarFallback>
-      </Avatar>
+      <span class="relative inline-flex">
+        <Avatar class="size-10">
+          <AvatarImage v-if="image" :src="image" :alt="username" />
+          <AvatarFallback><UserIcon /></AvatarFallback>
+        </Avatar>
+        <PresenceDot overlay :online="notify.isUserOnline(id)" />
+      </span>
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ username }}</ItemTitle>

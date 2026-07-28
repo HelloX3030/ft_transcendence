@@ -17,6 +17,8 @@ export const notifyStore = defineStore('notify', () => {
   const count = ref<number>(0);
   const nofiyId = ref<number>(0);
   const notifyMsg = ref<{ id: number; title: string; msg: string; date: string }[]>([]);
+  // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
+  // by the server on every (re)connect, then kept current by `online-status:<id>`.
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   const chat = ref(new Map<string, ChatMessage[]>());
@@ -117,6 +119,14 @@ export const notifyStore = defineStore('notify', () => {
     });
   }
 
+  /**
+   * Only friends have a presence room, so anyone absent from the map is either
+   * not a friend or not yet seeded — both render as offline.
+   */
+  function isUserOnline(userId: number | string) {
+    return friendsStatus.value.get(Number(userId)) ?? false;
+  }
+
   function clearAllNotifications() {
     notifyMsg.value = [];
     count.value = 0;
@@ -164,6 +174,8 @@ export const notifyStore = defineStore('notify', () => {
     count,
     notifyMsg,
     chat,
+    friendsStatus,
+    isUserOnline,
     init,
     stop,
     clearAllNotifications,
