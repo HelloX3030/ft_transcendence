@@ -21,7 +21,7 @@ export const useNotifyStore = defineStore('notify', () => {
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   // const chat = ref(new Map<string, ChatMessage[]>());
-  const SYSTEM_SENDER_ID = '-1';
+  const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
   const chatStore = useChatStore();
@@ -134,7 +134,7 @@ export const useNotifyStore = defineStore('notify', () => {
       }
 
       const chat = chats.value.get(data.peerUserId);
-      if (chat) chatStore.addMessage(chat, data.peerUserId, data.msg);
+      if (chat) chatStore.addMessage(chat, data.senderUserId, data.msg);
 
       if (data.senderUserId === data.peerUserId)
         addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });

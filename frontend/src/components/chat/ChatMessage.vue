@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
 import {
   Message,
@@ -12,20 +11,24 @@ import {
 import type { Chat } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
+import { useNotifyStore } from '@/stores/notify';
+import UserAvatar from '../UserAvatar.vue';
+import { formatTime } from '@/lib/format.ts';
 
 const props = defineProps<Chat>();
 
+const notifyStore = useNotifyStore();
 const userStore = useUserStore();
 const { state: user } = storeToRefs(userStore);
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
 
 const groupedMessages = computed(() => {
   const groups: { senderId: number; messages: typeof props.messages }[] = [];
 
   for (const message of props.messages) {
+    if (message.senderId === notifyStore.SYSTEM_SENDER_ID) {
+      // toast.warning(message.message);
+      continue;
+    }
     const lastGroup = groups.at(-1);
     if (lastGroup && lastGroup.senderId === message.senderId) {
       lastGroup.messages.push(message);
@@ -50,16 +53,12 @@ function isMine(senderId: number) {
       :align="isMine(group.senderId) ? 'end' : 'start'"
     >
       <MessageAvatar>
-        <Avatar>
-          <template v-if="isMine(group.senderId)">
-            <AvatarImage v-if="user?.image" :src="user.image" alt="@me" />
-            <AvatarFallback>ME</AvatarFallback>
-          </template>
-          <template v-else>
-            <AvatarImage v-if="friend.image" :src="friend.image" :alt="friend.username" />
-            <AvatarFallback>{{ friend.username.charAt(0) ?? '?' }}</AvatarFallback>
-          </template>
-        </Avatar>
+        <template v-if="isMine(group.senderId)">
+          <UserAvatar v-if="user" :image="user.image" :username="user.username" />
+        </template>
+        <template v-else>
+          <UserAvatar :image="friend.image" :username="friend.username" />
+        </template>
       </MessageAvatar>
 
       <MessageContent>
