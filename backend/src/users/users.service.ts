@@ -269,6 +269,9 @@ export class UsersService {
         where: {
           id: userId,
           totpSecret: user.totpSecret,
+          // Without this a re-post of a still-valid code to an already-active
+          // account updates the row again and reports success a second time.
+          totpActive: false,
         },
         data: {
           totpActive: true,
