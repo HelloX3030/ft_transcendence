@@ -19,7 +19,7 @@ import {
   WATCHLIST_DELETED,
   WATCHLIST_USER_ADDED,
   WATCHLIST_USER_REMOVED,
-  WATCHLISTS_TITEL,
+  WATCHLISTS_TITLE,
 } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 import { NotifyService } from 'src/notify/notify.service';
@@ -174,7 +174,7 @@ export class WatchlistsService {
     for (const member of members) {
       if (member.userId === currentUserId) continue;
       this.notify.sendNotify(member.userId, {
-        titel: WATCHLISTS_TITEL,
+        title: WATCHLISTS_TITLE,
         msg,
       });
     }
@@ -322,7 +322,7 @@ export class WatchlistsService {
 
     const msg = WATCHLIST_USER_ADDED(watchlistAccess.watchlist.name);
     this.notify.sendNotify(dto.userId, {
-      titel: WATCHLISTS_TITEL,
+      title: WATCHLISTS_TITLE,
       msg,
     });
 
@@ -411,7 +411,7 @@ export class WatchlistsService {
     if (userId != currentUserId) {
       const msg = WATCHLIST_USER_REMOVED(wl.watchlist.name);
       this.notify.sendNotify(userId, {
-        titel: WATCHLISTS_TITEL,
+        title: WATCHLISTS_TITLE,
         msg,
       });
     }
@@ -512,7 +512,7 @@ export class WatchlistsService {
     for (const member of members) {
       if (member.userId === currentUserId) continue;
       this.notify.sendNotify(member.userId, {
-        titel: WATCHLISTS_TITEL,
+        title: WATCHLISTS_TITLE,
         msg,
       });
     }

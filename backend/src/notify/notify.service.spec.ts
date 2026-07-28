@@ -128,7 +128,7 @@ describe('NotifyService', () => {
 
   describe('sendNotify', () => {
     it('delegates to the gateway', () => {
-      const message = { titel: 'Hi', msg: 'You have a friend request.' };
+      const message = { title: 'Hi', msg: 'You have a friend request.' };
 
       service.sendNotify(5, message);
 

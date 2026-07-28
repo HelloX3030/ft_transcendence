@@ -20,7 +20,7 @@ const mockJwtService = {
 } satisfies Partial<jest.Mocked<JwtService>>;
 
 const mockFriendUtils = {
-  getFreinds: jest.fn(),
+  getFriends: jest.fn(),
 } satisfies Partial<jest.Mocked<FriendUtils>>;
 
 const mockUserUtils = {
@@ -108,7 +108,7 @@ describe('NotifyGateway', () => {
       const client = createMockSocket();
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
       mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
-      mockFriendUtils.getFreinds.mockResolvedValue([]);
+      mockFriendUtils.getFriends.mockResolvedValue([]);
 
       await gateway.handleConnection(asSocket(client));
 
@@ -123,12 +123,12 @@ describe('NotifyGateway', () => {
       const client = createMockSocket();
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
       mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
-      mockFriendUtils.getFreinds.mockResolvedValue([2, 3]);
+      mockFriendUtils.getFriends.mockResolvedValue([2, 3]);
       mockNotifyService.isOnline.mockImplementation((id: number) => id === 2);
 
       await gateway.handleConnection(asSocket(client));
 
-      expect(mockFriendUtils.getFreinds).toHaveBeenCalledWith(7);
+      expect(mockFriendUtils.getFriends).toHaveBeenCalledWith(7);
       expect(client.join).toHaveBeenCalledWith('online-status:2');
       expect(client.join).toHaveBeenCalledWith('online-status:3');
       expect(client.emit).toHaveBeenCalledWith('watch-friends-status', [
@@ -142,7 +142,7 @@ describe('NotifyGateway', () => {
       const client = createMockSocket();
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
       mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
-      mockFriendUtils.getFreinds.mockRejectedValue(new Error('db down'));
+      mockFriendUtils.getFriends.mockRejectedValue(new Error('db down'));
 
       await gateway.handleConnection(asSocket(client));
 
@@ -211,7 +211,7 @@ describe('NotifyGateway', () => {
   describe('userStatus', () => {
     it('sends one batched array to the subscribing socket only', async () => {
       const client = createMockSocket(1);
-      mockFriendUtils.getFreinds.mockResolvedValue([2, 3, 4]);
+      mockFriendUtils.getFriends.mockResolvedValue([2, 3, 4]);
       mockNotifyService.isOnline.mockImplementation((id: number) => id === 3);
 
       await gateway.userStatus(asSocket(client));
@@ -228,7 +228,7 @@ describe('NotifyGateway', () => {
 
     it('joins a presence room for every friend', async () => {
       const client = createMockSocket(1);
-      mockFriendUtils.getFreinds.mockResolvedValue([2, 3]);
+      mockFriendUtils.getFriends.mockResolvedValue([2, 3]);
       mockNotifyService.isOnline.mockReturnValue(false);
 
       await gateway.userStatus(asSocket(client));
@@ -239,7 +239,7 @@ describe('NotifyGateway', () => {
 
     it('emits an error when the friend lookup fails', async () => {
       const client = createMockSocket(1);
-      mockFriendUtils.getFreinds.mockRejectedValue(new Error('db down'));
+      mockFriendUtils.getFriends.mockRejectedValue(new Error('db down'));
 
       await gateway.userStatus(asSocket(client));
 
@@ -276,13 +276,13 @@ describe('NotifyGateway', () => {
 
   describe('sendNotification', () => {
     it('targets the recipient user room', () => {
-      gateway.sendNotification(5, { titel: 'Hi', msg: 'You have a friend request.' });
+      gateway.sendNotification(5, { title: 'Hi', msg: 'You have a friend request.' });
 
       expect(roomEmits).toEqual([
         {
           room: 'user:5',
           event: 'notification',
-          payload: { titel: 'Hi', msg: 'You have a friend request.' },
+          payload: { title: 'Hi', msg: 'You have a friend request.' },
         },
       ]);
     });

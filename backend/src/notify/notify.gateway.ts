@@ -118,7 +118,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
    * subscribe. Callers decide how a failure surfaces to the client.
    */
   private async seedFriendStatusRooms(client: Socket) {
-    const friendIds = await this.friendUtils.getFreinds(client.data.user);
+    const friendIds = await this.friendUtils.getFriends(client.data.user);
     const friendsStatus: FriendsStatus[] = [];
 
     for (const userId of friendIds) {
