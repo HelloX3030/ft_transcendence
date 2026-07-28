@@ -8,7 +8,8 @@ import { Friend } from '@trailertinder/shared';
 import {
   FRIEND_REMOVED,
   FRIEND_REQUEST_ACCEPTED,
-  FRIEND_REQUEST_REMOVED,
+  FRIEND_REQUEST_CANCELLED,
+  FRIEND_REQUEST_DECLINED,
   FRIENDS_TITEL,
   FriendUtils,
   NEW_FRIEND_REQUEST,
@@ -138,17 +139,24 @@ export class FriendsService {
 
     const username = (await this.userUtils.getUser(payload.sub)).username;
 
+    // The peer being notified is always the other party in the canonical pair.
+    // Three distinct delete semantics map to three distinct messages:
+    //   - accepted friendship  → either party unfriends the other
+    //   - pending, caller is initiator → initiator cancels their own request
+    //   - pending, caller is recipient → recipient declines the request
+    let msg: string;
     if (deletedFriend.status === 'accepted') {
-      this.notifyService.sendNotify(id, {
-        titel: FRIENDS_TITEL,
-        msg: FRIEND_REMOVED(username),
-      });
+      msg = FRIEND_REMOVED(username);
+    } else if (deletedFriend.initiatorId === payload.sub) {
+      msg = FRIEND_REQUEST_CANCELLED(username);
     } else {
-      this.notifyService.sendNotify(id, {
-        titel: FRIENDS_TITEL,
-        msg: FRIEND_REQUEST_REMOVED(username),
-      });
+      msg = FRIEND_REQUEST_DECLINED(username);
     }
+
+    this.notifyService.sendNotify(id, {
+      titel: FRIENDS_TITEL,
+      msg,
+    });
 
     return successResponse(null, 'friendship deleted');
   }
