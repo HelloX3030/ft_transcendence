@@ -198,8 +198,9 @@ describe('NotifyGateway', () => {
   });
 
   describe('handleDisconnect', () => {
-    it('clears presence and broadcasts offline', () => {
+    it('clears presence and announces offline when the last socket goes', () => {
       const client = createMockSocket(7);
+      mockNotifyService.isOnline.mockReturnValue(false);
 
       gateway.handleDisconnect(asSocket(client));
 
@@ -210,6 +211,16 @@ describe('NotifyGateway', () => {
         payload: { id: 7, isOnline: false },
       });
       expect(server.emit).not.toHaveBeenCalled();
+    });
+
+    it('stays silent while the user still has another socket open', () => {
+      const client = createMockSocket(7);
+      mockNotifyService.isOnline.mockReturnValue(true);
+
+      gateway.handleDisconnect(asSocket(client));
+
+      expect(mockNotifyService.setUserAsInative).toHaveBeenCalledWith(7, client);
+      expect(roomEmits).toHaveLength(0);
     });
 
     it('ignores a socket that never authenticated', () => {
