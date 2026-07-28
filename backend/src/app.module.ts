@@ -14,6 +14,8 @@ import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { THROTTLERS } from './throttle.config';
 
 @Module({
   imports: [
@@ -37,6 +39,9 @@ import { NotifyModule } from './notify/notify.module';
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },
     }),
+    // ThrottlerModule is @Global(); registering it anywhere else would compete
+    // with this one. Feature modules pick windows via @SkipThrottle instead.
+    ThrottlerModule.forRoot(THROTTLERS),
     PrismaModule,
     RedisModule,
     FriendsModule,
