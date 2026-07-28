@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -50,6 +51,8 @@ export const WATCHLIST_SELECT = {
 
 @Injectable()
 export class WatchlistsService {
+  private readonly logger = new Logger(WatchlistsService.name);
+
   constructor(
     private prisma: PrismaService,
     private notify: NotifyService,
@@ -494,7 +497,7 @@ export class WatchlistsService {
 
       return { name: json.original_title, posterPath };
     } catch (error) {
-      console.error(error);
+      this.logger.error('Failed to fetch movie details from TMDB', error as Error);
       throw new InternalServerErrorException();
     }
   }
