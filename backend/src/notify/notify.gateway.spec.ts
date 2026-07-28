@@ -108,11 +108,44 @@ describe('NotifyGateway', () => {
       const client = createMockSocket();
       mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
       mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
+      mockFriendUtils.getFreinds.mockResolvedValue([]);
 
       await gateway.handleConnection(asSocket(client));
 
       expect(client.data.user).toBe(7);
       expect(client.join).toHaveBeenCalledWith('user:7');
+      expect(mockNotifyService.setUserAsActive).toHaveBeenCalledWith(7, client);
+      expect(server.emit).toHaveBeenCalledWith('online-status:7', { id: 7, isOnline: true });
+      expect(client.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('seeds friend presence rooms from the DB on (re)connect', async () => {
+      const client = createMockSocket();
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
+      mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
+      mockFriendUtils.getFreinds.mockResolvedValue([2, 3]);
+      mockNotifyService.isOnline.mockImplementation((id: number) => id === 2);
+
+      await gateway.handleConnection(asSocket(client));
+
+      expect(mockFriendUtils.getFreinds).toHaveBeenCalledWith(7);
+      expect(client.join).toHaveBeenCalledWith('online-status:2');
+      expect(client.join).toHaveBeenCalledWith('online-status:3');
+      expect(client.emit).toHaveBeenCalledWith('watch-friends-status', [
+        { id: 2, isOnline: true },
+        { id: 3, isOnline: false },
+      ]);
+      expect(client.disconnect).not.toHaveBeenCalled();
+    });
+
+    it('keeps the connection alive when presence seeding fails', async () => {
+      const client = createMockSocket();
+      mockJwtService.verifyAsync.mockResolvedValue({ sub: 7, email: 'a@example.com' });
+      mockUserUtils.getUser.mockResolvedValue({ username: 'ada' });
+      mockFriendUtils.getFreinds.mockRejectedValue(new Error('db down'));
+
+      await gateway.handleConnection(asSocket(client));
+
       expect(mockNotifyService.setUserAsActive).toHaveBeenCalledWith(7, client);
       expect(server.emit).toHaveBeenCalledWith('online-status:7', { id: 7, isOnline: true });
       expect(client.disconnect).not.toHaveBeenCalled();

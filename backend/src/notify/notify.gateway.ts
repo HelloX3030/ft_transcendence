@@ -68,6 +68,16 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       client.join(userRoom(payload.sub));
       this.notifyService.setUserAsActive(payload.sub, client);
       this.server.emit(onlineStatusRoom(payload.sub), { id: payload.sub, isOnline: true });
+
+      // Reconcile this socket's presence rooms from the DB on every (re)connect.
+      // Rooms are per-socket, so a fresh socket (initial load or a silent
+      // socket.io reconnect) is in no status rooms until seeded. A failure here
+      // must not tear down an otherwise-valid connection.
+      try {
+        await this.seedFriendStatusRooms(client);
+      } catch (error) {
+        this.logger.error(error);
+      }
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'No token provided or the token is invalid.');
@@ -94,20 +104,30 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   @SubscribeMessage('watch-friends-status')
   async userStatus(@ConnectedSocket() client: Socket) {
     try {
-      const friendIds = await this.friendUtils.getFreinds(client.data.user);
-      const friendsStatus: FriendsStatus[] = [];
-
-      for (const userId of friendIds) {
-        client.join(onlineStatusRoom(userId));
-        friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
-      }
-      // One emit with every friend, only to the tab that subscribed.
-      client.emit('watch-friends-status', friendsStatus);
-      this.logger.debug(`Added user to ${friendsStatus.length} online-status rooms`);
+      await this.seedFriendStatusRooms(client);
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'Unable to load your friends online status.');
     }
+  }
+
+  /**
+   * Joins `client` to the presence room of every accepted friend and pushes the
+   * current online/offline snapshot back to that socket. Runs both on connect
+   * (server-driven, covers reconnects) and on the `watch-friends-status`
+   * subscribe. Callers decide how a failure surfaces to the client.
+   */
+  private async seedFriendStatusRooms(client: Socket) {
+    const friendIds = await this.friendUtils.getFreinds(client.data.user);
+    const friendsStatus: FriendsStatus[] = [];
+
+    for (const userId of friendIds) {
+      client.join(onlineStatusRoom(userId));
+      friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
+    }
+    // One emit with every friend, only to the tab that subscribed.
+    client.emit('watch-friends-status', friendsStatus);
+    this.logger.debug(`Added user to ${friendsStatus.length} online-status rooms`);
   }
 
   addClientToStatusUpdate(client: Socket, userId: number) {
