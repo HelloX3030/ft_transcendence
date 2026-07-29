@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, Matches } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, Matches } from 'class-validator';
+import { IsNotAfter } from './is-not-after.validator';
 import { PaginationQueryDto } from './pagination-query.dto';
 
 // The sort options the UI offers, in TMDB's `<field>.<direction>` form.
@@ -35,13 +36,28 @@ export class DiscoverQueryDto extends PaginationQueryDto {
   })
   withGenres?: string;
 
+  // The two decorators do different jobs: the regex pins the date-only shape
+  // (@IsISO8601 alone would also accept a full timestamp), while @IsISO8601
+  // strict rejects dates that match the shape but aren't real days — 2026-99-99
+  // and 2019-02-29 would otherwise reach TMDB, which silently returns nothing.
   @ApiPropertyOptional({ description: 'Earliest primary release date (YYYY-MM-DD)' })
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'releaseDateGte must be in YYYY-MM-DD format' })
+  @IsISO8601(
+    { strict: true, strictSeparator: true },
+    { message: 'releaseDateGte is not a real date' },
+  )
+  @IsNotAfter('releaseDateLte', {
+    message: 'releaseDateGte must not be after releaseDateLte',
+  })
   releaseDateGte?: string;
 
   @ApiPropertyOptional({ description: 'Latest primary release date (YYYY-MM-DD)' })
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'releaseDateLte must be in YYYY-MM-DD format' })
+  @IsISO8601(
+    { strict: true, strictSeparator: true },
+    { message: 'releaseDateLte is not a real date' },
+  )
   releaseDateLte?: string;
 }

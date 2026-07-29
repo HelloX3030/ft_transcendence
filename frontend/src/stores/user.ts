@@ -21,32 +21,22 @@ export const useUserStore = defineStore('user', () => {
   });
 
   async function uploadAvatar(file: File) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      userApi.uploadAvatar(formData);
-      await refetchUser();
-    } catch (error) {
-      throw error;
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    // Awaited, so refetchUser() reads the new avatar rather than racing the
+    // upload, and a rejection reaches the caller instead of going unhandled.
+    await userApi.uploadAvatar(formData);
+    await refetchUser();
   }
 
   async function updateUser(payload: UpdateUserRequest) {
-    try {
-      await userApi.update(payload);
-      await refetchUser();
-    } catch (error) {
-      throw error;
-    }
+    await userApi.update(payload);
+    await refetchUser();
   }
 
   async function completeOnboarding(movieIds: number[]) {
-    try {
-      await userApi.onboarding(movieIds);
-      await refetchUser();
-    } catch (error) {
-      throw error; //TODO: do i need to catch in the first place? or just let it bubble up to the component?
-    }
+    await userApi.onboarding(movieIds);
+    await refetchUser();
   }
 
   async function activateTotp(otp: string) {

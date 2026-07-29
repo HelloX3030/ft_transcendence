@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '../ui/button/index.ts';
-import { ArrowDown, ArrowUp } from 'lucide-vue-next';
+import { ArrowDown, ArrowUp } from '@lucide/vue';
 import { useSearchFilter } from '@/composables/useSearchFilter.ts';
 
 const { sortDirection } = useSearchFilter();

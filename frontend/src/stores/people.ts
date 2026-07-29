@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { TmdbPerson } from '@trailertinder/shared';
 import { backendClient } from '@/api';
+import { logger } from '@/lib/logger';
 
 // Resolves TMDB person ids (a user's favorite actors/directors) to names. Unlike
 // the genre catalogue there's no "fetch all" — people are looked up by id and
@@ -29,7 +30,7 @@ export const usePeopleStore = defineStore('people', () => {
           for (const person of data) people.value[person.id] = person;
         })
         .catch((error) => {
-          console.error(error);
+          logger.error(error);
         })
         .finally(() => {
           for (const id of toFetch) inFlight.delete(id);

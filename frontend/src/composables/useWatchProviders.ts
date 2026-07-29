@@ -2,6 +2,7 @@ import { ref, watch, type Ref } from 'vue';
 import type { MovieWatchProviders, WatchProvider } from '@trailertinder/shared';
 import { DEFAULT_REGION } from '@/lib/constants';
 import { backendClient } from '@/api';
+import { logger } from '@/lib/logger';
 
 /**
  * Fetches the DEFAULT_REGION flatrate (subscription) providers for a movie,
@@ -27,7 +28,7 @@ export function useWatchProviders(movieId: Ref<number | undefined>) {
         providers.value = data.results?.[DEFAULT_REGION]?.flatrate ?? [];
       } catch (error) {
         if (gen !== generation) return;
-        console.error(error);
+        logger.error(error);
       }
     },
     { immediate: true },

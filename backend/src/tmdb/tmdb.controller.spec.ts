@@ -3,6 +3,7 @@ import { SearchQueryDto } from './dto/search-query.dto';
 import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import { makeGenre, makeMovie, makeWatchProviders } from './tmdb.fixtures';
+import { TmdbThrottlerGuard } from './tmdb-throttler.guard';
 import { TmdbController } from './tmdb.controller';
 import { TmdbService } from './tmdb.service';
 
@@ -26,7 +27,12 @@ describe('TmdbController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TmdbController],
       providers: [{ provide: TmdbService, useValue: mockTmdbService }],
-    }).compile();
+    })
+      // These tests cover delegation only; the throttler has its own spec and
+      // would otherwise drag ThrottlerModule's providers in here.
+      .overrideGuard(TmdbThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = module.get<TmdbController>(TmdbController);
     jest.clearAllMocks();
   });

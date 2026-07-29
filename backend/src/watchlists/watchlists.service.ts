@@ -4,11 +4,12 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistUpdateDto } from './dto';
-import { watchlist_role, watchlists } from '@prisma/client';
+import { Prisma, watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import {
   MOVIE_ADDED_TO_WATCHLIST,
@@ -18,7 +19,7 @@ import {
   WATCHLIST_DELETED,
   WATCHLIST_USER_ADDED,
   WATCHLIST_USER_REMOVED,
-  WATCHLISTS_TITEL,
+  WATCHLISTS_TITLE,
 } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 import { NotifyService } from 'src/notify/notify.service';
@@ -34,6 +35,12 @@ const COVER_INCLUDE = {
     orderBy: { movieId: 'asc' },
     select: { movie: { select: { posterPath: true } } },
   },
+  // Editors folded into the same fetch so editorIds is derived in-memory,
+  // instead of one extra `watchlist_users.findMany` per watchlist (N+1).
+  watchlistUsers: {
+    where: { role: 'editor' },
+    select: { userId: true },
+  },
 } as const;
 import { WatchlistResponse } from '@trailertinder/shared';
 
@@ -44,6 +51,8 @@ export const WATCHLIST_SELECT = {
 
 @Injectable()
 export class WatchlistsService {
+  private readonly logger = new Logger(WatchlistsService.name);
+
   constructor(
     private prisma: PrismaService,
     private notify: NotifyService,
@@ -62,9 +71,12 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
 
-    const watchlists = await Promise.all(
-      watchlistUsers.map(({ role, watchlist }) =>
-        this.toWatchlistDto(role, watchlist, this.extractPosterPaths(watchlist.watchlistMovies)),
+    const watchlists = watchlistUsers.map(({ role, watchlist }) =>
+      this.toWatchlistDto(
+        role,
+        watchlist,
+        this.extractPosterPaths(watchlist.watchlistMovies),
+        this.extractEditorIds(watchlist.watchlistUsers),
       ),
     );
     return successResponse(watchlists);
@@ -78,10 +90,11 @@ export class WatchlistsService {
       select: WATCHLIST_SELECT,
     });
     if (userWatchlist === null) throw new NotFoundException('Watchlists not found.');
-    const watchlist = await this.toWatchlistDto(
+    const watchlist = this.toWatchlistDto(
       userWatchlist.role,
       userWatchlist.watchlist,
       this.extractPosterPaths(userWatchlist.watchlist.watchlistMovies),
+      this.extractEditorIds(userWatchlist.watchlist.watchlistUsers),
     );
     return successResponse(watchlist);
   }
@@ -103,8 +116,11 @@ export class WatchlistsService {
       },
     });
     const userWatchlist = watchlist.watchlistUsers[0];
+    const editorIds = watchlist.watchlistUsers
+      .filter(({ role }) => role === 'editor')
+      .map(({ userId }) => userId);
     // A freshly created watchlist has no movies yet, so the mosaic is empty.
-    return successResponse(await this.toWatchlistDto(userWatchlist.role, watchlist, []));
+    return successResponse(this.toWatchlistDto(userWatchlist.role, watchlist, [], editorIds));
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
@@ -124,16 +140,29 @@ export class WatchlistsService {
     });
     if (watchlist === null) throw new InternalServerErrorException();
     return successResponse(
-      await this.toWatchlistDto(
+      this.toWatchlistDto(
         watchlistUser.role,
         watchlist,
         this.extractPosterPaths(watchlist.watchlistMovies),
+        this.extractEditorIds(watchlist.watchlistUsers),
       ),
     );
   }
 
   async remove(id: number, currentUserId: number) {
     const watchlistUser = await this.checkUserAccess(id, currentUserId);
+
+    // Collect members before the delete: watchlist_users cascades on delete,
+    // so after `watchlists.delete` there is no membership row left to notify.
+    const members = await this.prisma.watchlist_users.findMany({
+      where: {
+        watchlistId: id,
+      },
+      select: {
+        userId: true,
+      },
+    });
+
     await this.prisma.watchlists.delete({
       where: {
         id,
@@ -142,7 +171,13 @@ export class WatchlistsService {
 
     const username = (await this.userUtils.getUser(currentUserId)).username;
     const msg = WATCHLIST_DELETED(username, watchlistUser.watchlist.name);
-    await this.sendWatchlistNotify(id, currentUserId, msg);
+    for (const member of members) {
+      if (member.userId === currentUserId) continue;
+      this.notify.sendNotify(member.userId, {
+        title: WATCHLISTS_TITLE,
+        msg,
+      });
+    }
 
     return successResponse(null);
   }
@@ -173,22 +208,33 @@ export class WatchlistsService {
     });
     if (movie === null) {
       const meta = await this.getMovieMeta(dto.tmdbId);
-      movie = await this.prisma.movies.create({
-        data: {
+      // upsert (not create) so a concurrent first-add of the same tmdbId that
+      // won the race is reused instead of hitting the unique constraint.
+      movie = await this.prisma.movies.upsert({
+        where: { tmdbId: dto.tmdbId },
+        create: {
           tmdbId: dto.tmdbId,
           name: meta.name,
           posterPath: meta.posterPath,
         },
+        update: {},
       });
     }
 
-    const watchlistMovie = await this.prisma.watchlist_movies.create({
-      data: {
-        watchlistId: id,
-        movieId: movie.id,
-      },
-    });
-    if (watchlistMovie === null) throw new InternalServerErrorException();
+    try {
+      await this.prisma.watchlist_movies.create({
+        data: {
+          watchlistId: id,
+          movieId: movie.id,
+        },
+      });
+    } catch (error) {
+      // Composite PK (watchlistId, movieId) already exists → already added.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Movie already added.');
+      }
+      throw error;
+    }
 
     const username = (await this.userUtils.getUser(currentUserId)).username;
     const msg = MOVIE_ADDED_TO_WATCHLIST(username, movie.name, watchlistUser.watchlist.name);
@@ -250,18 +296,33 @@ export class WatchlistsService {
   async addUser(id: number, dto: watchlistUserDto, currentUserId: number) {
     const watchlistAccess = await this.checkUserAccess(id, currentUserId);
 
-    const watchlistUser = await this.prisma.watchlist_users.create({
-      data: {
-        watchlistId: id,
-        userId: dto.userId,
-        role: dto.role,
-      },
+    const targetUser = await this.prisma.users.findUnique({
+      where: { id: dto.userId },
+      select: { id: true },
     });
-    if (watchlistUser === null) throw new InternalServerErrorException();
+    if (targetUser === null) {
+      throw new NotFoundException('User not found.');
+    }
+
+    try {
+      await this.prisma.watchlist_users.create({
+        data: {
+          watchlistId: id,
+          userId: dto.userId,
+          role: dto.role,
+        },
+      });
+    } catch (error) {
+      // Composite PK (watchlistId, userId) already exists → already a member.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('User already added.');
+      }
+      throw error;
+    }
 
     const msg = WATCHLIST_USER_ADDED(watchlistAccess.watchlist.name);
     this.notify.sendNotify(dto.userId, {
-      titel: WATCHLISTS_TITEL,
+      title: WATCHLISTS_TITLE,
       msg,
     });
 
@@ -273,6 +334,19 @@ export class WatchlistsService {
       throw new ForbiddenException('You cannot change your role');
     }
     await this.checkUserAccess(id, currentUserId);
+
+    const targetMembership = await this.prisma.watchlist_users.findUnique({
+      where: {
+        watchlistId_userId: {
+          watchlistId: id,
+          userId: userId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (targetMembership === null) {
+      throw new NotFoundException('User not found.');
+    }
 
     await this.prisma.watchlist_users.update({
       where: {
@@ -305,6 +379,19 @@ export class WatchlistsService {
       await this.checkUserAccess(id, currentUserId);
     }
 
+    const targetMembership = await this.prisma.watchlist_users.findUnique({
+      where: {
+        watchlistId_userId: {
+          watchlistId: id,
+          userId: userId,
+        },
+      },
+      select: { userId: true },
+    });
+    if (targetMembership === null) {
+      throw new NotFoundException('User not found.');
+    }
+
     const wl = await this.prisma.watchlist_users.delete({
       where: {
         watchlistId_userId: {
@@ -324,7 +411,7 @@ export class WatchlistsService {
     if (userId != currentUserId) {
       const msg = WATCHLIST_USER_REMOVED(wl.watchlist.name);
       this.notify.sendNotify(userId, {
-        titel: WATCHLISTS_TITEL,
+        title: WATCHLISTS_TITLE,
         msg,
       });
     }
@@ -341,11 +428,8 @@ export class WatchlistsService {
         },
       },
       select: {
-        watchlistId: true,
-        userId: true,
-        user: true,
         role: true,
-        watchlist: {},
+        watchlist: { select: { name: true } },
       },
     });
     if (!watchlistUser) {
@@ -357,38 +441,31 @@ export class WatchlistsService {
     return watchlistUser;
   }
 
-  async toWatchlistDto(
+  toWatchlistDto(
     role: watchlist_role,
     watchlistDb: watchlists,
     posterPaths: string[],
-  ): Promise<WatchlistResponse> {
-    const editors: number[] = (
-      await this.prisma.watchlist_users.findMany({
-        where: {
-          watchlistId: watchlistDb.id,
-          role: 'editor',
-        },
-        select: {
-          userId: true,
-        },
-      })
-    ).map((editor) => editor.userId);
-    const watchlist: WatchlistResponse = {
+    editorIds: number[],
+  ): WatchlistResponse {
+    return {
       id: watchlistDb.id,
       name: watchlistDb.name,
       image: watchlistDb.image,
       posterPaths,
       role: role,
-      editorIds: editors,
+      editorIds,
       createdAt: watchlistDb.createdAt,
     };
-    return watchlist;
   }
 
   extractPosterPaths(watchlistMovies: { movie: { posterPath: string | null } }[]): string[] {
     return watchlistMovies
       .map(({ movie }) => movie.posterPath)
       .filter((path): path is string => path !== null);
+  }
+
+  extractEditorIds(watchlistUsers: { userId: number }[]): number[] {
+    return watchlistUsers.map(({ userId }) => userId);
   }
 
   async getMovieMeta(tmdbId: number): Promise<{ name: string; posterPath: string | null }> {
@@ -420,21 +497,24 @@ export class WatchlistsService {
 
       return { name: json.original_title, posterPath };
     } catch (error) {
-      console.error(error);
+      this.logger.error('Failed to fetch movie details from TMDB', error as Error);
       throw new InternalServerErrorException();
     }
   }
 
   async sendWatchlistNotify(wlId: number, currentUserId: number, msg: string) {
-    const wlUsers = (await this.getUsers(wlId, currentUserId)).data;
-    if (wlUsers !== null && wlUsers !== undefined) {
-      for (const user of wlUsers) {
-        if (user.userId === currentUserId) continue;
-        this.notify.sendNotify(user.userId, {
-          titel: WATCHLISTS_TITEL,
-          msg,
-        });
-      }
+    // Callers have already verified access, so query recipients directly
+    // rather than re-running the access check via getUsers/checkUserAccess.
+    const members = await this.prisma.watchlist_users.findMany({
+      where: { watchlistId: wlId },
+      select: { userId: true },
+    });
+    for (const member of members) {
+      if (member.userId === currentUserId) continue;
+      this.notify.sendNotify(member.userId, {
+        title: WATCHLISTS_TITLE,
+        msg,
+      });
     }
   }
 }

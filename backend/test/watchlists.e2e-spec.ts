@@ -33,9 +33,14 @@ describe('Watchlists (e2e)', () => {
   let app: INestApplication;
   let ownerAgent: TestAgent;
   let viewerAgent: TestAgent;
+  let ownerUserId: number;
   let viewerUserId: number;
 
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  // The dev/CI Postgres persists across runs and `movies` rows are cached by
+  // tmdbId, so hardcoded ids leak state between runs. Derive run-unique ids
+  // (kept under the 4-byte Int max the tmdbId column uses).
+  const tmdbBase = Math.floor(Math.random() * 1_000_000_000);
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -46,6 +51,7 @@ describe('Watchlists (e2e)', () => {
     ownerAgent = await registerUser(app, ownerCredentials);
     viewerAgent = await registerUser(app, viewerCredentials);
 
+    ownerUserId = await getCurrentUserId(ownerAgent);
     viewerUserId = await getCurrentUserId(viewerAgent);
   });
 
@@ -119,7 +125,7 @@ describe('Watchlists (e2e)', () => {
 
   it('adds, lists and removes movies in a watchlist', async () => {
     const created = await createWatchlist(ownerAgent, `Movies Target ${runId}`);
-    const tmdbId = 1234567;
+    const tmdbId = tmdbBase;
     const movieTitle = `Mocked Movie ${runId}`;
 
     jest.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -192,6 +198,202 @@ describe('Watchlists (e2e)', () => {
 
     const forbiddenBody = forbiddenResponse.body as { message: string };
     expect(forbiddenBody.message).toBe('You have read-only access.');
+  });
+
+  it('deletes a shared watchlist and returns success', async () => {
+    const created = await createWatchlist(ownerAgent, `Delete Target ${runId}`);
+
+    // Add a second member so the post-delete notify fan-out has recipients:
+    // deleting cascades away every membership row, so the notify must not
+    // depend on the caller's membership still existing.
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(201);
+
+    const deleteResponse = await ownerAgent.delete(`/watchlists/${created.id}`).expect(200);
+    const deleteBody = deleteResponse.body as ApiResponse<null>;
+    expect(deleteBody.success).toBe(true);
+
+    // The watchlist is actually gone for both members.
+    await ownerAgent.get(`/watchlists/${created.id}`).expect(404);
+    await viewerAgent.get(`/watchlists/${created.id}`).expect(404);
+  });
+
+  it('rejects adding a nonexistent user with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `AddUser 404 ${runId}`);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: 999999999, role: 'viewer' })
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
+  it('rejects adding an already-member user with 409', async () => {
+    const created = await createWatchlist(ownerAgent, `AddUser 409 ${runId}`);
+
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(201);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(409);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User already added.');
+  });
+
+  it('rejects updating the role of a non-member with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `UpdateRole 404 ${runId}`);
+
+    const response = await ownerAgent
+      .patch(`/watchlists/${created.id}/users/${viewerUserId}`)
+      .send({ role: 'editor' })
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
+  it('rejects removing a non-member with 404', async () => {
+    const created = await createWatchlist(ownerAgent, `RemoveUser 404 ${runId}`);
+
+    const response = await ownerAgent
+      .delete(`/watchlists/${created.id}/users/${viewerUserId}`)
+      .expect(404);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('User not found.');
+  });
+
+  it('exposes editorIds for every editor of a watchlist', async () => {
+    const created = await createWatchlist(ownerAgent, `EditorIds ${runId}`);
+
+    // Freshly created: the creator is the sole editor.
+    const soloResponse = await ownerAgent.get(`/watchlists/${created.id}`).expect(200);
+    const soloBody = soloResponse.body as ApiResponse<WatchlistResponse>;
+    expect(soloBody.data.editorIds).toEqual([ownerUserId]);
+
+    // A second editor must appear in editorIds; a viewer must not.
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'editor' })
+      .expect(201);
+
+    const twoResponse = await ownerAgent.get(`/watchlists/${created.id}`).expect(200);
+    const twoBody = twoResponse.body as ApiResponse<WatchlistResponse>;
+    expect(twoBody.data.editorIds).toEqual(expect.arrayContaining([ownerUserId, viewerUserId]));
+    expect(twoBody.data.editorIds).toHaveLength(2);
+
+    // The listing endpoint must report the same editorIds as the single fetch.
+    const listResponse = await ownerAgent.get('/watchlists').expect(200);
+    const listBody = listResponse.body as ApiResponse<WatchlistResponse[]>;
+    const listed = listBody.data.find((wl) => wl.id === created.id);
+    expect(listed?.editorIds).toEqual(expect.arrayContaining([ownerUserId, viewerUserId]));
+    expect(listed?.editorIds).toHaveLength(2);
+  });
+
+  it('promotes a viewer to editor', async () => {
+    const created = await createWatchlist(ownerAgent, `Promote ${runId}`);
+
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(201);
+
+    await ownerAgent
+      .patch(`/watchlists/${created.id}/users/${viewerUserId}`)
+      .send({ role: 'editor' })
+      .expect(200);
+
+    // The promoted user can now edit and sees their own role as editor.
+    const selfView = await viewerAgent.get(`/watchlists/${created.id}`).expect(200);
+    const selfBody = selfView.body as ApiResponse<WatchlistResponse>;
+    expect(selfBody.data.role).toBe('editor');
+
+    await viewerAgent
+      .patch(`/watchlists/${created.id}`)
+      .send({ name: `Promoted Edit ${runId}` })
+      .expect(200);
+  });
+
+  it('removes a member who then loses access', async () => {
+    const created = await createWatchlist(ownerAgent, `RemoveMember ${runId}`);
+
+    await ownerAgent
+      .post(`/watchlists/${created.id}/users`)
+      .send({ userId: viewerUserId, role: 'viewer' })
+      .expect(201);
+    await viewerAgent.get(`/watchlists/${created.id}`).expect(200);
+
+    await ownerAgent.delete(`/watchlists/${created.id}/users/${viewerUserId}`).expect(200);
+
+    // Removed member loses access; the remover keeps it.
+    await viewerAgent.get(`/watchlists/${created.id}`).expect(404);
+    await ownerAgent.get(`/watchlists/${created.id}`).expect(200);
+  });
+
+  it('prevents the last editor from removing themselves', async () => {
+    const created = await createWatchlist(ownerAgent, `LastEditor ${runId}`);
+
+    const response = await ownerAgent
+      .delete(`/watchlists/${created.id}/users/${ownerUserId}`)
+      .expect(409);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('The last editor cannot be removed. Delete the watchlist instead.');
+  });
+
+  it('reuses a single movie row across watchlists sharing the same tmdbId', async () => {
+    const listA = await createWatchlist(ownerAgent, `Shared Movie A ${runId}`);
+    const listB = await createWatchlist(ownerAgent, `Shared Movie B ${runId}`);
+    const tmdbId = tmdbBase + 1;
+    const movieTitle = `Shared Mock ${runId}`;
+
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ original_title: movieTitle }),
+    } as unknown as Awaited<ReturnType<typeof fetch>>);
+
+    await ownerAgent.post(`/watchlists/${listA.id}/movies`).send({ tmdbId }).expect(201);
+    await ownerAgent.post(`/watchlists/${listB.id}/movies`).send({ tmdbId }).expect(201);
+
+    const moviesA = (await ownerAgent.get(`/watchlists/${listA.id}/movies`).expect(200))
+      .body as ApiResponse<MovieResponse[]>;
+    const moviesB = (await ownerAgent.get(`/watchlists/${listB.id}/movies`).expect(200))
+      .body as ApiResponse<MovieResponse[]>;
+
+    expect(moviesA.data).toHaveLength(1);
+    expect(moviesB.data).toHaveLength(1);
+    // Same underlying movie row (same id + tmdbId) shared by both watchlists.
+    expect(moviesA.data[0].tmdbId).toBe(tmdbId);
+    expect(moviesA.data[0].id).toBe(moviesB.data[0].id);
+  });
+
+  it('rejects adding the same movie twice with 409', async () => {
+    const created = await createWatchlist(ownerAgent, `Duplicate Movie ${runId}`);
+    const tmdbId = tmdbBase + 2;
+
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ original_title: `Dup Mock ${runId}` }),
+    } as unknown as Awaited<ReturnType<typeof fetch>>);
+
+    await ownerAgent.post(`/watchlists/${created.id}/movies`).send({ tmdbId }).expect(201);
+
+    const response = await ownerAgent
+      .post(`/watchlists/${created.id}/movies`)
+      .send({ tmdbId })
+      .expect(409);
+
+    const body = response.body as { message: string };
+    expect(body.message).toBe('Movie already added.');
   });
 
   async function createWatchlist(agent: TestAgent, name: string) {

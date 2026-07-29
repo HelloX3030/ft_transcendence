@@ -4,12 +4,15 @@ import {
   ConflictException,
   ExceptionFilter,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaExceptionFilter.name);
+
   catch(exception: Prisma.PrismaClientKnownRequestError) {
     switch (exception.code) {
       case 'P2000':
@@ -25,7 +28,7 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         throw new NotFoundException('Record not found');
 
       default:
-        console.error(exception);
+        this.logger.error(`Unhandled Prisma error ${exception.code}`, exception);
         throw new InternalServerErrorException('Database error');
     }
   }

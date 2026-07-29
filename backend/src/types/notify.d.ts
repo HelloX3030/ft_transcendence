@@ -1,7 +1,13 @@
-import { Socket } from 'socket.io';
+import { DefaultEventsMap, Socket } from 'socket.io';
 
-interface SocketData {
+export interface SocketData {
   user: number;
+  /**
+   * When the access token this socket handshook with expires, in epoch ms.
+   * The handshake is the only point the token is checked, so the gateway
+   * sweeps for sockets that have outlived it.
+   */
+  tokenExpiresAt?: number;
 }
 
-type NotifySocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
+export type NotifySocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;

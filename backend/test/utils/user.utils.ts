@@ -1,15 +1,15 @@
 import { expect } from '@jest/globals';
 import TestAgent from 'supertest/lib/agent';
-import { UserMeResponse } from '@trailertinder/shared';
+import { apiResponse, UserMeResponse } from '@trailertinder/shared';
 
 export async function getUserId(agent: TestAgent): Promise<number> {
-  const body = (await agent.get('/users/me')).body as UserMeResponse;
+  const body = (await agent.get('/users/me')).body as apiResponse<UserMeResponse>;
 
-  expect(body).toEqual(
+  expect(body.data).toEqual(
     expect.objectContaining({
       id: expect.any(Number),
     }),
   );
 
-  return body.id;
+  return body.data!.id;
 }

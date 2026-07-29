@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   apiResponse,
   MovieWatchProviders,
@@ -11,8 +11,10 @@ import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
+import { cacheKeys } from './tmdb.keys';
 import {
   TmdbGenreListResponse,
+  TmdbListResponse,
   TmdbMovieDetailResponse,
   TmdbPersonResponse,
   TmdbVideo,
@@ -22,11 +24,15 @@ const CACHE_TTL_SECONDS = 3600;
 
 // Genres are a small, near-static catalogue, so cache them under one fixed key
 // and refresh only daily rather than hourly like the paginated movie endpoints.
-const GENRES_CACHE_KEY = 'tmdb:genres';
 const GENRES_CACHE_TTL_SECONDS = 86_400;
 
 // A person's name/photo changes very rarely, so cache each one for a week.
 const PERSON_CACHE_TTL_SECONDS = 604_800;
+
+// TMDB rate-limits at roughly 50 requests per 10s per key, and a people lookup
+// can ask for up to MAX_IDS ids at once. On a cold cache those would all fan out
+// simultaneously, so they run through a fixed-size worker pool instead.
+const PERSON_CONCURRENCY = 5;
 
 // Inputs for the discover feed. Structurally matched by DiscoverQueryDto, so the
 // controller can forward the validated DTO straight through. All optional: an
@@ -42,6 +48,28 @@ export interface DiscoverFilters {
 
 // Picks the single trailer key to embed: the first official YouTube trailer,
 // then any YouTube trailer, then a YouTube teaser, else null (no trailer).
+// Runs `fn` over `items` with at most `limit` in flight at once, preserving
+// input order in the result. A rejection propagates (the first one wins) exactly
+// like Promise.all; the workers still in flight simply finish and are discarded.
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
 function pickTrailerKey(videos: TmdbVideo[]): string | null {
   const youtube = videos.filter((v) => v.site === 'YouTube');
   const trailer =
@@ -54,6 +82,11 @@ function pickTrailerKey(videos: TmdbVideo[]): string | null {
 @Injectable()
 export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
+
+  // Upstream fetches currently in flight, keyed by their cache key. See
+  // singleFlight() — this is what keeps a cold cache (or a Redis outage, where
+  // every request is a miss) from multiplying load onto TMDB.
+  private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
     private readonly client: TmdbClient,
@@ -93,10 +126,8 @@ export class TmdbService {
     if (releaseDateGte) params.set('primary_release_date.gte', releaseDateGte);
     if (releaseDateLte) params.set('primary_release_date.lte', releaseDateLte);
 
-    // The full query string is the cache key, so every distinct filter
-    // combination (and page) maps to its own entry and never collides.
     const movies = await this.getCachedMovies(
-      `tmdb:discover:${params.toString()}:${filtered ? 'filtered' : 'raw'}`,
+      cacheKeys.discover(params.toString(), filtered),
       `/discover/movie?${params}`,
       filtered,
     );
@@ -118,7 +149,7 @@ export class TmdbService {
       page: String(page),
     });
     const movies = await this.getCachedMovies(
-      `tmdb:search:${normalized}:page:${page}:${filtered ? 'filtered' : 'raw'}`,
+      cacheKeys.search(normalized, page, filtered),
       `/search/movie?${params}`,
       filtered,
     );
@@ -126,7 +157,7 @@ export class TmdbService {
   }
 
   async getWatchProviders(movieId: number): Promise<apiResponse<MovieWatchProviders>> {
-    const key = `tmdb:providers:movie:${movieId}`;
+    const key = cacheKeys.providers(movieId);
     const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as MovieWatchProviders);
 
@@ -144,7 +175,7 @@ export class TmdbService {
   // single trailer key and flattening the paginated similar list — so the client
   // doesn't have to. Similar movies pass through filterMovies for consistency.
   async getMovieDetail(movieId: number): Promise<apiResponse<TmdbMovieDetail>> {
-    const key = `tmdb:movie:${movieId}`;
+    const key = cacheKeys.movie(movieId);
     const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as TmdbMovieDetail);
 
@@ -182,17 +213,14 @@ export class TmdbService {
   }
 
   async getGenres(): Promise<apiResponse<TmdbGenre[]>> {
-    const cached = await this.redis.get(GENRES_CACHE_KEY);
+    const key = cacheKeys.genres();
+    const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as TmdbGenre[]);
 
     const response = await this.client.get<TmdbGenreListResponse>(
       '/genre/movie/list?language=en-US',
     );
-    await this.redis.set(
-      GENRES_CACHE_KEY,
-      JSON.stringify(response.genres),
-      GENRES_CACHE_TTL_SECONDS,
-    );
+    await this.redis.set(key, JSON.stringify(response.genres), GENRES_CACHE_TTL_SECONDS);
     return successResponse(response.genres);
   }
 
@@ -203,27 +231,35 @@ export class TmdbService {
   // whole batch.
   async getPeople(ids: number[]): Promise<apiResponse<TmdbPerson[]>> {
     const uniqueIds = [...new Set(ids)];
-    const people = await Promise.all(uniqueIds.map((id) => this.getPerson(id)));
+    const people = await mapWithConcurrency(uniqueIds, PERSON_CONCURRENCY, (id) =>
+      this.getPerson(id),
+    );
     return successResponse(people.filter((person): person is TmdbPerson => person !== null));
   }
 
   private async getPerson(id: number): Promise<TmdbPerson | null> {
-    const key = `tmdb:person:${id}`;
+    const key = cacheKeys.person(id);
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as TmdbPerson;
 
     try {
-      const response = await this.client.get<TmdbPersonResponse>(`/person/${id}?language=en-US`);
-      const person: TmdbPerson = {
-        id: response.id,
-        name: response.name,
-        profile_path: response.profile_path,
-        known_for_department: response.known_for_department,
-      };
-      await this.redis.set(key, JSON.stringify(person), PERSON_CACHE_TTL_SECONDS);
-      return person;
+      return await this.singleFlight(key, async () => {
+        const response = await this.client.get<TmdbPersonResponse>(`/person/${id}?language=en-US`);
+        const person: TmdbPerson = {
+          id: response.id,
+          name: response.name,
+          profile_path: response.profile_path,
+          known_for_department: response.known_for_department,
+        };
+        await this.redis.set(key, JSON.stringify(person), PERSON_CACHE_TTL_SECONDS);
+        return person;
+      });
     } catch (error) {
-      this.logger.warn(`Failed to resolve TMDB person ${id}: ${(error as Error).message}`);
+      // Only "no such person" is skippable. Anything else (5xx, timeout, TMDB
+      // unreachable) has to propagate — swallowing it would turn a total outage
+      // into an empty 200 that callers can't tell from "none of these exist".
+      if (!(error instanceof NotFoundException)) throw error;
+      this.logger.warn(`Skipping unresolvable TMDB person ${id}`);
       return null;
     }
   }
@@ -240,13 +276,28 @@ export class TmdbService {
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as PaginatedMovies;
 
-    const response = await this.client.get(path);
-    const result: PaginatedMovies = {
-      results: filtered ? filterMovies(response.results) : response.results,
-      hasMore: response.page < response.total_pages,
-      totalResults: response.total_results,
-    };
-    await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
-    return result;
+    return this.singleFlight(key, async () => {
+      const response = await this.client.get<TmdbListResponse>(path);
+      const result: PaginatedMovies = {
+        results: filtered ? filterMovies(response.results) : response.results,
+        hasMore: response.page < response.total_pages,
+        totalResults: response.total_results,
+      };
+      await this.redis.set(key, JSON.stringify(result), CACHE_TTL_SECONDS);
+      return result;
+    });
+  }
+
+  // Collapses concurrent misses on the same key into a single upstream call: the
+  // first caller runs `fetch`, everyone else awaits its promise (including its
+  // rejection, so one outage error fans out instead of N more TMDB requests).
+  // Per-process only — it bounds one instance's fan-out, not the whole cluster.
+  private singleFlight<T>(key: string, fetch: () => Promise<T>): Promise<T> {
+    const existing = this.inFlight.get(key) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const pending = fetch().finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, pending);
+    return pending;
   }
 }

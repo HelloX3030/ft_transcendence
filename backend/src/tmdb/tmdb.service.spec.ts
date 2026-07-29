@@ -1,7 +1,8 @@
+import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
-import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
+import { PaginatedMovies, TmdbGenre, TmdbMovie, TmdbPerson } from '@trailertinder/shared';
 import { successResponse } from 'src/utils';
 import {
   makeGenre,
@@ -9,6 +10,7 @@ import {
   makeListResponse,
   makeMovie,
   makeMovieDetailResponse,
+  makePersonResponse,
   makeWatchProviders,
 } from './tmdb.fixtures';
 import { TmdbService } from './tmdb.service';
@@ -98,7 +100,7 @@ describe('TmdbService', () => {
       await service.discoverMovies();
 
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -120,7 +122,7 @@ describe('TmdbService', () => {
         '/discover/movie?include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5',
       );
       expectCached(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=4&vote_count.gte=50&vote_average.gte=5:filtered',
         expectedMultiPage,
       );
     });
@@ -266,7 +268,7 @@ describe('TmdbService', () => {
       await service.searchMovies('  Batman ');
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('query=batman'));
-      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('returns the results with hasMore derived from the TMDB pagination', async () => {
@@ -290,7 +292,7 @@ describe('TmdbService', () => {
 
       await service.searchMovies('batman');
 
-      expectCached('tmdb:search:batman:page:1:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:1:filtered', expectedLastPage);
     });
 
     it('uses the requested page in the TMDB path and cache key', async () => {
@@ -299,7 +301,7 @@ describe('TmdbService', () => {
       await service.searchMovies('batman', 3);
 
       expect(mockTmdbClient.get).toHaveBeenCalledWith(expect.stringContaining('page=3'));
-      expectCached('tmdb:search:batman:page:3:filtered', expectedLastPage);
+      expectCached('tmdb:v1:search:batman:page:3:filtered', expectedLastPage);
     });
 
     it('returns an empty result set when client.get resolves with no results', async () => {
@@ -364,7 +366,7 @@ describe('TmdbService', () => {
 
       await service.getGenres();
 
-      expectCached('tmdb:genres', genres, 86_400);
+      expectCached('tmdb:v1:genres', genres, 86_400);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -412,7 +414,7 @@ describe('TmdbService', () => {
 
       await service.getWatchProviders(providers.id);
 
-      expectCached('tmdb:providers:movie:1', providers);
+      expectCached('tmdb:v1:providers:movie:1', providers);
     });
 
     it('propagates a TMDB failure without caching anything', async () => {
@@ -511,7 +513,7 @@ describe('TmdbService', () => {
 
       await service.getMovieDetail(7);
 
-      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:movie:7', expect.any(String), 3600);
+      expect(mockRedisClient.set).toHaveBeenCalledWith('tmdb:v1:movie:7', expect.any(String), 3600);
     });
   });
 
@@ -524,6 +526,138 @@ describe('TmdbService', () => {
 
       expect(result.data).toEqual(cached);
       expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+  });
+
+  // The public projection of makePersonResponse() — biography/birthday/popularity
+  // are dropped by the service.
+  const expectedPerson: TmdbPerson = {
+    id: 287,
+    name: 'Brad Pitt',
+    profile_path: '/bp.jpg',
+    known_for_department: 'Acting',
+  };
+
+  // Resolves each /person/{id} request to a distinct person, so per-id behaviour
+  // (ordering, dedup, caching) is observable.
+  function mockPeopleByPath(): void {
+    mockTmdbClient.get.mockImplementation((path: string) => {
+      const id = Number(/\/person\/(\d+)/.exec(path)?.[1]);
+      return Promise.resolve(makePersonResponse({ id, name: `Person ${id}` }));
+    });
+  }
+
+  describe('getPeople — cache miss', () => {
+    it('calls client.get with the person endpoint path for each id', async () => {
+      mockPeopleByPath();
+
+      await service.getPeople([287, 500]);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/person/287?language=en-US');
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/person/500?language=en-US');
+    });
+
+    it('reshapes each response to TmdbPerson, dropping the extra TMDB fields', async () => {
+      mockTmdbClient.get.mockResolvedValue(makePersonResponse());
+
+      const result = await service.getPeople([287]);
+
+      expect(result).toEqual(successResponse([expectedPerson]));
+    });
+
+    it('caches each person under its own key with the weekly TTL', async () => {
+      mockTmdbClient.get.mockResolvedValue(makePersonResponse());
+
+      await service.getPeople([287]);
+
+      expectCached('tmdb:v1:person:287', expectedPerson, 604_800);
+    });
+
+    it('de-duplicates repeated ids into a single upstream call', async () => {
+      mockPeopleByPath();
+
+      const result = await service.getPeople([287, 287, 287]);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledTimes(1);
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('skips ids TMDB reports as unknown and returns the rest', async () => {
+      mockTmdbClient.get.mockImplementation((path: string) =>
+        path.includes('/person/999')
+          ? Promise.reject(new NotFoundException('TMDB resource not found'))
+          : Promise.resolve(makePersonResponse()),
+      );
+      jest.spyOn(service['logger'], 'warn').mockImplementation(() => {});
+
+      const result = await service.getPeople([287, 999]);
+
+      expect(result).toEqual(successResponse([expectedPerson]));
+    });
+
+    it('propagates an upstream outage instead of masking it as an empty list', async () => {
+      mockTmdbClient.get.mockRejectedValue(new BadGatewayException('TMDB is unreachable'));
+
+      await expect(service.getPeople([287, 500])).rejects.toThrow(BadGatewayException);
+      expect(mockRedisClient.set).not.toHaveBeenCalled();
+    });
+
+    it('bounds how many person requests are in flight at once', async () => {
+      let inFlight = 0;
+      let peakInFlight = 0;
+      mockTmdbClient.get.mockImplementation(async (path: string) => {
+        inFlight++;
+        peakInFlight = Math.max(peakInFlight, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight--;
+        return makePersonResponse({ id: Number(/\/person\/(\d+)/.exec(path)?.[1]) });
+      });
+      const ids = Array.from({ length: 50 }, (_, index) => index + 1);
+
+      await service.getPeople(ids);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledTimes(50);
+      expect(peakInFlight).toBeLessThanOrEqual(5);
+    });
+
+    it('collapses concurrent misses for the same person into one upstream call', async () => {
+      mockPeopleByPath();
+
+      const [first, second] = await Promise.all([
+        service.getPeople([287]),
+        service.getPeople([287]),
+      ]);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledTimes(1);
+      expect(second).toEqual(first);
+
+      // The in-flight entry is released once settled, so a later miss refetches.
+      await service.getPeople([287]);
+      expect(mockTmdbClient.get).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('getPeople — cache hit', () => {
+    it('returns the cached person without calling client.get', async () => {
+      mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedPerson));
+
+      const result = await service.getPeople([287]);
+
+      expect(result).toEqual(successResponse([expectedPerson]));
+      expect(mockTmdbClient.get).not.toHaveBeenCalled();
+    });
+
+    it('fetches only the ids that missed the cache', async () => {
+      mockRedisClient.get.mockImplementation((key: string) =>
+        Promise.resolve(key === 'tmdb:v1:person:287' ? JSON.stringify(expectedPerson) : null),
+      );
+      mockPeopleByPath();
+
+      const result = await service.getPeople([287, 500]);
+
+      expect(mockTmdbClient.get).toHaveBeenCalledTimes(1);
+      expect(mockTmdbClient.get).toHaveBeenCalledWith('/person/500?language=en-US');
+      expect(result.data).toHaveLength(2);
     });
   });
 
@@ -544,7 +678,7 @@ describe('TmdbService', () => {
       await service.discoverMovies({ page: 1, filtered: false });
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'tmdb:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
+        'tmdb:v1:discover:include_adult=false&language=en-US&sort_by=popularity.desc&page=1:raw',
         expect.any(String),
         3600,
       );

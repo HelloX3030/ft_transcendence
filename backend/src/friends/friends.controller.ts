@@ -11,6 +11,7 @@ export class FriendsController {
   @Get()
   @ApiOperation({ summary: 'It gets all friends of the current user.' })
   @ApiResponse({ status: 200, description: 'A list with all friends' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   getFriends(@Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
@@ -25,7 +26,7 @@ export class FriendsController {
   })
   @ApiResponse({ status: 400, description: "You can't be friends with yourself." })
   @ApiResponse({ status: 409, description: 'This friendship already exists.' })
-  @ApiResponse({ status: 409, description: 'The user ID is invalid.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   addFriend(@Request() req: ExpressRequest, @Param('id', ParseIntPipe) id: number) {
     const user = req.user as JwtAccessPayload;
@@ -38,10 +39,12 @@ export class FriendsController {
     status: 200,
     description: 'Friendship status was updated successfully.',
   })
-  @ApiResponse({ status: 400, description: "You can't be friends with yourself." })
-  @ApiResponse({ status: 400, description: 'You cannot accept your own friendship request.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      "You can't be friends with yourself, you cannot accept your own friendship request, or the friendship is already accepted.",
+  })
   @ApiResponse({ status: 404, description: 'This friendship does not exist.' })
-  @ApiResponse({ status: 400, description: 'Friendship is already accepted.' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   acceptFriendship(@Request() req: ExpressRequest, @Param('id', ParseIntPipe) id: number) {
     const user = req.user as JwtAccessPayload;

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import type { GetUserResponse } from '@trailertinder/shared';
 
 interface ChatMessage {
@@ -16,13 +16,6 @@ export interface Chat {
 export const useChatStore = defineStore('chat', () => {
   const chats = ref(new Map<number, Chat>());
   const activeChat = ref<Chat>();
-
-  watch(chats, (c) => {
-    console.log(c.entries);
-  });
-  watch(activeChat, (c) => {
-    console.log(c?.messages);
-  });
 
   const sortedChats = computed(() => {
     return Array.from(chats.value.values()).sort((a, b) => {
@@ -47,16 +40,39 @@ export const useChatStore = defineStore('chat', () => {
     return chats.value.get(friendId);
   }
 
+  /**
+   * Returns the transcript for `friendId`, opening one if it does not exist yet.
+   * Unlike {@link createChat} this leaves the current selection alone, so an
+   * incoming message never yanks the user out of the chat they are reading.
+   *
+   * `details` fills in the name and avatar. It is optional because a message can
+   * arrive before the friend list has loaded; the placeholder is replaced as
+   * soon as the real details turn up.
+   */
+  function ensureChat(friendId: number, details?: GetUserResponse) {
+    const existing = chats.value.get(friendId);
+    if (existing) {
+      if (details) existing.friend = details;
+      return existing;
+    }
+
+    const chat: Chat = {
+      friend: details ?? { id: friendId, username: `User ${friendId}`, image: null },
+      messages: [],
+    };
+    chats.value.set(friendId, chat);
+    return chat;
+  }
+
   function createChat(friend: GetUserResponse) {
-    const chat = chats.value.get(friend.id) ?? { friend, messages: [] };
-    chats.value.set(friend.id, chat);
+    const chat = ensureChat(friend.id, friend);
     selectChat(chat);
     return chat;
   }
 
-  function addMessage(chat: Chat, senderId: number, message: string) {
+  function addMessage(chat: Chat, senderId: number, message: string, timestamp?: string) {
     chat.messages.push({
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp ?? new Date().toISOString(),
       senderId,
       message,
     });
@@ -69,15 +85,23 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /** Clears every transcript, so a logout does not leak chats into the next session. */
+  function reset() {
+    chats.value = new Map();
+    activeChat.value = undefined;
+  }
+
   return {
     chats,
     sortedChats,
     activeChat,
     selectChat,
     closeChat,
+    ensureChat,
     createChat,
     addMessage,
     deleteChat,
     getChat,
+    reset,
   };
 });

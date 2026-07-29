@@ -4,60 +4,71 @@ import { io } from 'socket.io-client';
 import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
+import { logger } from '@/lib/logger';
+import { refreshSession } from '@/api/client';
 import { useChatStore } from './chat';
+import { useFriendsStore } from './friends';
 
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   const count = ref<number>(0);
-  const nofiyId = ref<number>(0);
-  const notifyMsg = ref<{ id: number; titel: string; msg: string; date: string }[]>([]);
+  const notifyId = ref<number>(0);
+  const notifyMsg = ref<{ id: number; title: string; msg: string; date: string }[]>([]);
+  // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
+  // by the server on every (re)connect, then kept current by `online-status:<id>`.
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
   const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
   const chatStore = useChatStore();
-  const { chats } = storeToRefs(chatStore);
+  const friendsStore = useFriendsStore();
+  const { friendsDetails } = storeToRefs(friendsStore);
 
   function init() {
     if (isInit) return;
-    console.log('[notify] init...');
 
     socket.removeAllListeners();
 
     socket.on('connect', () => {
-      console.log('[notify] connected.');
+      logger.debug('[notify] connected.');
       offline.value = false;
     });
 
     socket.on('connect_error', (error) => {
-      if (!isError(error)) {
-        console.error('[notify] invalid connect_error payload ', error);
-        return;
-      }
-      console.error('[notify] connect error: ', error.message);
       offline.value = true;
+      if (!isError(error)) {
+        logger.error('[notify] invalid connect_error payload ', error);
+      } else {
+        logger.error('[notify] connect error: ', error.message);
+      }
+      // The gateway drops sockets once their access cookie expires, and the
+      // handshake then rejects the retry for the same reason. Renewing the
+      // cookie lets socket.io's next attempt through instead of looping.
+      void refreshSession().catch(() => {
+        // Refresh token is gone too — stay offline until the user logs in again.
+      });
     });
 
     socket.on('error', (error) => {
       if (!isError(error)) {
-        console.error('[notify] invalid error payload ', error);
+        logger.error('[notify] invalid error payload ', error);
         return;
       }
-      console.error('[notify] error: ', error.message);
+      logger.error('[notify] error: ', error.message);
     });
 
     socket.on('exception', (error) => {
       if (!isError(error)) {
-        console.error('[notify] invalid exception payload ', error);
+        logger.error('[notify] invalid exception payload ', error);
         return;
       }
-      console.error('[notify] exception: ', error.message);
+      logger.error('[notify] exception: ', error.message);
     });
 
     socket.on('notification', (msg) => {
       if (!isNotifyMsg(msg)) {
-        console.error('[notify] invalid notification payload', msg);
+        logger.error('[notify] invalid notification payload', msg);
         return;
       }
 
@@ -67,49 +78,57 @@ export const useNotifyStore = defineStore('notify', () => {
     initWatchFriendsOnlineStatus();
     initChat();
 
+    // No `watch-friends-status` emit here: the gateway seeds the presence rooms
+    // and pushes the snapshot itself on every connect. Emitting from here fired
+    // once and never again, so presence used to die after any reconnect — the
+    // socket comes back with a new server-side id and no rooms.
     socket.connect();
-    socket.emit('watch-friends-status');
     isInit = true;
   }
 
   function stop() {
-    console.log('[notify] stop.');
     socket.close();
     isInit = false;
     count.value = 0;
-    nofiyId.value = 0;
+    notifyId.value = 0;
     notifyMsg.value = [];
     friendsStatus.value = new Map();
     offline.value = true;
+    chatStore.reset();
   }
 
   function initWatchFriendsOnlineStatus() {
     socket.on('watch-friends-status', (data) => {
       if (!isFriendsStatusArray(data)) {
-        console.error('[notify] invalid friends status payload', data);
+        logger.error('[notify] invalid friends status payload', data);
         return;
       }
       for (const user of data) {
         socket.off(`online-status:${user.id}`);
-        socket.on(`online-status:${user.id}`, (user) => {
-          console.log(user);
-          friendsStatus.value.set(user.id, user.isOnline);
+        socket.on(`online-status:${user.id}`, (update) => {
+          friendsStatus.value.set(update.id, update.isOnline);
         });
         friendsStatus.value.set(user.id, user.isOnline);
-        console.log('add watch user Id: ' + user.id);
       }
     });
     socket.on('watch-friends-status-rm', (data) => {
       if (!isFriendsStatusArray(data)) {
-        console.error('[notify] invalid friends status payload', data);
+        logger.error('[notify] invalid friends status payload', data);
         return;
       }
       for (const user of data) {
         socket.off(`online-status:${user.id}`);
-        console.log('removed watch user Id: ' + user.id);
         friendsStatus.value.delete(user.id);
       }
     });
+  }
+
+  /**
+   * Only friends have a presence room, so anyone absent from the map is either
+   * not a friend or not yet seeded — both render as offline.
+   */
+  function isUserOnline(userId: number | string) {
+    return friendsStatus.value.get(Number(userId)) ?? false;
   }
 
   function clearAllNotifications() {
@@ -120,15 +139,23 @@ export const useNotifyStore = defineStore('notify', () => {
   function initChat() {
     socket.on('chat', (data) => {
       if (!isChatMsgRecive(data)) {
-        console.error('[notify] invalid chat payload', data);
+        logger.error('[notify] invalid chat payload', data);
         return;
       }
 
-      const chat = chats.value.get(data.peerUserId);
-      if (chat) chatStore.addMessage(chat, data.senderUserId, data.msg);
+      // Open the transcript on demand: a message can arrive from a friend the
+      // user has never opened a chat with, and dropping it would lose it for
+      // good. `ensureChat` does not steal the current selection.
+      const chat = chatStore.ensureChat(
+        data.peerUserId,
+        friendsDetails.value.find((friend) => friend.id === data.peerUserId),
+      );
+      // The server stamps one time for every copy of a message, so all tabs and
+      // both participants agree on the ordering.
+      chatStore.addMessage(chat, data.senderUserId, data.msg, new Date(data.time).toISOString());
 
       if (data.senderUserId === data.peerUserId)
-        addNotification({ titel: 'Chat', msg: 'You have a new Chat message.' });
+        addNotification({ title: 'Chat', msg: 'You have a new Chat message.' });
     });
   }
 
@@ -139,7 +166,7 @@ export const useNotifyStore = defineStore('notify', () => {
   function addNotification(msg: NotifyMsg) {
     count.value++;
     const date = new Date(Date.now()).toLocaleString();
-    notifyMsg.value.unshift({ id: nofiyId.value++, titel: msg.titel, msg: msg.msg, date });
+    notifyMsg.value.unshift({ id: notifyId.value++, title: msg.title, msg: msg.msg, date });
     toast.info(msg.msg);
   }
 
@@ -149,6 +176,7 @@ export const useNotifyStore = defineStore('notify', () => {
     friendsStatus,
     count,
     notifyMsg,
+    isUserOnline,
     init,
     stop,
     clearAllNotifications,
@@ -160,8 +188,8 @@ function isNotifyMsg(value: unknown): value is NotifyMsg {
   return (
     typeof value === 'object' &&
     value !== null &&
-    'titel' in value &&
-    typeof (value as Record<string, unknown>).titel === 'string' &&
+    'title' in value &&
+    typeof (value as Record<string, unknown>).title === 'string' &&
     'msg' in value &&
     typeof (value as Record<string, unknown>).msg === 'string'
   );

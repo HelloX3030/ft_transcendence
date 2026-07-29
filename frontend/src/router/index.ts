@@ -117,10 +117,21 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const { isLoggedIn } = storeToRefs(useAuthStore());
-  const { requiresOnboarding, isReady } = storeToRefs(useUserStore());
+  const auth = useAuthStore();
+  const { isLoggedIn } = storeToRefs(auth);
+  const { requiresOnboarding, isReady, isLoading } = storeToRefs(useUserStore());
+
   if (to.meta.requiresAuth && isLoggedIn.value && !isReady.value) {
-    return;
+    // Still loading. Callers await refetchUser() before navigating, so this is
+    // transient — let it through rather than bouncing mid-load.
+    if (isLoading.value) return;
+
+    // Settled and still not ready means refetchUser() failed; main.ts swallows
+    // that. requiresOnboarding below would be meaningless and the view would
+    // render against a null user, so treat the session as unusable. isLoggedIn
+    // has to be cleared as well, or /login (guestOnly) bounces straight back.
+    auth.isLoggedIn = false;
+    return { path: '/login' };
   }
 
   if (to.meta.requiresAuth && !isLoggedIn.value) {

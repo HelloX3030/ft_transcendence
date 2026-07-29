@@ -116,6 +116,10 @@ describe('Friends (e2e)', () => {
     await bobAgent.post(`/friends/${bobId}`).expect(400);
   });
 
+  it('should return 404 when sending a friend request to a non-existent user', async () => {
+    await bobAgent.post(`/friends/749274`).expect(404);
+  });
+
   it('should not delete a friendship that not exist', async () => {
     await bobAgent.delete(`/friends/749274`).expect(404);
   });

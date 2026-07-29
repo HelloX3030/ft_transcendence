@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '../ui/button/index.ts';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 import { Badge } from '../ui/badge/index.ts';
 
 import { useSearchFilter } from '@/composables/useSearchFilter.ts';

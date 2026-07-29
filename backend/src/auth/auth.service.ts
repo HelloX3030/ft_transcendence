@@ -1,22 +1,26 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { LoginDto, RegisterDto } from './dto';
+import { LoginDto, MfaVerifyDto, RegisterDto } from './dto';
 import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes } from 'crypto';
-import { JwtRefreshPayload, JwtTokens } from 'src/types';
+import { createHmac, randomBytes } from 'crypto';
+import { JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import { apiResponse, LoginResponse } from '@trailertinder/shared';
+
+/** Long enough to read a code off a phone, short enough to be worth little if stolen. */
+const MFA_TOKEN_TTL = '5m';
 
 @Injectable()
 export class AuthService {
@@ -47,7 +51,9 @@ export class AuthService {
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ForbiddenException('Credentials taken');
+          // Deliberately generic: does not reveal whether the email or the
+          // username collided. See A6 in _meta/reviews/CODE_REVIEW_AUTH_TOTP.md.
+          throw new ConflictException('Credentials taken');
         }
       }
       throw error;
@@ -70,23 +76,95 @@ export class AuthService {
     }
 
     if (user.totpActive) {
-      if (!dto.otp) {
-        return successResponse(
-          { mfaRequired: true, mfaType: 'totp' },
-          'TOTP is required for login.',
-        );
-      }
       if (user.totpSecret === null) {
-        console.error('TOTP is enabled, but no totpSecret has been set.');
+        this.logger.error('TOTP is enabled, but no totpSecret has been set.');
         throw new InternalServerErrorException();
       }
-      const isValid = verifyTOTP(user.totpSecret, dto.otp);
-      if (!isValid) throw new ForbiddenException('Invalid TOTP');
+      // The password is not asked for again. The client holds this token for the
+      // OTP step instead, so the password crosses the wire once per login.
+      return successResponse(
+        { mfaRequired: true, mfaType: 'totp', mfaToken: await this.createMfaToken(user.id) },
+        'TOTP is required for login.',
+      );
     }
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
     return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
+  }
+
+  /**
+   * Second step of an MFA login: exchanges the challenge token plus a valid OTP
+   * for a session. Every failure answers the same way, so this cannot be used to
+   * tell a valid challenge token from an invalid one.
+   */
+  async verifyMfa(
+    req: ExpressRequest,
+    dto: MfaVerifyDto,
+    res: ExpressResponse,
+  ): Promise<apiResponse<LoginResponse>> {
+    const userId = await this.readMfaToken(dto.mfaToken);
+
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    // The account can be deleted, or TOTP turned off, between the two steps.
+    if (user === null || !user.totpActive || user.totpSecret === null) {
+      throw new ForbiddenException('Invalid TOTP');
+    }
+
+    const counter = verifyTOTP(user.totpSecret, dto.otp);
+    if (counter === null) throw new ForbiddenException('Invalid TOTP');
+
+    // A code stays valid across three time steps, so spending it has to be
+    // recorded or a captured one can be replayed for the rest of that span.
+    // updateMany with the counter in the filter makes the check and the write
+    // one atomic statement, so two racing logins cannot both consume it.
+    const { count } = await this.prisma.users.updateMany({
+      where: {
+        id: user.id,
+        OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: counter } }],
+      },
+      data: { totpLastCounter: counter },
+    });
+    if (count === 0) throw new ForbiddenException('Invalid TOTP');
+
+    const tokens = await this.createJwt(user.id, user.email, req);
+    this.setCookies(tokens, res);
+    return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
+  }
+
+  /**
+   * Key for the MFA challenge tokens.
+   *
+   * Derived from the access secret rather than configured separately, so no new
+   * env var is needed, but domain-separated by the HMAC label: a challenge token
+   * can never validate as an access token, which matters because it is issued
+   * before the second factor has been supplied.
+   */
+  private mfaTokenSecret(): string {
+    return createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? '')
+      .update('mfa-challenge-token')
+      .digest('hex');
+  }
+
+  private createMfaToken(userId: number): Promise<string> {
+    const payload: JwtMfaPayload = { sub: userId, purpose: 'mfa' };
+    return this.jwt.signAsync(payload, {
+      secret: this.mfaTokenSecret(),
+      expiresIn: MFA_TOKEN_TTL,
+    });
+  }
+
+  private async readMfaToken(token: string): Promise<number> {
+    try {
+      const payload = await this.jwt.verifyAsync<JwtMfaPayload>(token, {
+        secret: this.mfaTokenSecret(),
+      });
+      // Belt and braces: the derived key already rules out other token types.
+      if (payload.purpose !== 'mfa') throw new Error('Not an MFA challenge token.');
+      return payload.sub;
+    } catch {
+      throw new ForbiddenException('Invalid TOTP');
+    }
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -105,9 +183,14 @@ export class AuthService {
       throw new ForbiddenException('Invalid session id');
     }
 
+    if (session.userId !== payload.sub) {
+      this.logger.error('refresh token subject does not match the owner of the session');
+      throw new ForbiddenException('Invalid session id');
+    }
+
     const user = await this.prisma.users.findUnique({
       where: {
-        id: payload.sub,
+        id: session.userId,
       },
     });
     if (user === null) {

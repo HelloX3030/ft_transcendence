@@ -28,6 +28,7 @@ import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
 import { useEditWatchlist } from '@/composables/watchlist/useEditWatchlist.ts';
 import EditorListBox from './EditorListBox.vue';
 import { toast } from 'vue-sonner';
+import { logger } from '@/lib/logger';
 
 const props = defineProps<{
   name: string;
@@ -68,7 +69,7 @@ async function handleSubmit() {
     }
     emit('success');
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     toast.error('Something went wrong');
   }
 

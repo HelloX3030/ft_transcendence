@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Send, ArrowLeft, Dot } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { Send, ArrowLeft, Dot } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,7 +14,12 @@ import UserAvatar from '../UserAvatar.vue';
 const chatStore = useChatStore();
 const notifyStore = useNotifyStore();
 const { activeChat } = storeToRefs(chatStore);
-const { friendsStatus } = storeToRefs(notifyStore);
+
+// The gateway refuses to relay to an offline peer, so sending would come straight
+// back as a system error in the transcript. Block it at the composer instead.
+const peerOnline = computed(() =>
+  activeChat.value ? notifyStore.isUserOnline(activeChat.value.friend.id) : false,
+);
 
 const { inputMsg, sendMessage } = useSendMessage();
 </script>
@@ -30,11 +36,9 @@ const { inputMsg, sendMessage } = useSendMessage();
         <span class="font-medium">{{ activeChat.friend.username }}</span>
 
         <div class="flex items-center">
-          <Dot
-            :class="friendsStatus.get(activeChat.friend.id) ? 'text-green-400' : 'text-red-600'"
-          />
+          <Dot :class="peerOnline ? 'text-green-400' : 'text-red-600'" />
           <span class="text-muted-foreground text-sm">
-            {{ friendsStatus.get(activeChat.friend.id) ? 'online' : 'offline' }}
+            {{ peerOnline ? 'online' : 'offline' }}
           </span>
         </div>
       </div>
@@ -53,8 +57,15 @@ const { inputMsg, sendMessage } = useSendMessage();
         @submit.prevent="sendMessage(activeChat)"
         class="p-4 border-t sticky bottom-0 bg-background border-white/10 flex gap-2"
       >
-        <Input v-model="inputMsg" placeholder="Type a message..." class="flex-1" />
-        <Button type="submit" size="icon">
+        <Input
+          v-model="inputMsg"
+          :disabled="!peerOnline"
+          :placeholder="
+            peerOnline ? 'Type a message...' : `${activeChat.friend.username} is offline`
+          "
+          class="flex-1"
+        />
+        <Button type="submit" size="icon" :disabled="!peerOnline">
           <Send />
         </Button>
       </form>

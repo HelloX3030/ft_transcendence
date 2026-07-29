@@ -3,8 +3,8 @@ import { defineStore } from 'pinia';
 import type {
   LoginRequest,
   LoginResponse,
+  MfaVerifyRequest,
   RegisterRequest,
-  UserMeResponse,
 } from '@trailertinder/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
@@ -23,19 +23,26 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Like register(), errors bubble: useLogin turns them into errorMessage.
   async function login(payload: LoginRequest): Promise<LoginResponse | null> {
-    try {
-      const result = await authApi.login(payload);
-      if (!result?.mfaRequired) {
-        isLoggedIn.value = true;
-        const userStore = useUserStore();
-        await userStore.refetchUser();
-        notify.init();
-      }
-      return result;
-    } catch (error) {
-      throw error; //TODO: modify Backend Error message for ui
-    }
+    const result = await authApi.login(payload);
+    if (!result?.mfaRequired) await startSession();
+    return result;
+  }
+
+  /** Shared tail of every path that ends up authenticated. */
+  async function startSession() {
+    isLoggedIn.value = true;
+    const userStore = useUserStore();
+    await userStore.refetchUser();
+    notify.init();
+  }
+
+  // Second step of an MFA login. Takes the challenge token from login(), not the
+  // password — that is deliberately not kept around.
+  async function verifyMfa(payload: MfaVerifyRequest) {
+    await authApi.verifyMfa(payload);
+    await startSession();
   }
 
   async function logout() {
@@ -48,20 +55,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Errors bubble to the caller: SignupForm needs them to render errorMessage.
   async function register(payload: RegisterRequest) {
-    try {
-      await authApi.register(payload);
-      isLoggedIn.value = true;
-      const userStore = useUserStore();
-      await userStore.refetchUser();
-      notify.init();
-    } catch (error) {}
+    await authApi.register(payload);
+    await startSession();
   }
 
   return {
     isLoggedIn,
     init,
     login,
+    verifyMfa,
     logout,
     register,
   };
