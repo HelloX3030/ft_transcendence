@@ -2,3 +2,7 @@ node_modules/
 secrets/*.txt
 notes.md
 .env
+
+# Working docs
+_meta/spec/*.md
+en.subject.pdf
