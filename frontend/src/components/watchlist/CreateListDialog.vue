@@ -40,6 +40,7 @@ import { watchlistApi } from '@/api';
 import type { TmdbMovie } from '@trailertinder/shared';
 import { useEditorSelection } from '@/composables/watchlist/useEditorSelection';
 import EditorListBox from './EditorListBox.vue';
+import { logger } from '@/lib/logger';
 
 const emit = defineEmits(['success']);
 const store = useMoviesStore();
@@ -73,7 +74,7 @@ const onSubmit = handleSubmit(async (values) => {
     }
     emit('success');
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     toast.error('Something went wrong');
   }
   isOpen.value = false;

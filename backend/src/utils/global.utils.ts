@@ -3,15 +3,18 @@ export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 32;
 export const PASSWORD_MAX_LENGTH = 512;
 
-export const FRIENDS_TITEL = 'Friends';
+export const FRIENDS_TITLE = 'Friends';
 
-export const WATCHLISTS_TITEL = 'Watchlists';
+export const WATCHLISTS_TITLE = 'Watchlists';
 
 export const NEW_FRIEND_REQUEST = (user: string) =>
   `You have received a new friend request from ${user}.`;
 
 export const FRIEND_REMOVED = (user: string) => `${user} has removed you as a friend.`;
-export const FRIEND_REQUEST_REMOVED = (user: string) => `${user} has removed the friend request.`;
+export const FRIEND_REQUEST_CANCELLED = (user: string) =>
+  `${user} has cancelled their friend request.`;
+export const FRIEND_REQUEST_DECLINED = (user: string) =>
+  `${user} has declined your friend request.`;
 
 export const FRIEND_REQUEST_ACCEPTED = (user: string) =>
   `${user} has accepted your friend request.`;

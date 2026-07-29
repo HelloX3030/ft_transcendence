@@ -1,7 +1,6 @@
-# * @ausperg
 .github/CODEOWNERS @HelloX3030
 frontend/ @jofmann
-backend/ @HelloX3030 @ausperg
+backend/ @HelloX3030
 
 # Pipeline & code-quality tooling
 *docker-compose.yml  @HelloX3030

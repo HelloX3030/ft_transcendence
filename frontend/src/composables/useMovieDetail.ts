@@ -1,6 +1,7 @@
 import { ref, watch, type Ref } from 'vue';
 import type { TmdbMovieDetail } from '@trailertinder/shared';
 import { backendClient } from '@/api';
+import { logger } from '@/lib/logger';
 
 type DetailStatus = 'idle' | 'loading' | 'ready' | 'notFound' | 'error';
 
@@ -33,7 +34,7 @@ export function useMovieDetail(movieId: Ref<number | undefined>) {
         status.value = 'ready';
       } catch (error) {
         if (gen !== generation) return;
-        console.error(error);
+        logger.error(error);
         status.value = 'error';
       }
     },

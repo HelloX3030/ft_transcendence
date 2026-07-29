@@ -1,5 +1,5 @@
 export interface NotifyMsg {
-  titel: string;
+  title: string;
   msg: string;
 }
 

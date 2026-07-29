@@ -20,7 +20,7 @@ import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
-import { otpDto } from 'src/utils';
+import { ALLOWED_IMAGE_MIMETYPES, otpDto } from 'src/utils';
 
 @Controller('users')
 export class UsersController {
@@ -39,7 +39,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Updated user profile' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Username already taken' })
+  @ApiResponse({ status: 409, description: 'Email or username already taken' })
   updateMe(@Request() req: ExpressRequest, @Body() dto: UpdateUserDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.updateMe(user.sub, dto);
@@ -50,6 +50,8 @@ export class UsersController {
   @ApiResponse({ status: 201, description: 'Updated user profile with onboarding completed' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding payload' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'Onboarding already completed' })
   completeOnboarding(@Request() req: ExpressRequest, @Body() dto: OnboardingDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.completeOnboarding(user.sub, dto);
@@ -58,13 +60,15 @@ export class UsersController {
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar for authenticated user' })
   @ApiResponse({ status: 201, description: 'Updated user profile' })
-  @ApiResponse({ status: 400, description: 'No file or invalid file type' })
+  @ApiResponse({ status: 400, description: 'No file, or not a PNG/JPEG/WebP image' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+      // Cheap early reject on the declared type; the authoritative check is the
+      // magic-byte sniff in UsersService.uploadAvatar (mimetype is client-supplied).
+      fileFilter: (_req, file, cb) => cb(null, ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)),
     }),
   )
   uploadAvatar(
@@ -107,7 +111,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Generate TOTP secret for authenticated user' })
   @ApiResponse({
     status: 201,
-    description: 'TOTP secret generated successfully. Returns QR code and secret.',
+    description:
+      'TOTP secret generated successfully. Returns the QR code only — the plaintext secret is never sent to the client.',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User not found' })
@@ -121,8 +126,9 @@ export class UsersController {
   @ApiOperation({ summary: 'Activate TOTP using verification code' })
   @ApiBody({
     schema: {
+      // Quoted: otpDto.otp is @IsString(), so a JSON number is rejected with a 400.
       example: {
-        otp: 213846,
+        otp: '213846',
       },
     },
   })

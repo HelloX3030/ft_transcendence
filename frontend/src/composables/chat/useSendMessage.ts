@@ -1,20 +1,17 @@
 import { ref } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useUserStore } from '@/stores/user';
-import { useChatStore, type Chat } from '@/stores/chat';
+import { type Chat } from '@/stores/chat';
 import { useNotifyStore } from '@/stores/notify';
 
 export function useSendMessage() {
-  const chatStore = useChatStore();
   const notifyStore = useNotifyStore();
-  const userStore = useUserStore();
-  const { state: user } = storeToRefs(userStore);
 
   const inputMsg = ref('');
 
   function sendMessage(chat: Chat) {
-    if (!inputMsg.value.trim() || !user.value) return;
-    chatStore.addMessage(chat, user.value.id, inputMsg.value.trim());
+    if (!inputMsg.value.trim()) return;
+
+    // No local echo: the gateway relays the message back to every tab of the
+    // sender, so appending it here as well would render it twice.
     notifyStore.sendChatMsg(chat.friend.id, inputMsg.value.trim());
     inputMsg.value = '';
   }

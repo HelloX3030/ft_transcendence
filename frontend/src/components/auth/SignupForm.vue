@@ -7,11 +7,12 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 
 import { registerSchema } from '@/lib/schemas';
-import { Eye, EyeOff } from 'lucide-vue-next';
+import { Eye, EyeOff } from '@lucide/vue';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import Separator from '@/components/ui/separator/Separator.vue';
+import { ApiError } from '@/api/api-error';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/user';
 
@@ -31,13 +32,12 @@ const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
     await userStore.refetchUser();
     router.push('/');
   } catch (err: unknown) {
-    const e = err as { status?: number; message?: string };
-    if (e?.status === 403) {
-      errorMessage.value = 'Email or username is already taken.';
-    } else if (e?.status) {
-      errorMessage.value = e.message ?? 'Something went wrong. Please try again.';
-    } else {
+    if (!(err instanceof ApiError)) {
       errorMessage.value = 'Could not reach the server.';
+    } else if (err.status === 409) {
+      errorMessage.value = 'Email or username is already taken.';
+    } else {
+      errorMessage.value = err.message || 'Something went wrong. Please try again.';
     }
   }
 });

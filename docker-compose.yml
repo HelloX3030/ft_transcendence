@@ -12,7 +12,6 @@ services:
       - VITE_BACKEND_URL=${BACKEND_URL}
       - BACKEND_URL_DOCKER=${BACKEND_URL_DOCKER}
       - VITE_APP_NAME=${APP_NAME}
-      - TMDB_API_KEY=${TMDB_API_KEY}
     depends_on:
       - backend
     networks:

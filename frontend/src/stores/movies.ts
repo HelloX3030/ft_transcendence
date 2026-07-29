@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
 import { useSearchFilter } from '@/composables/useSearchFilter';
 import { backendClient } from '@/api';
+import { logger } from '@/lib/logger';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -46,7 +47,7 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
       return data;
     } catch (error) {
       if (gen !== generation) return undefined;
-      console.error(error);
+      logger.error(error);
       status.value = 'error';
       return undefined;
     }
@@ -69,7 +70,7 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
       status.value = 'ready';
     } catch (error) {
       if (gen !== generation) return;
-      console.error(error);
+      logger.error(error);
       status.value = 'error';
     }
   }

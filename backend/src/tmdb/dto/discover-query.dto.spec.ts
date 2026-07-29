@@ -62,5 +62,39 @@ describe('DiscoverQueryDto', () => {
     it('rejects a malformed date', () => {
       expect(validateSync(build({ releaseDateGte: '2000' }))).not.toHaveLength(0);
     });
+
+    it('rejects dates that match the format but are not real days', () => {
+      expect(validateSync(build({ releaseDateGte: '2026-99-99' }))).not.toHaveLength(0);
+      expect(validateSync(build({ releaseDateGte: '0000-00-00' }))).not.toHaveLength(0);
+      expect(validateSync(build({ releaseDateLte: '2019-02-29' }))).not.toHaveLength(0);
+    });
+
+    it('accepts a leap day in a leap year', () => {
+      expect(validateSync(build({ releaseDateGte: '2020-02-29' }))).toHaveLength(0);
+    });
+
+    it('rejects a full timestamp, keeping the bounds date-only', () => {
+      expect(validateSync(build({ releaseDateGte: '2000-01-01T00:00:00Z' }))).not.toHaveLength(0);
+    });
+
+    it('rejects an inverted range', () => {
+      const errors = validateSync(
+        build({ releaseDateGte: '2020-01-01', releaseDateLte: '2010-01-01' }),
+      );
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].constraints).toHaveProperty('isNotAfter');
+    });
+
+    it('accepts a range whose bounds are equal', () => {
+      expect(
+        validateSync(build({ releaseDateGte: '2020-01-01', releaseDateLte: '2020-01-01' })),
+      ).toHaveLength(0);
+    });
+
+    it('does not check the ordering when only one bound is given', () => {
+      expect(validateSync(build({ releaseDateGte: '2020-01-01' }))).toHaveLength(0);
+      expect(validateSync(build({ releaseDateLte: '2010-01-01' }))).toHaveLength(0);
+    });
   });
 });

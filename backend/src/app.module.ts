@@ -14,6 +14,8 @@ import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { THROTTLERS } from './throttle.config';
 
 @Module({
   imports: [
@@ -21,8 +23,8 @@ import { NotifyModule } from './notify/notify.module';
       isGlobal: true,
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().required(),
-        JWT_ACCESS_SECRET: Joi.string().required(),
-        JWT_REFRESH_SECRET: Joi.string().required(),
+        JWT_ACCESS_SECRET: Joi.string().min(32).required(),
+        JWT_REFRESH_SECRET: Joi.string().min(32).required(),
         CORS_ORIGIN: Joi.string().required(),
         MINIO_ENDPOINT: Joi.string().required(),
         MINIO_PUBLIC_URL: Joi.string().required(),
@@ -30,13 +32,16 @@ import { NotifyModule } from './notify/notify.module';
         MINIO_SECRET_KEY: Joi.string().required(),
         MINIO_BUCKET: Joi.string().required(),
         APP_NAME: Joi.string().required(),
-        MFA_KEY: Joi.string().required(),
+        MFA_KEY: Joi.string().length(64).hex().required(),
         TMDB_API_KEY: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
         PORT: Joi.number().default(3000),
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },
     }),
+    // ThrottlerModule is @Global(); registering it anywhere else would compete
+    // with this one. Feature modules pick windows via @SkipThrottle instead.
+    ThrottlerModule.forRoot(THROTTLERS),
     PrismaModule,
     RedisModule,
     FriendsModule,

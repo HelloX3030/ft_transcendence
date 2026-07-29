@@ -20,7 +20,7 @@ import {
   MessageCircle,
   Shield,
   Users,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 import { useAuthStore } from '@/stores/auth';
 import AppSidebarHeader from './AppSidebarHeader.vue';
 import AppSidebarItem from './AppSidebarItem.vue';
@@ -42,10 +42,10 @@ async function handleLogout() {
       <SidebarGroup>
         <SidebarGroupContent>
           <SidebarMenu>
-            <AppSidebarItem titel="Discover" path="/discover" :icon="Clapperboard" />
-            <AppSidebarItem titel="Watchlist" path="/watchlist" :icon="BookHeart" />
-            <AppSidebarItem titel="Friends" path="/friends" :icon="Users" />
-            <AppSidebarItem titel="Chat" path="/chat" :icon="MessageCircle" />
+            <AppSidebarItem title="Discover" path="/discover" :icon="Clapperboard" />
+            <AppSidebarItem title="Watchlist" path="/watchlist" :icon="BookHeart" />
+            <AppSidebarItem title="Friends" path="/friends" :icon="Users" />
+            <AppSidebarItem title="Chat" path="/chat" :icon="MessageCircle" />
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -53,9 +53,9 @@ async function handleLogout() {
 
     <SidebarFooter>
       <SidebarSeparator />
-      <AppSidebarItem titel="Help" path="/help" :icon="CircleQuestionMark" />
-      <AppSidebarItem titel="Terms of Service" path="/terms" :icon="FileText" />
-      <AppSidebarItem titel="Privacy Policy" path="/privacy" :icon="Shield" />
+      <AppSidebarItem title="Help" path="/help" :icon="CircleQuestionMark" />
+      <AppSidebarItem title="Terms of Service" path="/terms" :icon="FileText" />
+      <AppSidebarItem title="Privacy Policy" path="/privacy" :icon="Shield" />
       <SidebarMenuItem>
         <SidebarMenuButton @click="handleLogout">
           <LogOut />

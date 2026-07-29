@@ -32,7 +32,7 @@ const notify = useNotifyStore();
       <span
         class="flex flex-initial items-baseline gap-4 p-0 rounded-full bg-muted px-2 py-1 text-xs"
       >
-        {{ notification.titel }}
+        {{ notification.title }}
       </span>
       <div class="flex flex-col flex-auto">
         <p class="text-sm">

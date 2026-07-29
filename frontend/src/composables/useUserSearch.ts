@@ -1,6 +1,7 @@
 import { userApi } from '@/api/endpoints/user';
 import type { UserSearchResponse } from '@trailertinder/shared';
 import { ref } from 'vue';
+import { logger } from '@/lib/logger';
 
 export function useUserSearch() {
   const searchStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -12,7 +13,7 @@ export function useUserSearch() {
       searchData.value = data;
       searchStatus.value = 'ready';
     } catch (error) {
-      console.log(error);
+      logger.error(error);
       searchStatus.value = 'error';
     }
   }

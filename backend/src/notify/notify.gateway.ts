@@ -1,20 +1,27 @@
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { Namespace } from 'socket.io';
 import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
-import { FriendUtils, SYSTEM_SENDER_ID } from 'src/utils';
-import { ChatRequiremtnsException } from './exceptions/chat-requirements-exception';
+import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
+import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
+import { onlineStatusRoom, userRoom } from './notify.rooms';
+
+/** How often to look for sockets whose access token has run out. */
+const TOKEN_EXPIRY_SWEEP_MS = 60_000;
 
 @WebSocketGateway({
   namespace: 'notify',
@@ -30,7 +37,7 @@ import { ChatRequiremtnsException } from './exceptions/chat-requirements-excepti
     transform: true,
   }),
 )
-export class NotifyGateway {
+export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisconnect<Socket> {
   private readonly logger = new Logger(NotifyGateway.name);
 
   constructor(
@@ -38,9 +45,12 @@ export class NotifyGateway {
     private readonly notifyService: NotifyService,
     private readonly jwtService: JwtService,
     private readonly friendUtils: FriendUtils,
+    private readonly userUtils: UserUtils,
   ) {}
+  // @WebSocketServer() injects the `notify` namespace, not the root Server, so
+  // every emit below is already scoped to it.
   @WebSocketServer()
-  server: Server = new Server();
+  private server: Namespace;
 
   async handleConnection(client: Socket) {
     try {
@@ -50,14 +60,31 @@ export class NotifyGateway {
       if (!token) {
         throw new Error('No token provided.');
       }
-      const payload = await this.jwtService.verifyAsync<JwtAccessPayload>(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
+      const payload = await this.jwtService.verifyAsync<JwtAccessPayload & { exp?: number }>(
+        token,
+        { secret: process.env.JWT_ACCESS_SECRET },
+      );
+
+      // A token can outlive the account it was issued for. Without this check a
+      // deleted user is added to the presence map and broadcast as online.
+      await this.userUtils.getUser(payload.sub);
 
       client.data.user = payload.sub;
-      client.join(`user:${payload.sub}`);
+      // exp is in seconds; the sweep below compares it against Date.now().
+      client.data.tokenExpiresAt = typeof payload.exp === 'number' ? payload.exp * 1000 : undefined;
+      client.join(userRoom(payload.sub));
       this.notifyService.setUserAsActive(payload.sub, client);
-      this.server.emit(`online-status:${payload.sub}`, { id: payload.sub, isOnline: true });
+      this.publishPresence(payload.sub, true);
+
+      // Reconcile this socket's presence rooms from the DB on every (re)connect.
+      // Rooms are per-socket, so a fresh socket (initial load or a silent
+      // socket.io reconnect) is in no status rooms until seeded. A failure here
+      // must not tear down an otherwise-valid connection.
+      try {
+        await this.seedFriendStatusRooms(client);
+      } catch (error) {
+        this.logger.error(error);
+      }
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'No token provided or the token is invalid.');
@@ -71,11 +98,48 @@ export class NotifyGateway {
     if (!userId) {
       return;
     }
-    this.notifyService.setUserAsInative(userId, client);
-    this.server.emit(`online-status:${userId}`, {
-      id: userId,
-      isOnline: false,
-    });
+    this.notifyService.setUserAsInactive(userId, client);
+    // Sockets are ref-counted per user, so closing one of several open tabs
+    // must not announce the user as offline while the others are still up.
+    if (!this.notifyService.isOnline(userId)) {
+      this.publishPresence(userId, false);
+    }
+  }
+
+  /**
+   * Drops sockets whose access token has run out.
+   *
+   * The token is only checked during the handshake, so without this a socket
+   * opened with a valid token keeps its authorisation for as long as it stays
+   * connected — indefinitely. Disconnecting lets the client reconnect, which
+   * re-runs the handshake against whatever cookie it holds by then.
+   */
+  @Interval(TOKEN_EXPIRY_SWEEP_MS)
+  disconnectExpiredSockets() {
+    const sockets = this.server?.sockets;
+    if (sockets === undefined) return;
+
+    const now = Date.now();
+    for (const socket of sockets.values() as Iterable<Socket>) {
+      const expiresAt = socket.data?.tokenExpiresAt;
+      if (expiresAt !== undefined && expiresAt <= now) {
+        this.logger.debug(`Disconnecting socket of user ${socket.data.user}: token expired`);
+        socket.emit('error', 'Your session expired.');
+        socket.disconnect(true);
+      }
+    }
+  }
+
+  /**
+   * Publishes a presence transition to the watchers of `userId` only. The room
+   * and the event share a name, so the emit reaches exactly the sockets that
+   * `seedFriendStatusRooms` subscribed — a plain `server.emit` would put every
+   * user's presence on the wire for every connected socket.
+   */
+  private publishPresence(userId: number, isOnline: boolean) {
+    this.server
+      .to(onlineStatusRoom(userId))
+      .emit(onlineStatusRoom(userId), { id: userId, isOnline });
   }
 
   // -------------------------
@@ -84,29 +148,43 @@ export class NotifyGateway {
   @SubscribeMessage('watch-friends-status')
   async userStatus(@ConnectedSocket() client: Socket) {
     try {
-      const friendIds = await this.friendUtils.getFreinds(client.data.user);
-      for (const userId of friendIds) {
-        this.addClientToStatusUpdate(client, userId);
-      }
+      await this.seedFriendStatusRooms(client);
     } catch (error) {
       this.logger.error(error);
       client.emit('error', 'Unable to load your friends online status.');
     }
   }
 
-  addClientToStatusUpdate(client: Socket, userId: number) {
+  /**
+   * Joins `client` to the presence room of every accepted friend and pushes the
+   * current online/offline snapshot back to that socket. Runs both on connect
+   * (server-driven, covers reconnects) and on the `watch-friends-status`
+   * subscribe. Callers decide how a failure surfaces to the client.
+   */
+  private async seedFriendStatusRooms(client: Socket) {
+    const friendIds = await this.friendUtils.getFriends(client.data.user);
     const friendsStatus: FriendsStatus[] = [];
-    friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
-    client.join(`online-status:${userId}`);
-    this.server.to(`user:${client.data.user}`).emit('watch-friends-status', friendsStatus);
+
+    for (const userId of friendIds) {
+      client.join(onlineStatusRoom(userId));
+      friendsStatus.push({ id: userId, isOnline: this.notifyService.isOnline(userId) });
+    }
+    // One emit with every friend, only to the tab that subscribed.
+    client.emit('watch-friends-status', friendsStatus);
+    this.logger.debug(`Added user to ${friendsStatus.length} online-status rooms`);
+  }
+
+  addClientToStatusUpdate(client: Socket, userId: number) {
+    client.join(onlineStatusRoom(userId));
+    client.emit('watch-friends-status', [
+      { id: userId, isOnline: this.notifyService.isOnline(userId) },
+    ]);
     this.logger.debug(`Add user to online-status:${userId}`);
   }
 
   rmClientFromStatusUpdate(client: Socket, userId: number) {
-    client.leave(`online-status:${userId}`);
-    const friendsStatus: FriendsStatus[] = [];
-    friendsStatus.push({ id: userId, isOnline: false });
-    this.server.to(`user:${client.data.user}`).emit('watch-friends-status-rm', friendsStatus);
+    client.leave(onlineStatusRoom(userId));
+    client.emit('watch-friends-status-rm', [{ id: userId, isOnline: false }]);
     this.logger.debug(`Removed user from online-status:${userId}`);
   }
 
@@ -114,7 +192,7 @@ export class NotifyGateway {
   // Send Notifications
   // -------------------------
   sendNotification(userId: number, message: NotifyMsg) {
-    this.server.to(`user:${userId}`).emit('notification', message);
+    this.server.to(userRoom(userId)).emit('notification', message);
   }
 
   // -------------------------
@@ -124,39 +202,39 @@ export class NotifyGateway {
   async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
     const meUserId = client.data.user;
     const peerUserId = data.peerUserId;
+    // One timestamp for every emit of this message, so peer and sender agree.
+    const time = Date.now();
 
     try {
       await this.notifyService.hasChatRequirements(meUserId, peerUserId);
 
-      this.server.to(`user:${peerUserId}`).emit('chat', {
+      this.server.to(userRoom(peerUserId)).emit('chat', {
         peerUserId: meUserId,
         senderUserId: meUserId,
-        time: Date.now(),
+        time,
         msg: data.msg,
       });
-      client.to(`user:${meUserId}`).emit('chat', {
+      // server.to (not client.to) so the sending tab receives its own message too
+      // and every tab renders the same transcript.
+      this.server.to(userRoom(meUserId)).emit('chat', {
         peerUserId: peerUserId,
         senderUserId: meUserId,
-        time: Date.now(),
+        time,
         msg: data.msg,
       });
     } catch (error) {
       let errorMsg = 'An unknown error occurred while sending this message.';
-      if (error instanceof ChatRequiremtnsException) {
+      if (error instanceof ChatRequirementsException) {
         errorMsg = error.message;
       } else {
         this.logger.error(error);
       }
-      client.to(`user:${meUserId}`).emit('chat', {
-        peerUserId: peerUserId,
-        senderUserId: meUserId,
-        time: Date.now(),
-        msg: data.msg,
-      });
-      this.server.to(`user:${meUserId}`).emit('chat', {
+      // Only the system error — the message was never delivered, so it must not
+      // appear in any transcript.
+      this.server.to(userRoom(meUserId)).emit('chat', {
         peerUserId,
         senderUserId: SYSTEM_SENDER_ID,
-        time: Date.now(),
+        time,
         msg: errorMsg,
       });
     }

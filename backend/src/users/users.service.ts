@@ -2,18 +2,16 @@ import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { extname } from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import * as crypto from 'crypto';
-import { encrypt, getMfaKey, successResponse } from 'src/utils';
+import { ALLOWED_IMAGE_LABEL, detectImageType, encryptSecret, successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
@@ -57,10 +55,12 @@ export class UsersService {
   ) {}
 
   async getMe(userId: number) {
-    return this.prisma.users.findUnique({
+    const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: ME_SELECT,
     });
+    if (user === null) throw new NotFoundException('User not found');
+    return successResponse(user);
   }
 
   async completeOnboarding(userId: number, dto: OnboardingDto) {
@@ -69,52 +69,88 @@ export class UsersService {
     this.logger.debug(
       `Onboarding user ${userId} with ${dto.movieIds.length} movies — applying mock preferences`,
     );
-    return this.prisma.users.update({
-      where: { id: userId },
+    // Guarded on `onboardingCompleted: false` so a repeat call cannot re-stamp the
+    // preference arrays — once real preference extraction exists, whatever it wrote
+    // must never be clobbered from this path.
+    const { count } = await this.prisma.users.updateMany({
+      where: { id: userId, onboardingCompleted: false },
       data: {
         onboardingCompleted: true,
         genreIds: MOCK_ONBOARDING_GENRE_IDS,
         actorIds: MOCK_ONBOARDING_ACTOR_IDS,
         directorIds: MOCK_ONBOARDING_DIRECTOR_IDS,
       },
+    });
+
+    // updateMany cannot return the row, so read it back; it also tells a
+    // deleted user (404) apart from an already-onboarded one (409).
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
       select: ME_SELECT,
     });
+    if (user === null) throw new NotFoundException('User not found');
+    if (count === 0) throw new ConflictException('Onboarding already completed');
+
+    return successResponse(user);
   }
 
   async updateMe(userId: number, dto: UpdateUserDto) {
     try {
-      return await this.prisma.users.update({
+      const user = await this.prisma.users.update({
         where: { id: userId },
         data: dto,
         select: ME_SELECT,
       });
+      return successResponse(user);
     } catch (error) {
+      // Same 409 as PrismaExceptionFilter maps P2002 to everywhere else; caught
+      // locally only to name the colliding field.
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = (error.meta?.target as string[]) ?? [];
-        if (target.includes('email')) throw new ForbiddenException('Email already taken');
-        throw new ForbiddenException('Username already taken');
+        if (target.includes('email')) throw new ConflictException('Email already taken');
+        throw new ConflictException('Username already taken');
       }
       throw error;
     }
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
+    // The declared mimetype and the filename are both client-controlled, and the
+    // bucket is publicly readable — so the stored type and the key extension are
+    // derived from the actual bytes, never from the request.
+    const image = detectImageType(file.buffer);
+    if (image === null) {
+      throw new BadRequestException(`Unsupported image format. Allowed: ${ALLOWED_IMAGE_LABEL}`);
+    }
+
     const current = await this.prisma.users.findUnique({
       where: { id: userId },
       select: { image: true },
     });
     const oldKey = this.storage.extractKey(current?.image);
 
-    const key = `${userId}-${Date.now()}${extname(file.originalname)}`;
-    const imageUrl = await this.storage.upload(key, file.buffer, file.mimetype);
-    const updated = await this.prisma.users.update({
-      where: { id: userId },
-      data: { image: imageUrl },
-      select: ME_SELECT,
-    });
+    // Random suffix: two uploads within the same millisecond would otherwise share a
+    // key, and the old-object cleanup below would delete the one just written.
+    const key = `${userId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${image.ext}`;
+    const imageUrl = await this.storage.upload(key, file.buffer, image.mime);
+
+    let updated;
+    try {
+      updated = await this.prisma.users.update({
+        where: { id: userId },
+        data: { image: imageUrl },
+        select: ME_SELECT,
+      });
+    } catch (error) {
+      // The object is already in the bucket but nothing references it now — drop it
+      // rather than leak it. `delete` swallows its own failures, so the original
+      // error is what surfaces.
+      await this.storage.delete(key);
+      throw error;
+    }
 
     if (oldKey) await this.storage.delete(oldKey);
-    return updated;
+    return successResponse(updated);
   }
 
   async deleteMe(userId: number) {
@@ -127,7 +163,7 @@ export class UsersService {
     await this.prisma.users.delete({ where: { id: userId } });
 
     if (oldKey) await this.storage.delete(oldKey);
-    return { message: 'Account deleted' };
+    return successResponse(null, 'Account deleted');
   }
 
   async searchUsers(requesterId: number, dto: SearchUsersDto) {
@@ -148,7 +184,7 @@ export class UsersService {
       }),
     ]);
 
-    return { page, limit, total, results };
+    return successResponse({ page, limit, total, results });
   }
 
   async getUser(userId: number) {
@@ -174,7 +210,7 @@ export class UsersService {
 
     const appName = process.env.APP_NAME;
     if (appName === undefined) {
-      console.error('The env "APP_NAME" is not set.');
+      this.logger.error('The env "APP_NAME" is not set.');
       throw new InternalServerErrorException();
     }
 
@@ -189,10 +225,7 @@ export class UsersService {
     const secret = totp.secret.base32;
     const qrCode = await this.generateQRCode(totp.toString());
 
-    const key = getMfaKey();
-    const iv = crypto.randomBytes(16);
-    let encryptedSecret = iv.toString('hex') + ':';
-    encryptedSecret += encrypt(secret, key, iv);
+    const encryptedSecret = encryptSecret(secret);
 
     const result = await this.prisma.users.updateMany({
       where: {
@@ -221,22 +254,28 @@ export class UsersService {
     });
     if (user === null) throw new NotFoundException('User not found.');
     if (user.totpSecret === null) throw new BadRequestException('No TOTP set.');
-    const isValid = verifyTOTP(user.totpSecret, otp);
-    if (isValid) {
-      const result = await this.prisma.users.updateMany({
-        where: {
-          id: userId,
-          totpSecret: user.totpSecret,
-        },
-        data: {
-          totpActive: true,
-        },
-      });
-      if (result.count === 0) {
-        throw new ConflictException('TOTP setup already in progress or active.');
-      }
-    } else {
+    const counter = verifyTOTP(user.totpSecret, otp);
+    if (counter === null) {
       throw new BadRequestException('TOTP code is invalid.');
+    }
+
+    const result = await this.prisma.users.updateMany({
+      where: {
+        id: userId,
+        totpSecret: user.totpSecret,
+        // Without this a re-post of a still-valid code to an already-active
+        // account updates the row again and reports success a second time.
+        totpActive: false,
+      },
+      data: {
+        totpActive: true,
+        // Burn the counter on activation too, so the code that switched TOTP on
+        // cannot immediately be replayed against login.
+        totpLastCounter: counter,
+      },
+    });
+    if (result.count === 0) {
+      throw new ConflictException('TOTP setup already in progress or active.');
     }
     return successResponse(null, 'TOTP verified and activated successfully.');
   }
@@ -259,7 +298,7 @@ export class UsersService {
       const qrCode = await QRCode.toString(uri, { type: 'svg' });
       return qrCode;
     } catch (error) {
-      console.error('Error during QR code generation: ', error);
+      this.logger.error('Error during QR code generation', error as Error);
       throw new InternalServerErrorException();
     }
   }

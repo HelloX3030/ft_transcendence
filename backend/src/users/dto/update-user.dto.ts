@@ -2,15 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { language_code } from '@prisma/client';
 import { UpdateUserRequest } from '@trailertinder/shared';
 import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
-import {
-  IsEmail,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUrl,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateUserDto implements UpdateUserRequest {
   @ApiProperty({ example: 'alice', required: false })
@@ -31,10 +23,8 @@ export class UpdateUserDto implements UpdateUserRequest {
   @IsEnum(language_code)
   language?: language_code;
 
-  @ApiProperty({ example: 'https://example.com/avatar.png', required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(DEFAULT_MAX_LENGTH)
-  @IsUrl()
-  image?: string;
+  // `image` is deliberately not writable here: avatars come only from
+  // POST /users/me/avatar, which validates the bytes and owns bucket cleanup.
+  // A client sending it gets a 400 from the global ValidationPipe
+  // (forbidNonWhitelisted). It is still returned by ME_SELECT/PUBLIC_SELECT.
 }

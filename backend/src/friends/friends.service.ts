@@ -1,15 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
-import { Friend } from '@trailertinder/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   FRIEND_REMOVED,
   FRIEND_REQUEST_ACCEPTED,
-  FRIEND_REQUEST_REMOVED,
-  FRIENDS_TITEL,
+  FRIEND_REQUEST_CANCELLED,
+  FRIEND_REQUEST_DECLINED,
+  FRIENDS_TITLE,
   FriendUtils,
   NEW_FRIEND_REQUEST,
   successResponse,
@@ -18,11 +13,6 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from 'src/notify/notify.service';
-
-export const FRIENDS_SELECT = {
-  friendsA: true,
-  friendsB: true,
-} as const;
 
 @Injectable()
 export class FriendsService {
@@ -34,37 +24,21 @@ export class FriendsService {
   ) {}
 
   async getFriends(payload: JwtAccessPayload) {
-    const user = await this.prisma.users.findUnique({
-      where: { id: payload.sub },
-      select: FRIENDS_SELECT,
-    });
-
-    if (user === null) throw new InternalServerErrorException();
-
-    const friends: Friend[] = [];
-
-    user.friendsA.forEach((friend) => {
-      friends.push({
-        friendId: friend.userBId,
-        status: friend.status,
-        initiatorId: friend.initiatorId,
-        createdAt: friend.createdAt,
-      });
-    });
-
-    user.friendsB.forEach((friend) => {
-      friends.push({
-        friendId: friend.userAId,
-        status: friend.status,
-        initiatorId: friend.initiatorId,
-        createdAt: friend.createdAt,
-      });
-    });
+    const friends = await this.friendUtils.listFriends(payload.sub);
     return successResponse(friends);
   }
 
   async addFriend(payload: JwtAccessPayload, id: number) {
     if (payload.sub === id) throw new BadRequestException("You can't be friends with yourself.");
+
+    const targetUser = await this.prisma.users.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (targetUser === null) {
+      throw new NotFoundException('User not found.');
+    }
+
     const friendsKey = this.friendUtils.getFriendsKey(payload.sub, id);
 
     await this.prisma.friends.create({
@@ -75,11 +49,15 @@ export class FriendsService {
         status: 'pending',
       },
     });
-    const username = (await this.userUtils.getUser(payload.sub)).username;
-    this.notifyService.sendNotify(id, {
-      titel: FRIENDS_TITEL,
-      msg: NEW_FRIEND_REQUEST(username),
-    });
+    // Notifications aren't persisted, so an offline peer would never see one —
+    // skip the username lookup and emit entirely unless they're connected.
+    if (this.notifyService.isOnline(id)) {
+      const username = (await this.userUtils.getUser(payload.sub)).username;
+      this.notifyService.sendNotify(id, {
+        title: FRIENDS_TITLE,
+        msg: NEW_FRIEND_REQUEST(username),
+      });
+    }
     return successResponse(null, 'friendship request created');
   }
 
@@ -115,11 +93,13 @@ export class FriendsService {
     this.notifyService.addUserToOnlineStatus(payload.sub, id);
     this.notifyService.addUserToOnlineStatus(id, payload.sub);
 
-    const username = (await this.userUtils.getUser(payload.sub)).username;
-    this.notifyService.sendNotify(id, {
-      titel: FRIENDS_TITEL,
-      msg: FRIEND_REQUEST_ACCEPTED(username),
-    });
+    if (this.notifyService.isOnline(id)) {
+      const username = (await this.userUtils.getUser(payload.sub)).username;
+      this.notifyService.sendNotify(id, {
+        title: FRIENDS_TITLE,
+        msg: FRIEND_REQUEST_ACCEPTED(username),
+      });
+    }
 
     return successResponse(null, 'friendship status updated');
   }
@@ -136,17 +116,26 @@ export class FriendsService {
     this.notifyService.rmUserFromOnlineStatus(payload.sub, id);
     this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
 
-    const username = (await this.userUtils.getUser(payload.sub)).username;
+    if (this.notifyService.isOnline(id)) {
+      const username = (await this.userUtils.getUser(payload.sub)).username;
 
-    if (deletedFriend.status === 'accepted') {
+      // The peer being notified is always the other party in the canonical pair.
+      // Three distinct delete semantics map to three distinct messages:
+      //   - accepted friendship  → either party unfriends the other
+      //   - pending, caller is initiator → initiator cancels their own request
+      //   - pending, caller is recipient → recipient declines the request
+      let msg: string;
+      if (deletedFriend.status === 'accepted') {
+        msg = FRIEND_REMOVED(username);
+      } else if (deletedFriend.initiatorId === payload.sub) {
+        msg = FRIEND_REQUEST_CANCELLED(username);
+      } else {
+        msg = FRIEND_REQUEST_DECLINED(username);
+      }
+
       this.notifyService.sendNotify(id, {
-        titel: FRIENDS_TITEL,
-        msg: FRIEND_REMOVED(username),
-      });
-    } else {
-      this.notifyService.sendNotify(id, {
-        titel: FRIENDS_TITEL,
-        msg: FRIEND_REQUEST_REMOVED(username),
+        title: FRIENDS_TITLE,
+        msg,
       });
     }
 

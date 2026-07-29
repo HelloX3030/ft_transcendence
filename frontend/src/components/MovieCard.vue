@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleCheck } from 'lucide-vue-next';
+import { CircleCheck } from '@lucide/vue';
 import { AspectRatio } from './ui/aspect-ratio';
 import { Skeleton } from './ui/skeleton';
 
