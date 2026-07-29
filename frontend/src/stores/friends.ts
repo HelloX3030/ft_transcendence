@@ -41,6 +41,18 @@ export const useFriendsStore = defineStore('friends', () => {
     await refetchFriends();
   }
 
+  function $reset() {
+    state.value = [];
+    isReady.value = false;
+    error.value = null;
+    friendsDetails.value = [];
+  }
+
+  async function ensureLoaded() {
+    if (isReady.value || isLoading.value) return;
+    await refetchFriends();
+  }
+
   return {
     state,
     friendsDetails,
@@ -53,5 +65,7 @@ export const useFriendsStore = defineStore('friends', () => {
     declineRequest,
     sendRequest,
     deleteFriend,
+    $reset,
+    ensureLoaded,
   };
 });

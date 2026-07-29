@@ -11,7 +11,7 @@ export interface SelectedMovie {
 // Max movies a user can pick during onboarding.
 export const MAX_SELECTED = 10;
 
-export const useSelectionStore = defineStore('selection', () => {
+export const useOnboarding = () => {
   const selectedMovies = ref<SelectedMovie[]>([]);
 
   function isSelected(id: number): boolean {
@@ -31,6 +31,5 @@ export const useSelectionStore = defineStore('selection', () => {
   function clearMovies() {
     selectedMovies.value = [];
   }
-
   return { selectedMovies, isSelected, toggleMovie, clearMovies };
-});
+};

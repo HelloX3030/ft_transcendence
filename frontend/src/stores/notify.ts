@@ -16,9 +16,6 @@ export const useNotifyStore = defineStore('notify', () => {
   const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
-  const chatStore = useChatStore();
-  const { chats } = storeToRefs(chatStore);
-
   function init() {
     if (isInit) return;
     console.log('[notify] init...');
@@ -73,13 +70,22 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   function stop() {
-    console.log('[notify] stop.');
-    socket.close();
+    if (!isInit) return;
+
+    console.log('[notify] stop');
+
+    socket.removeAllListeners();
+    socket.disconnect();
+
     isInit = false;
+
+    $reset();
+  }
+  function $reset() {
     count.value = 0;
     nofiyId.value = 0;
     notifyMsg.value = [];
-    friendsStatus.value = new Map();
+    friendsStatus.value = new Map<number, boolean>();
     offline.value = true;
   }
 
@@ -96,7 +102,6 @@ export const useNotifyStore = defineStore('notify', () => {
           friendsStatus.value.set(user.id, user.isOnline);
         });
         friendsStatus.value.set(user.id, user.isOnline);
-        console.log('add watch user Id: ' + user.id);
       }
     });
     socket.on('watch-friends-status-rm', (data) => {
@@ -118,13 +123,14 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   function initChat() {
+    const chatStore = useChatStore();
     socket.on('chat', (data) => {
       if (!isChatMsgRecive(data)) {
         console.error('[notify] invalid chat payload', data);
         return;
       }
 
-      const chat = chats.value.get(data.peerUserId);
+      const chat = chatStore.chats.get(data.peerUserId);
       if (chat) chatStore.addMessage(chat, data.senderUserId, data.msg);
 
       if (data.senderUserId === data.peerUserId)
@@ -151,6 +157,7 @@ export const useNotifyStore = defineStore('notify', () => {
     notifyMsg,
     init,
     stop,
+    $reset,
     clearAllNotifications,
     sendChatMsg,
   };

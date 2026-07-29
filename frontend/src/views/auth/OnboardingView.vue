@@ -7,13 +7,11 @@ import MovieCard from '@/components/MovieCard.vue';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
-import { useSelectionStore } from '@/stores/selection';
 import { useRouter } from 'vue-router';
-import { storeToRefs } from 'pinia';
 import { useUserStore } from '@/stores/user';
+import { useOnboarding } from '@/composables/useOnboarding';
 
-const selection = useSelectionStore();
-const { selectedMovies } = storeToRefs(selection);
+const { selectedMovies, isSelected, toggleMovie, clearMovies } = useOnboarding();
 const userStore = useUserStore();
 const router = useRouter();
 
@@ -33,7 +31,7 @@ async function completeOnboarding() {
   }
 }
 
-onUnmounted(selection.clearMovies);
+onUnmounted(clearMovies);
 </script>
 
 <template>
@@ -60,8 +58,8 @@ onUnmounted(selection.clearMovies);
         <MovieCard
           :title="movie.title"
           :img="movie.poster_path"
-          :selected="selection.isSelected(movie.id)"
-          @select="selection.toggleMovie(movie)"
+          :selected="isSelected(movie.id)"
+          @select="toggleMovie(movie)"
         />
       </template>
     </MovieBrowser>

@@ -17,13 +17,6 @@ export const useChatStore = defineStore('chat', () => {
   const chats = ref(new Map<number, Chat>());
   const activeChat = ref<Chat>();
 
-  watch(chats, (c) => {
-    console.log(c.entries);
-  });
-  watch(activeChat, (c) => {
-    console.log(c?.messages);
-  });
-
   const sortedChats = computed(() => {
     return Array.from(chats.value.values()).sort((a, b) => {
       const aTime = a.messages.at(-1)?.timestamp;
@@ -69,6 +62,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function $reset() {
+    chats.value = new Map<number, Chat>();
+    activeChat.value = undefined;
+  }
+
   return {
     chats,
     sortedChats,
@@ -79,5 +77,6 @@ export const useChatStore = defineStore('chat', () => {
     addMessage,
     deleteChat,
     getChat,
+    $reset,
   };
 });
