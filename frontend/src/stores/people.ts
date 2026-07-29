@@ -42,5 +42,9 @@ export const usePeopleStore = defineStore('people', () => {
     );
   }
 
-  return { people, personName, ensureLoaded };
+  function $reset() {
+    people.value = {};
+  }
+
+  return { people, personName, ensureLoaded, $reset };
 });

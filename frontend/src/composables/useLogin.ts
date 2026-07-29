@@ -14,7 +14,7 @@ export function useLogin() {
   async function login(email: string, password: string) {
     errorMessage.value = null;
     try {
-      const result = await authStore.login({ email, password }); // ← Store, nicht API
+      const result = await authStore.login({ email, password });
       if (result?.mfaRequired) {
         pendingCredentials.value = { email, password };
         mfaRequired.value = true;
@@ -33,7 +33,7 @@ export function useLogin() {
     errorMessage.value = null;
     otpVerifyLoading.value = true;
     try {
-      await authStore.login({ ...pendingCredentials.value, otp }); // ← Store
+      await authStore.login({ ...pendingCredentials.value, otp });
       router.push('/');
     } catch {
       errorMessage.value = 'Invalid code. Please try again.';
