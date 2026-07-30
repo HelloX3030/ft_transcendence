@@ -63,10 +63,11 @@ const mockJwt = {
 } satisfies Partial<jest.Mocked<JwtService>>;
 
 // Returns the cookie spy alongside the response so assertions never reference
-// `res.cookie` as an unbound method.
-function mockResponse(): { res: ExpressResponse; cookie: jest.Mock } {
+// `res.cookie` as an unbound method. `req.secure` is what decides the Secure
+// flag, so it has to be part of the fake response the way Express provides it.
+function mockResponse(secure = false): { res: ExpressResponse; cookie: jest.Mock } {
   const cookie = jest.fn();
-  return { res: { cookie } as unknown as ExpressResponse, cookie };
+  return { res: { cookie, req: { secure } } as unknown as ExpressResponse, cookie };
 }
 
 function mockRequest(): ExpressRequest {
@@ -126,6 +127,21 @@ describe('AuthService', () => {
       });
       expect(cookie).toHaveBeenCalledWith('access_token', 'signed-token', expect.any(Object));
       expect(cookie).toHaveBeenCalledWith('refresh_token', 'signed-token', expect.any(Object));
+    });
+
+    it('marks both cookies Secure and HttpOnly when the request came over HTTPS', async () => {
+      mockPrisma.users.create.mockResolvedValue(mockUser);
+      const { res, cookie } = mockResponse(true);
+
+      await service.register(mockRequest(), registerDto, res);
+
+      for (const name of ['access_token', 'refresh_token']) {
+        expect(cookie).toHaveBeenCalledWith(
+          name,
+          'signed-token',
+          expect.objectContaining({ secure: true, httpOnly: true, sameSite: 'strict' }) as object,
+        );
+      }
     });
 
     it('stores the argon2 hash and never the plaintext password', async () => {

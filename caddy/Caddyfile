@@ -1,0 +1,39 @@
+# Ports 443 and 80 are deliberately not used: the school machines run rootless
+# Docker, which refuses to publish anything below 1024, so a privileged port
+# makes `docker compose up` fail outright. 8443/8080 need no host configuration
+# and work the same on a rootful daemon.
+
+# Single origin for the whole application. Everything the browser talks to is
+# behind this one host:port, so the self-signed certificate is accepted once —
+# under a cert-per-service layout the API calls, being issued by JavaScript
+# rather than navigation, would just be blocked silently.
+localhost:8443 {
+	# Caddy generates and manages its own CA and leaf certificate. No openssl
+	# init script, no generated files to gitignore, and nothing to install on
+	# the host — mkcert would need admin rights and would not survive a
+	# reimaged school machine anyway.
+	tls internal
+
+	# Everything backend-side lives under one prefix, which is stripped:
+	#   /api/v1/users/me  ->  backend /v1/users/me
+	#   /api/docs         ->  backend /docs   (Swagger, mounted in main.ts)
+	#   /api/socket.io/   ->  backend /socket.io/
+	handle_path /api/* {
+		reverse_proxy backend:3000
+	}
+
+	# Everything else: the Vue app, including Vite's HMR websocket. Caddy
+	# detects and proxies websocket upgrades on its own — no Upgrade/Connection
+	# header plumbing, which is the whole reason this is Caddy and not nginx.
+	handle {
+		reverse_proxy frontend:5173
+	}
+}
+
+# Caddy's automatic HTTP->HTTPS redirect is not usable here: it builds the
+# target from the site's hostname and omits the port whenever that port is the
+# configured HTTPS one, so it would send the browser to https://localhost —
+# port 443, where nothing is listening. Spell the redirect out instead.
+http://localhost:8080 {
+	redir https://localhost:8443{uri} permanent
+}

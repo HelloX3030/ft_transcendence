@@ -82,11 +82,12 @@ Required for:
 docker compose up --build
 ```
 
-- Frontend: `http://localhost:5173` (Vite dev server + HMR)
-- Backend: `http://localhost:3000` (tsx --watch)
+- App: `https://localhost:8443` (Vite dev server + HMR, behind Caddy)
+- Backend API: `https://localhost:8443/api` (tsx --watch, behind Caddy)
+- Swagger: `https://localhost:8443/api/docs`
 - PostgreSQL: `localhost:5432`
 
-Vite proxies `/api/*` to the backend via `BACKEND_URL` env var (`http://backend:3000` in Docker, `http://localhost:3000` as fallback for local runs).
+A Caddy reverse proxy terminates TLS and is the only web port published to the host. It routes `/api/*` to `backend:3000` with the prefix stripped, and everything else to `frontend:5173`, so the whole app lives on one origin — one self-signed-certificate warning to click through, and no cross-origin API calls being silently blocked. Caddy proxies websocket upgrades (Vite HMR, socket.io) without extra configuration. Ports `5173`, `3000` and `9000` are not published; `5432` (Postgres) and `5050` (pgAdmin) remain exposed as developer tools. The proxy sits on `8443`/`8080` rather than `443`/`80` because the school machines run rootless Docker, which cannot publish privileged ports.
 
 ---
 

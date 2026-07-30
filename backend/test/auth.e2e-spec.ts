@@ -60,4 +60,20 @@ describe('Auth (e2e)', () => {
     await login(agent, mockUser);
     await logout(agent);
   });
+
+  it('marks both session cookies Secure when the request arrived over HTTPS', async () => {
+    // In the running app the browser only ever reaches this service through
+    // Caddy, which terminates TLS and forwards this header. Setting it here is
+    // what the deployed request actually looks like — the plain-HTTP requests
+    // the rest of this suite makes are an artefact of testing in-network.
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .set('X-Forwarded-Proto', 'https')
+      .send(mockUser)
+      .expect(200);
+
+    const cookies = response.headers['set-cookie'];
+    expect(cookies[0]).toContain('Secure');
+    expect(cookies[1]).toContain('Secure');
+  });
 });

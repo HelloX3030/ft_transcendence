@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
@@ -7,7 +8,13 @@ import { HttpExceptionFilter } from './filter/http-exception.filter';
 import { PrismaExceptionFilter } from './filter/prisma-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Caddy is the only thing that can reach this process, and it terminates TLS.
+  // Trusting its X-Forwarded-* headers is what lets `req.protocol` see https
+  // (so session cookies get `Secure`) and `req.ip` see the real client rather
+  // than the proxy's container address, which the throttler and session records
+  // both depend on.
+  app.set('trust proxy', 1);
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
@@ -32,7 +39,10 @@ async function bootstrap() {
     .setVersion('1.0')
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  // 'docs', not 'api': Caddy proxies /api/* to this service with the prefix
+  // stripped, so everything backend-side lives under one rule with no rewrite —
+  // https://localhost/api/docs reaches /docs here.
+  SwaggerModule.setup('docs', app, documentFactory);
 
   await app.listen(process.env.PORT ?? 3000);
 }

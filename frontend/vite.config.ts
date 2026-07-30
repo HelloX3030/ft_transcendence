@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   // No TMDB key here: the backend proxies TMDB, and anything the browser needs
   // has to be VITE_-prefixed, which would publish the key in the bundle.
-  const required = ['VITE_APP_NAME', 'VITE_BACKEND_URL', 'BACKEND_URL_DOCKER'];
+  const required = ['VITE_APP_NAME', 'VITE_BACKEND_URL'];
   for (const key of required) {
     if (!env[key]) throw new Error(`Missing required env var: ${key}`);
   }
@@ -22,12 +22,16 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // Bind 0.0.0.0 so Caddy can reach us; :5173 is not published to the host.
       host: true,
       port: 5173,
       watch: { usePolling: true },
-      proxy: {
-        '/v1': env.BACKEND_URL_DOCKER,
-      },
+      allowedHosts: ['localhost'],
+      // The HMR client connects from the browser, which only ever sees Caddy.
+      // Left at its defaults it would try ws://localhost:5173 — a port that no
+      // longer exists — and hot reload would silently die behind a mixed-content
+      // warning. No `proxy` block: Caddy owns the routing now.
+      hmr: { clientPort: 8443, protocol: 'wss' },
     },
   };
 });

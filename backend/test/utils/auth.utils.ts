@@ -42,4 +42,8 @@ export function checkCookies(response: Response) {
   const cookies = response.headers['set-cookie'];
   expect(cookies[0]).toContain('access_token=');
   expect(cookies[1]).toContain('refresh_token=');
+  expect(cookies[0]).toContain('HttpOnly');
+  expect(cookies[1]).toContain('HttpOnly');
+  expect(cookies[0]).toContain('SameSite=Strict');
+  expect(cookies[1]).toContain('SameSite=Strict');
 }

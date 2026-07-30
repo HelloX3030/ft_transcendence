@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
@@ -22,7 +23,11 @@ export async function createTestApp(
 
   const moduleFixture = await (customize ? customize(builder) : builder).compile();
 
-  const app = moduleFixture.createNestApplication();
+  const app = moduleFixture.createNestApplication<NestExpressApplication>();
+
+  // Same as main.ts: without it `secure: 'auto'` cookies and `req.ip` would
+  // behave differently here than in the running app.
+  app.set('trust proxy', 1);
 
   app.useGlobalPipes(
     new ValidationPipe({

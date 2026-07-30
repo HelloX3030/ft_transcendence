@@ -9,7 +9,7 @@ import type {
   NotifyError,
   FriendsStatus,
 } from '@trailertinder/shared';
-import { BACKEND_URL } from '@/lib/constants';
+import { FRONTEND_ORIGIN } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
 import { invalidationMap } from '@/lib/event-router';
@@ -25,7 +25,16 @@ export const useNotifyStore = defineStore('notify', () => {
   // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
   // by the server on every (re)connect, then kept current by `online-status:<id>`.
   const friendsStatus = ref(new Map<number, boolean>());
-  const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
+  // The trailing path is the socket.io *namespace*, not a URL prefix — appending
+  // it to BACKEND_URL (`https://localhost/api`) would ask for namespace
+  // `/api/notify`, which no gateway registers. The `/api` prefix belongs in the
+  // engine.io path instead, where Caddy strips it and the backend sees its
+  // default `/socket.io/`.
+  const socket = io(FRONTEND_ORIGIN + '/notify', {
+    path: '/api/socket.io',
+    withCredentials: true,
+    autoConnect: false,
+  });
   const offline = ref<boolean>(true);
 
   const chatStore = useChatStore();
