@@ -14,6 +14,7 @@ import { RedisModule } from './redis/redis.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { THROTTLERS } from './throttle.config';
 
@@ -51,6 +52,7 @@ import { THROTTLERS } from './throttle.config';
     WatchlistsModule,
     TmdbModule,
     NotifyModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

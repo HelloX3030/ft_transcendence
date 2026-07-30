@@ -1,24 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import {
-  FRIEND_REMOVED,
-  FRIEND_REQUEST_ACCEPTED,
-  FRIEND_REQUEST_CANCELLED,
-  FRIEND_REQUEST_DECLINED,
-  FRIENDS_TITLE,
-  FriendUtils,
-  NEW_FRIEND_REQUEST,
-  successResponse,
-  UserUtils,
-} from 'src/utils';
+import { notification_type } from '@prisma/client';
+import { FriendUtils, successResponse, UserUtils } from 'src/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtAccessPayload } from 'src/types';
 import { NotifyService } from 'src/notify/notify.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class FriendsService {
   constructor(
     private prisma: PrismaService,
     private notifyService: NotifyService,
+    private notifications: NotificationsService,
     private userUtils: UserUtils,
     private friendUtils: FriendUtils,
   ) {}
@@ -49,15 +42,8 @@ export class FriendsService {
         status: 'pending',
       },
     });
-    // Notifications aren't persisted, so an offline peer would never see one —
-    // skip the username lookup and emit entirely unless they're connected.
-    if (this.notifyService.isOnline(id)) {
-      const username = (await this.userUtils.getUser(payload.sub)).username;
-      this.notifyService.sendNotify(id, {
-        title: FRIENDS_TITLE,
-        msg: NEW_FRIEND_REQUEST(username),
-      });
-    }
+    await this.notifyPeer(payload.sub, id, 'friend_request_created');
+
     return successResponse(null, 'friendship request created');
   }
 
@@ -93,13 +79,7 @@ export class FriendsService {
     this.notifyService.addUserToOnlineStatus(payload.sub, id);
     this.notifyService.addUserToOnlineStatus(id, payload.sub);
 
-    if (this.notifyService.isOnline(id)) {
-      const username = (await this.userUtils.getUser(payload.sub)).username;
-      this.notifyService.sendNotify(id, {
-        title: FRIENDS_TITLE,
-        msg: FRIEND_REQUEST_ACCEPTED(username),
-      });
-    }
+    await this.notifyPeer(payload.sub, id, 'friend_request_accepted');
 
     return successResponse(null, 'friendship status updated');
   }
@@ -116,29 +96,38 @@ export class FriendsService {
     this.notifyService.rmUserFromOnlineStatus(payload.sub, id);
     this.notifyService.rmUserFromOnlineStatus(id, payload.sub);
 
-    if (this.notifyService.isOnline(id)) {
-      const username = (await this.userUtils.getUser(payload.sub)).username;
-
-      // The peer being notified is always the other party in the canonical pair.
-      // Three distinct delete semantics map to three distinct messages:
-      //   - accepted friendship  → either party unfriends the other
-      //   - pending, caller is initiator → initiator cancels their own request
-      //   - pending, caller is recipient → recipient declines the request
-      let msg: string;
-      if (deletedFriend.status === 'accepted') {
-        msg = FRIEND_REMOVED(username);
-      } else if (deletedFriend.initiatorId === payload.sub) {
-        msg = FRIEND_REQUEST_CANCELLED(username);
-      } else {
-        msg = FRIEND_REQUEST_DECLINED(username);
-      }
-
-      this.notifyService.sendNotify(id, {
-        title: FRIENDS_TITLE,
-        msg,
-      });
+    // The peer being notified is always the other party in the canonical pair.
+    // Three distinct delete semantics map to three distinct event types:
+    //   - accepted friendship  → either party unfriends the other
+    //   - pending, caller is initiator → initiator cancels their own request
+    //   - pending, caller is recipient → recipient declines the request
+    let type: notification_type;
+    if (deletedFriend.status === 'accepted') {
+      type = 'friend_removed';
+    } else if (deletedFriend.initiatorId === payload.sub) {
+      type = 'friend_request_cancelled';
+    } else {
+      type = 'friend_request_declined';
     }
+    await this.notifyPeer(payload.sub, id, type);
 
     return successResponse(null, 'friendship deleted');
+  }
+
+  /**
+   * Records the event in the peer's inbox and pushes it to their open tabs.
+   *
+   * Unconditional on purpose — the row is persisted whether or not they are
+   * connected, so the username lookup that the old presence guard used to skip
+   * now always runs. It feeds `params`, which is what the client renders.
+   */
+  private async notifyPeer(actorId: number, peerId: number, type: notification_type) {
+    const actorUsername = (await this.userUtils.getUser(actorId)).username;
+    await this.notifications.create({
+      userId: peerId,
+      type,
+      actorId,
+      params: { actorUsername },
+    });
   }
 }

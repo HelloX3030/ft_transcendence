@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { DomainEvent } from '@trailertinder/shared';
 import type { Namespace } from 'socket.io';
 import type { NotifySocket } from 'src/types';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
@@ -369,17 +370,20 @@ describe('NotifyGateway', () => {
     });
   });
 
-  describe('sendNotification', () => {
-    it('targets the recipient user room', () => {
-      gateway.sendNotification(5, { title: 'Hi', msg: 'You have a friend request.' });
+  describe('sendDomainEvent', () => {
+    it('targets the recipient user room on the single event channel', () => {
+      const event: DomainEvent = {
+        type: 'friend.request.created',
+        actorId: 1,
+        entityId: null,
+        params: { actorUsername: 'alice' },
+        notificationId: 42,
+        at: 1_730_000_000_000,
+      };
 
-      expect(roomEmits).toEqual([
-        {
-          room: 'user:5',
-          event: 'notification',
-          payload: { title: 'Hi', msg: 'You have a friend request.' },
-        },
-      ]);
+      gateway.sendDomainEvent(5, event);
+
+      expect(roomEmits).toEqual([{ room: 'user:5', event: 'event', payload: event }]);
     });
   });
 

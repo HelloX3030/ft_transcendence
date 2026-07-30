@@ -58,7 +58,7 @@ npm run check  # read-only: format + lint + type-check + tests — identical to 
 npm run test   # backend unit tests only
 ```
 
-All three run inside Docker (`node:22`) — no local Node version requirement. `npm run check` is the full CI equivalent: frontend check + backend check + backend unit tests.
+All three run inside Docker (`node:22`) — no local Node version requirement. `npm run check` is the full CI equivalent: frontend check (incl. vitest unit tests) + backend check + backend unit tests.
 
 The pre-commit hook covers only staged files (Prettier only); `npm run check` runs all files.
 
