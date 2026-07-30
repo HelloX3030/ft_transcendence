@@ -2,8 +2,6 @@ import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DomainEvent } from '@trailertinder/shared';
 import type { NotifySocket } from 'src/types';
-import { FriendUtils } from 'src/utils';
-import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 import { NotifyGateway } from './notify.gateway';
 import { NotifyService } from './notify.service';
 
@@ -13,10 +11,6 @@ const mockNotifyGateway = {
   sendDomainEvent: jest.fn(),
 } satisfies Partial<jest.Mocked<NotifyGateway>>;
 
-const mockFriendUtils = {
-  areFriends: jest.fn(),
-} satisfies Partial<jest.Mocked<FriendUtils>>;
-
 /** Sockets are only ever used as set members here, so an empty object suffices. */
 const socket = (label: string) => ({ label }) as unknown as NotifySocket;
 
@@ -25,11 +19,7 @@ describe('NotifyService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        NotifyService,
-        { provide: NotifyGateway, useValue: mockNotifyGateway },
-        { provide: FriendUtils, useValue: mockFriendUtils },
-      ],
+      providers: [NotifyService, { provide: NotifyGateway, useValue: mockNotifyGateway }],
     }).compile();
 
     service = module.get<NotifyService>(NotifyService);
@@ -157,38 +147,6 @@ describe('NotifyService', () => {
 
       expect(service.isOnline(99)).toBe(false);
       expect(mockNotifyGateway.sendDomainEvent).toHaveBeenCalledWith(99, event);
-    });
-  });
-
-  describe('hasChatRequirements', () => {
-    it('rejects when the two users are not friends', async () => {
-      mockFriendUtils.areFriends.mockResolvedValue(false);
-      service.setUserAsActive(2, socket('peer'));
-
-      await expect(service.hasChatRequirements(1, 2)).rejects.toBeInstanceOf(
-        ChatRequirementsException,
-      );
-    });
-
-    it('rejects when the peer is offline', async () => {
-      mockFriendUtils.areFriends.mockResolvedValue(true);
-
-      await expect(service.hasChatRequirements(1, 2)).rejects.toThrow('The user is offline.');
-    });
-
-    it('resolves for an online friend', async () => {
-      mockFriendUtils.areFriends.mockResolvedValue(true);
-      service.setUserAsActive(2, socket('peer'));
-
-      await expect(service.hasChatRequirements(1, 2)).resolves.toBeUndefined();
-    });
-
-    it('checks friendship before presence', async () => {
-      mockFriendUtils.areFriends.mockResolvedValue(false);
-
-      await expect(service.hasChatRequirements(1, 2)).rejects.toThrow(
-        'You are not friends with this user.',
-      );
     });
   });
 });

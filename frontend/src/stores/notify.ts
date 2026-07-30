@@ -1,7 +1,14 @@
 import { ref } from 'vue';
-import { defineStore, storeToRefs } from 'pinia';
+import { defineStore } from 'pinia';
 import { io } from 'socket.io-client';
-import type { ChatMsgRecive, DomainEvent, NotifyError, FriendsStatus } from '@trailertinder/shared';
+import type {
+  ChatAck,
+  ChatMessage,
+  ChatReadEvent,
+  DomainEvent,
+  NotifyError,
+  FriendsStatus,
+} from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
@@ -19,14 +26,12 @@ export const useNotifyStore = defineStore('notify', () => {
   // by the server on every (re)connect, then kept current by `online-status:<id>`.
   const friendsStatus = ref(new Map<number, boolean>());
   const socket = io(BACKEND_URL + '/notify', { withCredentials: true, autoConnect: false });
-  const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
   const chatStore = useChatStore();
   const friendsStore = useFriendsStore();
   const notificationsStore = useNotificationsStore();
   const watchlistsStore = useWatchlistsStore();
-  const { friendsDetails } = storeToRefs(friendsStore);
 
   const INVALIDATE = invalidationMap({
     refetchFriends: () => void friendsStore.refetchFriends(),
@@ -41,9 +46,10 @@ export const useNotifyStore = defineStore('notify', () => {
     socket.on('connect', () => {
       logger.debug('[notify] connected.');
       offline.value = false;
-      // Also runs on every reconnect: the socket was down, so events were missed
-      // and only a refetch can close that gap.
+      // Also runs on every reconnect: the socket was down, so events and
+      // messages were missed, and only a refetch can close that gap.
       void notificationsStore.load();
+      void chatStore.hydrate();
     });
 
     socket.on('connect_error', (error) => {
@@ -157,35 +163,57 @@ export const useNotifyStore = defineStore('notify', () => {
     return friendsStatus.value.get(Number(userId)) ?? false;
   }
 
+  /**
+   * Chat rides the same socket but not the domain-event router: a message is
+   * appended from its own payload rather than invalidating anything, because a
+   * refetch per message would be wasteful and would fight the scroll position.
+   */
   function initChat() {
-    socket.on('chat', (data) => {
-      if (!isChatMsgRecive(data)) {
+    socket.on('chat.message.created', (data) => {
+      if (!isChatMessage(data)) {
         logger.error('[notify] invalid chat payload', data);
         return;
       }
 
-      // Open the transcript on demand: a message can arrive from a friend the
-      // user has never opened a chat with, and dropping it would lose it for
-      // good. `ensureChat` does not steal the current selection.
-      const chat = chatStore.ensureChat(
-        data.peerUserId,
-        friendsDetails.value.find((friend) => friend.id === data.peerUserId),
-      );
-      // The server stamps one time for every copy of a message, so all tabs and
-      // both participants agree on the ordering.
-      chatStore.addMessage(chat, data.senderUserId, data.msg, new Date(data.time).toISOString());
+      // Opens the transcript on demand: a message can arrive from a friend the
+      // user has never opened a chat with, and dropping it would lose it until
+      // the next reload. `ensureChat` does not steal the current selection.
+      chatStore.ingestMessage(data);
 
-      // Chat has no inbox row of its own yet, so only the transient toast.
-      if (data.senderUserId === data.peerUserId) toast.info('You have a new chat message.');
+      const fromPeer = data.senderUserId === data.peerUserId;
+      if (fromPeer && chatStore.activeChat?.friend.id !== data.peerUserId) {
+        toast.info('You have a new chat message.');
+      }
+    });
+
+    socket.on('chat.read', (data) => {
+      if (!isChatReadEvent(data)) {
+        logger.error('[notify] invalid chat read payload', data);
+        return;
+      }
+      chatStore.applyReadReceipt(data.peerUserId, data.readAt);
     });
   }
 
-  function sendChatMsg(peerUserId: number, msg: string) {
-    socket.emit('chat', { peerUserId, msg });
+  /**
+   * Sends over the socket and resolves with the server's acknowledgement.
+   *
+   * The ack is what lets a rejected send surface as a real error state instead
+   * of a fabricated system message inside the transcript.
+   */
+  function sendChatMsg(peerUserId: number, msg: string, clientMsgId: string): Promise<ChatAck> {
+    return new Promise((resolve) => {
+      socket.emit('chat', { peerUserId, msg, clientMsgId }, (ack: unknown) => {
+        resolve(
+          isChatAck(ack)
+            ? ack
+            : { ok: false, error: 'The server did not acknowledge the message.' },
+        );
+      });
+    });
   }
 
   return {
-    SYSTEM_SENDER_ID,
     offline,
     friendsStatus,
     isUserOnline,
@@ -225,19 +253,32 @@ function isFriendsStatusArray(value: unknown): value is FriendsStatus[] {
   return Array.isArray(value) && value.every(isFriendsStatus);
 }
 
-function isChatMsgRecive(value: unknown): value is ChatMsgRecive {
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const message = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'peerUserId' in value &&
-    typeof (value as Record<string, unknown>).peerUserId === 'number' &&
-    'senderUserId' in value &&
-    typeof (value as Record<string, unknown>).senderUserId === 'number' &&
-    'time' in value &&
-    typeof (value as Record<string, unknown>).time === 'number' &&
-    'msg' in value &&
-    typeof (value as Record<string, unknown>).msg === 'string'
+    typeof message.id === 'number' &&
+    typeof message.peerUserId === 'number' &&
+    typeof message.senderUserId === 'number' &&
+    typeof message.body === 'string' &&
+    typeof message.createdAt === 'string'
   );
+}
+
+function isChatReadEvent(value: unknown): value is ChatReadEvent {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const event = value as Record<string, unknown>;
+  return typeof event.peerUserId === 'number' && typeof event.readAt === 'string';
+}
+
+function isChatAck(value: unknown): value is ChatAck {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const ack = value as Record<string, unknown>;
+  if (ack.ok === true) return isChatMessage(ack.message);
+  return ack.ok === false && typeof ack.error === 'string';
 }
 
 function isError(value: unknown): value is NotifyError {

@@ -6,7 +6,7 @@ import { useFriendsStore } from '@/stores/friends';
 
 export function useChatSearch() {
   const chatStore = useChatStore();
-  const { sortedChats } = storeToRefs(chatStore);
+  const { orderedChats } = storeToRefs(chatStore);
   const friendsStore = useFriendsStore();
   const { friendsDetails } = storeToRefs(friendsStore);
 
@@ -15,8 +15,8 @@ export function useChatSearch() {
 
   const filteredChats = computed(() => {
     const term = searchTerm.value.trim();
-    if (!term) return sortedChats.value;
-    return sortedChats.value.filter((chat) => contains(chat.friend.username, term));
+    if (!term) return orderedChats.value;
+    return orderedChats.value.filter((chat) => contains(chat.friend.username, term));
   });
 
   const filteredFriendsWithoutChat = computed(() => {

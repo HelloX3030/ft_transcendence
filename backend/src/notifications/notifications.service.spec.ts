@@ -4,7 +4,7 @@ import { notifications } from '@prisma/client';
 import { NotifyService } from 'src/notify/notify.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
-import { daysAgo, MAX_RETENTION_DAYS, READ_RETENTION_DAYS } from './retention.config';
+import { daysAgo, MAX_RETENTION_DAYS, READ_RETENTION_DAYS } from 'src/retention.config';
 
 const mockPrisma = {
   notifications: {

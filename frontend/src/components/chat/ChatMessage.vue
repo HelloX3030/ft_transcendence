@@ -11,13 +11,11 @@ import {
 import type { Chat } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { useNotifyStore } from '@/stores/notify';
 import UserAvatar from '../UserAvatar.vue';
 import { formatTime } from '@/lib/format.ts';
 
 const props = defineProps<Chat>();
 
-const notifyStore = useNotifyStore();
 const userStore = useUserStore();
 const { state: user } = storeToRefs(userStore);
 
@@ -25,15 +23,11 @@ const groupedMessages = computed(() => {
   const groups: { senderId: number; messages: typeof props.messages }[] = [];
 
   for (const message of props.messages) {
-    if (message.senderId === notifyStore.SYSTEM_SENDER_ID) {
-      // toast.warning(message.message);
-      continue;
-    }
     const lastGroup = groups.at(-1);
-    if (lastGroup && lastGroup.senderId === message.senderId) {
+    if (lastGroup && lastGroup.senderId === message.senderUserId) {
       lastGroup.messages.push(message);
     } else {
-      groups.push({ senderId: message.senderId, messages: [message] });
+      groups.push({ senderId: message.senderUserId, messages: [message] });
     }
   }
 
@@ -66,13 +60,22 @@ function isMine(senderId: number) {
 
         <Bubble
           v-for="message in group.messages"
-          :key="message.timestamp"
+          :key="message.clientMsgId ?? message.id"
           :variant="isMine(group.senderId) ? 'default' : 'muted'"
+          :class="{
+            'opacity-60': message.status === 'pending',
+            'opacity-60 ring-1 ring-destructive': message.status === 'failed',
+          }"
         >
-          <BubbleContent>{{ message.message }}</BubbleContent>
+          <BubbleContent>{{ message.body }}</BubbleContent>
         </Bubble>
 
-        <MessageFooter>{{ formatTime(group.messages.at(-1)!.timestamp) }}</MessageFooter>
+        <MessageFooter>
+          <span v-if="group.messages.some((m) => m.status === 'failed')" class="text-destructive">
+            Not delivered
+          </span>
+          <span v-else>{{ formatTime(group.messages.at(-1)!.createdAt) }}</span>
+        </MessageFooter>
       </MessageContent>
     </Message>
   </div>

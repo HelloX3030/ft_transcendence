@@ -1,9 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
-import { DomainEvent } from '@trailertinder/shared';
+import { ChatMessage, ChatReadEvent, DomainEvent } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
-import { FriendUtils } from 'src/utils';
-import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
 
 @Injectable()
 export class NotifyService {
@@ -14,7 +12,6 @@ export class NotifyService {
   constructor(
     @Inject(forwardRef(() => NotifyGateway))
     private readonly notifyGateway: NotifyGateway,
-    private readonly friendUtils: FriendUtils,
   ) {}
 
   // -------------------------
@@ -73,10 +70,11 @@ export class NotifyService {
   // -------------------------
   // User Chat
   // -------------------------
-  async hasChatRequirements(meUserId: number, peerUserId: number) {
-    const isFriend = await this.friendUtils.areFriends(meUserId, peerUserId);
-    if (!isFriend) throw new ChatRequirementsException('You are not friends with this user.');
+  sendChatMessage(userId: number, message: ChatMessage) {
+    this.notifyGateway.sendChatMessage(userId, message);
+  }
 
-    if (!this.isOnline(peerUserId)) throw new ChatRequirementsException('The user is offline.');
+  sendChatRead(userId: number, event: ChatReadEvent) {
+    this.notifyGateway.sendChatRead(userId, event);
   }
 }

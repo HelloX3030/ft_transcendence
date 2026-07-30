@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { Send, ArrowLeft, Dot } from '@lucide/vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Send, ArrowLeft, ArrowDown, Dot } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
 import { storeToRefs } from 'pinia';
 import { useChatStore } from '@/stores/chat';
 import { useNotifyStore } from '@/stores/notify';
@@ -11,17 +11,126 @@ import ChatMessage from '@/components/chat/ChatMessage.vue';
 import { useSendMessage } from '@/composables/chat/useSendMessage';
 import UserAvatar from '../UserAvatar.vue';
 
+/** How close to the bottom still counts as "following the conversation". */
+const BOTTOM_THRESHOLD_PX = 100;
+
 const chatStore = useChatStore();
 const notifyStore = useNotifyStore();
 const { activeChat } = storeToRefs(chatStore);
 
-// The gateway refuses to relay to an offline peer, so sending would come straight
-// back as a system error in the transcript. Block it at the composer instead.
+// Purely informational now: an offline peer is messaged like any other and the
+// message is waiting for them when they next log in.
 const peerOnline = computed(() =>
   activeChat.value ? notifyStore.isUserOnline(activeChat.value.friend.id) : false,
 );
 
 const { inputMsg, sendMessage } = useSendMessage();
+
+const viewport = ref<HTMLElement | null>(null);
+const topSentinel = ref<HTMLElement | null>(null);
+const sentinelVisible = ref(false);
+const isAtBottom = ref(true);
+const hasNewBelow = ref(false);
+let observer: IntersectionObserver | null = null;
+
+function scrollToBottom(behavior: ScrollBehavior = 'auto') {
+  const element = viewport.value;
+  if (!element) return;
+  element.scrollTo({ top: element.scrollHeight, behavior });
+  hasNewBelow.value = false;
+}
+
+function onScroll() {
+  const element = viewport.value;
+  if (!element) return;
+
+  const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+  isAtBottom.value = distance <= BOTTOM_THRESHOLD_PX;
+  if (isAtBottom.value) {
+    hasNewBelow.value = false;
+    // Read on reaching the bottom, not on open: marking read the moment the
+    // window opens clears the badge while the user is still in scrollback.
+    if (activeChat.value) void chatStore.markRead(activeChat.value);
+  }
+}
+
+/**
+ * Loads the next older page without moving the viewport.
+ *
+ * Prepending content grows `scrollHeight` above the current position, so
+ * `scrollTop` has to grow by exactly the same amount — otherwise the user is
+ * thrown backwards through the history they were reading, which makes correct
+ * data feel broken.
+ */
+async function loadOlder() {
+  const chat = activeChat.value;
+  const element = viewport.value;
+  if (!chat || !element || !chat.hasMore || chat.isLoadingOlder) return;
+
+  const heightBefore = element.scrollHeight;
+  const topBefore = element.scrollTop;
+
+  await chatStore.loadOlder(chat);
+  await nextTick();
+
+  element.scrollTop = topBefore + (element.scrollHeight - heightBefore);
+}
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      sentinelVisible.value = entries[0]?.isIntersecting ?? false;
+    },
+    { root: viewport.value, rootMargin: '120px' },
+  );
+  if (topSentinel.value) observer.observe(topSentinel.value);
+});
+
+onBeforeUnmount(() => observer?.disconnect());
+
+// Same shape as MovieBrowser's infinite scroll, inverted: the observer only
+// tracks visibility, and a watcher pulls pages while the sentinel stays in view.
+watch([sentinelVisible, () => activeChat.value?.hasMore], () => {
+  if (sentinelVisible.value) void loadOlder();
+});
+
+// Opening a chat starts at the newest message.
+watch(
+  () => activeChat.value?.friend.id,
+  async () => {
+    isAtBottom.value = true;
+    hasNewBelow.value = false;
+    await nextTick();
+    scrollToBottom();
+  },
+);
+
+// The first page arrives asynchronously, so anchor to the bottom once it lands.
+watch(
+  () => activeChat.value?.isLoaded,
+  async (isLoaded) => {
+    if (!isLoaded) return;
+    await nextTick();
+    scrollToBottom();
+    if (activeChat.value) void chatStore.markRead(activeChat.value);
+  },
+);
+
+// A message arriving while the user is scrolled up must not yank the view; they
+// get a pill instead and decide for themselves.
+watch(
+  () => activeChat.value?.messages.length,
+  async (length, previous) => {
+    if (length === undefined || previous === undefined || length <= previous) return;
+    if (!isAtBottom.value) {
+      hasNewBelow.value = true;
+      return;
+    }
+    await nextTick();
+    scrollToBottom();
+    if (activeChat.value) void chatStore.markRead(activeChat.value);
+  },
+);
 </script>
 
 <template>
@@ -43,7 +152,13 @@ const { inputMsg, sendMessage } = useSendMessage();
         </div>
       </div>
 
-      <ScrollArea class="p-4 flex-1 min-h-0">
+      <div ref="viewport" class="p-4 flex-1 min-h-0 overflow-y-auto" @scroll.passive="onScroll">
+        <div ref="topSentinel" class="h-px" />
+
+        <div v-if="activeChat.isLoadingOlder" class="flex justify-center py-2">
+          <Spinner class="size-5" />
+        </div>
+
         <div
           v-if="activeChat.messages.length === 0"
           class="h-full flex items-center justify-center text-muted-foreground text-sm text-center"
@@ -51,21 +166,25 @@ const { inputMsg, sendMessage } = useSendMessage();
           Say hi to {{ activeChat.friend.username }} 👋
         </div>
         <ChatMessage v-else v-bind="activeChat" />
-      </ScrollArea>
+      </div>
+
+      <Button
+        v-if="hasNewBelow"
+        variant="secondary"
+        size="sm"
+        class="absolute bottom-24 left-1/2 -translate-x-1/2 shadow-lg"
+        @click="scrollToBottom('smooth')"
+      >
+        <ArrowDown class="size-4" />
+        New messages
+      </Button>
 
       <form
         @submit.prevent="sendMessage(activeChat)"
         class="p-4 border-t sticky bottom-0 bg-background border-white/10 flex gap-2"
       >
-        <Input
-          v-model="inputMsg"
-          :disabled="!peerOnline"
-          :placeholder="
-            peerOnline ? 'Type a message...' : `${activeChat.friend.username} is offline`
-          "
-          class="flex-1"
-        />
-        <Button type="submit" size="icon" :disabled="!peerOnline">
+        <Input v-model="inputMsg" placeholder="Type a message..." class="flex-1" />
+        <Button type="submit" size="icon">
           <Send />
         </Button>
       </form>

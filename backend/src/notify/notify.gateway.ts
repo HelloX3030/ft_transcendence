@@ -12,12 +12,25 @@ import * as cookie from 'cookie';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
-import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpException,
+  Inject,
+  Logger,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { DomainEvent, FriendsStatus } from '@trailertinder/shared';
-import { ChatMsgDto } from './dto';
-import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
-import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
+import {
+  ChatAck,
+  ChatMessage,
+  ChatReadEvent,
+  DomainEvent,
+  FriendsStatus,
+} from '@trailertinder/shared';
+import { ChatMsgDto } from 'src/chat/dto';
+import { ChatService, isMissingParticipant } from 'src/chat/chat.service';
+import { FriendUtils, UserUtils } from 'src/utils';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
 
 /** How often to look for sockets whose access token has run out. */
@@ -44,6 +57,8 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     @Inject(forwardRef(() => NotifyService))
     private readonly notifyService: NotifyService,
     private readonly jwtService: JwtService,
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
     private readonly friendUtils: FriendUtils,
     private readonly userUtils: UserUtils,
   ) {}
@@ -200,48 +215,51 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     this.server.to(userRoom(userId)).emit('event', event);
   }
 
+  sendChatMessage(userId: number, message: ChatMessage) {
+    this.server.to(userRoom(userId)).emit('chat.message.created', message);
+  }
+
+  sendChatRead(userId: number, event: ChatReadEvent) {
+    this.server.to(userRoom(userId)).emit('chat.read', event);
+  }
+
   // -------------------------
   // User Chat
   // -------------------------
+  /**
+   * Persists first, then broadcasts, then acknowledges.
+   *
+   * The handler returns a socket.io acknowledgement rather than emitting a
+   * failure into the transcript: an error is not a chat message, and the client
+   * needs to be able to render it as one.
+   */
   @SubscribeMessage('chat')
-  async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket) {
+  async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket): Promise<ChatAck> {
     const meUserId = client.data.user;
     const peerUserId = data.peerUserId;
-    // One timestamp for every emit of this message, so peer and sender agree.
-    const time = Date.now();
 
     try {
-      await this.notifyService.hasChatRequirements(meUserId, peerUserId);
+      const message = await this.chatService.send(meUserId, data);
 
-      this.server.to(userRoom(peerUserId)).emit('chat', {
-        peerUserId: meUserId,
-        senderUserId: meUserId,
-        time,
-        msg: data.msg,
-      });
-      // server.to (not client.to) so the sending tab receives its own message too
-      // and every tab renders the same transcript.
-      this.server.to(userRoom(meUserId)).emit('chat', {
-        peerUserId: peerUserId,
-        senderUserId: meUserId,
-        time,
-        msg: data.msg,
-      });
+      // `peerUserId` is "the other party", so each side gets its own view of it.
+      this.sendChatMessage(peerUserId, { ...message, peerUserId: meUserId });
+      // The sender's own tabs are included so every tab renders the same
+      // transcript; `clientMsgId` is what keeps the optimistic copy from
+      // double-rendering in the tab that sent it.
+      this.sendChatMessage(meUserId, message);
+
+      return { ok: true, message };
     } catch (error) {
-      let errorMsg = 'An unknown error occurred while sending this message.';
-      if (error instanceof ChatRequirementsException) {
-        errorMsg = error.message;
-      } else {
-        this.logger.error(error);
+      if (isMissingParticipant(error)) {
+        return { ok: false, error: 'This user no longer exists.' };
       }
-      // Only the system error — the message was never delivered, so it must not
-      // appear in any transcript.
-      this.server.to(userRoom(meUserId)).emit('chat', {
-        peerUserId,
-        senderUserId: SYSTEM_SENDER_ID,
-        time,
-        msg: errorMsg,
-      });
+      if (error instanceof HttpException) {
+        return { ok: false, error: error.message };
+      }
+      // A gateway handler must never leave an unhandled rejection: the HTTP
+      // Prisma filter does not cover socket handlers.
+      this.logger.error(error);
+      return { ok: false, error: 'An unknown error occurred while sending this message.' };
     }
   }
 }

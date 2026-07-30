@@ -1,11 +1,13 @@
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { DomainEvent } from '@trailertinder/shared';
+import { ForbiddenException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { ChatMessage, DomainEvent } from '@trailertinder/shared';
 import type { Namespace } from 'socket.io';
 import type { NotifySocket } from 'src/types';
-import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
-import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
+import { ChatService } from 'src/chat/chat.service';
+import { FriendUtils, UserUtils } from 'src/utils';
 import { NotifyGateway } from './notify.gateway';
 import { NotifyService } from './notify.service';
 
@@ -13,8 +15,11 @@ const mockNotifyService = {
   setUserAsActive: jest.fn(),
   setUserAsInactive: jest.fn(),
   isOnline: jest.fn(),
-  hasChatRequirements: jest.fn(),
 } satisfies Partial<jest.Mocked<NotifyService>>;
+
+const mockChatService = {
+  send: jest.fn(),
+} satisfies Partial<jest.Mocked<ChatService>>;
 
 const mockJwtService = {
   verifyAsync: jest.fn(),
@@ -84,6 +89,7 @@ describe('NotifyGateway', () => {
         NotifyGateway,
         { provide: NotifyService, useValue: mockNotifyService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: ChatService, useValue: mockChatService },
         { provide: FriendUtils, useValue: mockFriendUtils },
         { provide: UserUtils, useValue: mockUserUtils },
       ],
@@ -388,89 +394,84 @@ describe('NotifyGateway', () => {
   });
 
   describe('chat', () => {
-    const dto = { peerUserId: 2, msg: 'hello' };
+    const dto = { peerUserId: 2, msg: 'hello', clientMsgId: 'c-1' };
+    const persisted: ChatMessage = {
+      id: 9,
+      peerUserId: 2,
+      senderUserId: 1,
+      body: 'hello',
+      readAt: null,
+      createdAt: '2026-07-30T10:00:00.000Z',
+      clientMsgId: 'c-1',
+    };
 
-    it('relays to the peer and echoes to every tab of the sender', async () => {
+    it('persists first, then relays to the peer and echoes to every tab of the sender', async () => {
       const client = createMockSocket(1);
-      mockNotifyService.hasChatRequirements.mockResolvedValue(undefined);
+      mockChatService.send.mockResolvedValue(persisted);
 
-      await gateway.chat(dto, asSocket(client));
+      const ack = await gateway.chat(dto, asSocket(client));
 
-      expect(roomEmits).toHaveLength(2);
-      expect(roomEmits[0]).toMatchObject({
-        room: 'user:2',
-        event: 'chat',
-        payload: { peerUserId: 1, senderUserId: 1, msg: 'hello' },
-      });
-      expect(roomEmits[1]).toMatchObject({
-        room: 'user:1',
-        event: 'chat',
-        payload: { peerUserId: 2, senderUserId: 1, msg: 'hello' },
-      });
-    });
-
-    it('stamps the peer relay and the sender echo with the same time', async () => {
-      const client = createMockSocket(1);
-      mockNotifyService.hasChatRequirements.mockResolvedValue(undefined);
-      // Back-to-back Date.now() calls almost always land in the same millisecond,
-      // so a real clock would pass even if each emit stamped itself. Handing out a
-      // new value per call makes "read the clock once" the only way through.
-      let clock = 1_000;
-      const now = jest.spyOn(Date, 'now').mockImplementation(() => (clock += 1));
-
-      await gateway.chat(dto, asSocket(client));
-
-      expect(now).toHaveBeenCalledTimes(1);
-      const times = roomEmits.map((emit) => (emit.payload as { time: number }).time);
-      expect(times).toEqual([1_001, 1_001]);
-
-      now.mockRestore();
-    });
-
-    it('sends only a system error when the requirements are not met', async () => {
-      const client = createMockSocket(1);
-      mockNotifyService.hasChatRequirements.mockRejectedValue(
-        new ChatRequirementsException('The user is offline.'),
-      );
-
-      await gateway.chat(dto, asSocket(client));
-
+      expect(mockChatService.send).toHaveBeenCalledWith(1, dto);
       expect(roomEmits).toEqual([
         {
-          room: 'user:1',
-          event: 'chat',
-          payload: {
-            peerUserId: 2,
-            senderUserId: SYSTEM_SENDER_ID,
-            time: expect.any(Number) as number,
-            msg: 'The user is offline.',
-          },
+          room: 'user:2',
+          event: 'chat.message.created',
+          // From the peer's side the "other party" is the sender.
+          payload: { ...persisted, peerUserId: 1 },
         },
+        { room: 'user:1', event: 'chat.message.created', payload: persisted },
       ]);
+      expect(ack).toEqual({ ok: true, message: persisted });
     });
 
-    it('never echoes an undelivered message body', async () => {
+    it('echoes the clientMsgId back untouched so the sender can dedup', async () => {
       const client = createMockSocket(1);
-      mockNotifyService.hasChatRequirements.mockRejectedValue(
-        new ChatRequirementsException('You are not friends with this user.'),
+      mockChatService.send.mockResolvedValue(persisted);
+
+      await gateway.chat(dto, asSocket(client));
+
+      const ids = roomEmits.map((emit) => (emit.payload as ChatMessage).clientMsgId);
+      expect(ids).toEqual(['c-1', 'c-1']);
+    });
+
+    it('acknowledges a rejected send instead of faking a chat message', async () => {
+      const client = createMockSocket(1);
+      mockChatService.send.mockRejectedValue(
+        new ForbiddenException('You are not friends with this user.'),
       );
 
-      await gateway.chat(dto, asSocket(client));
+      const ack = await gateway.chat(dto, asSocket(client));
 
-      const bodies = roomEmits.map((emit) => (emit.payload as { msg: string }).msg);
-      expect(bodies).not.toContain('hello');
+      expect(ack).toEqual({ ok: false, error: 'You are not friends with this user.' });
+      // Nothing reaches any transcript — the message was never delivered.
+      expect(roomEmits).toHaveLength(0);
     });
 
-    it('hides unexpected failures behind a generic message', async () => {
+    it('names the peer-deleted race rather than leaking a Prisma error', async () => {
       const client = createMockSocket(1);
-      mockNotifyService.hasChatRequirements.mockRejectedValue(new Error('connection reset'));
+      mockChatService.send.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('fk violation', {
+          code: 'P2003',
+          clientVersion: 'test',
+        }),
+      );
 
-      await gateway.chat(dto, asSocket(client));
+      const ack = await gateway.chat(dto, asSocket(client));
 
-      expect(roomEmits).toHaveLength(1);
-      const payload = roomEmits[0].payload as { msg: string; senderUserId: number };
-      expect(payload.senderUserId).toBe(SYSTEM_SENDER_ID);
-      expect(payload.msg).not.toContain('connection reset');
+      expect(ack).toEqual({ ok: false, error: 'This user no longer exists.' });
+      expect(roomEmits).toHaveLength(0);
+    });
+
+    it('hides unexpected failures behind a generic ack, never an unhandled rejection', async () => {
+      const client = createMockSocket(1);
+      mockChatService.send.mockRejectedValue(new Error('connection reset'));
+
+      const ack = await gateway.chat(dto, asSocket(client));
+
+      expect(ack.ok).toBe(false);
+      // The underlying failure must not leak to the client.
+      expect(ack.ok === false && ack.error).not.toContain('connection reset');
+      expect(roomEmits).toHaveLength(0);
     });
   });
 });
