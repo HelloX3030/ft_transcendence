@@ -86,8 +86,8 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /** Clears every transcript, so a logout does not leak chats into the next session. */
-  function reset() {
-    chats.value = new Map();
+  function $reset() {
+    chats.value = new Map<number, Chat>();
     activeChat.value = undefined;
   }
 
@@ -102,6 +102,6 @@ export const useChatStore = defineStore('chat', () => {
     addMessage,
     deleteChat,
     getChat,
-    reset,
+    $reset,
   };
 });

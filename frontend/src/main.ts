@@ -6,6 +6,7 @@ import router from './router';
 import { useAuthStore } from './stores/auth';
 import { useNotifyStore } from './stores/notify.ts';
 import { useUserStore } from './stores/user.ts';
+import { resetPlugin } from './stores/plugins/resetPlugin.ts';
 
 const youtube = {
   install() {
@@ -24,6 +25,7 @@ const youtube = {
 (async () => {
   const app = createApp(App);
   const pinia = createPinia();
+  pinia.use(resetPlugin);
   app.use(pinia);
 
   const auth = useAuthStore();

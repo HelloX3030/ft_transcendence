@@ -21,7 +21,6 @@ export const useNotifyStore = defineStore('notify', () => {
   const SYSTEM_SENDER_ID = -1;
   const offline = ref<boolean>(true);
 
-  const chatStore = useChatStore();
   const friendsStore = useFriendsStore();
   const { friendsDetails } = storeToRefs(friendsStore);
 
@@ -87,14 +86,26 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   function stop() {
-    socket.close();
+    if (!isInit) return;
+
+    logger.debug('[notify] stop');
+
+    // Drop the handlers before disconnecting: init() re-registers them, and
+    // leaving the old ones attached would double up on the next login.
+    socket.removeAllListeners();
+    socket.disconnect();
+
     isInit = false;
+
+    $reset();
+  }
+
+  function $reset() {
     count.value = 0;
     notifyId.value = 0;
     notifyMsg.value = [];
-    friendsStatus.value = new Map();
+    friendsStatus.value = new Map<number, boolean>();
     offline.value = true;
-    chatStore.reset();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -137,6 +148,7 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   function initChat() {
+    const chatStore = useChatStore();
     socket.on('chat', (data) => {
       if (!isChatMsgRecive(data)) {
         logger.error('[notify] invalid chat payload', data);
@@ -179,6 +191,7 @@ export const useNotifyStore = defineStore('notify', () => {
     isUserOnline,
     init,
     stop,
+    $reset,
     clearAllNotifications,
     sendChatMsg,
   };
