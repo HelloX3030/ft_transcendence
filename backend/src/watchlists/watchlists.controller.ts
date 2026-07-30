@@ -63,7 +63,6 @@ export class WatchlistsController {
     schema: {
       example: {
         name: 'My Watchlist',
-        image: 'https://example.com/image.jpg',
       },
     },
   })

@@ -5,6 +5,7 @@ import type {
   UserSearchResponse,
 } from '@trailertinder/shared';
 import { backendClient } from '../client';
+import { uploadWithProgress, type UploadOptions } from '../upload';
 
 export const userApi = {
   getMe: () => backendClient<UserMeResponse>('/users/me'),
@@ -20,12 +21,10 @@ export const userApi = {
     return backendClient<UserSearchResponse>(`/users/search?${params.toString()}`);
   },
 
-  uploadAvatar: (payload: FormData) => {
-    backendClient('/users/me/avatar', {
-      method: 'POST',
-      body: payload,
-    });
-  },
+  uploadAvatar: (payload: FormData, opts?: UploadOptions) =>
+    uploadWithProgress<UserMeResponse>('/users/me/avatar', payload, opts),
+
+  deleteAvatar: () => backendClient<UserMeResponse>('/users/me/avatar', { method: 'DELETE' }),
 
   update: (payload: UpdateUserRequest) =>
     backendClient('/users/me', {

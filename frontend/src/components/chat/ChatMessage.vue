@@ -48,10 +48,10 @@ function isMine(senderId: number) {
     >
       <MessageAvatar>
         <template v-if="isMine(group.senderId)">
-          <UserAvatar v-if="user" :image="user.image" :username="user.username" />
+          <UserAvatar v-if="user" :avatar-file-id="user.avatarFileId" :username="user.username" />
         </template>
         <template v-else>
-          <UserAvatar :image="friend.image" :username="friend.username" />
+          <UserAvatar :avatar-file-id="friend.avatarFileId" :username="friend.username" />
         </template>
       </MessageAvatar>
 

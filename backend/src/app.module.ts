@@ -16,6 +16,7 @@ import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
+import { FilesModule } from './files/files.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { THROTTLERS } from './throttle.config';
 
@@ -29,7 +30,6 @@ import { THROTTLERS } from './throttle.config';
         JWT_REFRESH_SECRET: Joi.string().min(32).required(),
         CORS_ORIGIN: Joi.string().required(),
         MINIO_ENDPOINT: Joi.string().required(),
-        MINIO_PUBLIC_URL: Joi.string().required(),
         MINIO_ACCESS_KEY: Joi.string().required(),
         MINIO_SECRET_KEY: Joi.string().required(),
         MINIO_BUCKET: Joi.string().required(),
@@ -55,6 +55,7 @@ import { THROTTLERS } from './throttle.config';
     NotifyModule,
     NotificationsModule,
     ChatModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [

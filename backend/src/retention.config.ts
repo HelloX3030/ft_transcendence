@@ -19,6 +19,13 @@ export const MAX_RETENTION_DAYS = 90;
  */
 export const MESSAGE_RETENTION_DAYS = 90;
 
+/**
+ * An upload that no record references is dead weight in the bucket. One day is
+ * long enough that a slow but legitimate attach flow is never caught, and short
+ * enough that abandoned uploads do not accumulate.
+ */
+export const ORPHAN_FILE_RETENTION_DAYS = 1;
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function daysAgo(days: number, now: number = Date.now()): Date {

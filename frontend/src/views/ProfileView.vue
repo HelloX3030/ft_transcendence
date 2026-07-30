@@ -16,6 +16,7 @@ import { usePeopleStore } from '@/stores/people';
 import TotpCard from '@/components/profile/TotpCard.vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
+import { fileUrl } from '@/lib/files';
 
 const userStore = useUserStore();
 
@@ -82,7 +83,11 @@ watch(
         <CardHeader>
           <div class="flex min-w-0 items-center gap-4">
             <Avatar class="size-20 shrink-0">
-              <AvatarImage v-if="profile.image" :src="profile.image" :alt="profile.username" />
+              <AvatarImage
+                v-if="profile.avatarFileId"
+                :src="fileUrl(profile.avatarFileId)"
+                :alt="profile.username"
+              />
               <AvatarFallback class="text-xl font-semibold">{{ initials }}</AvatarFallback>
             </Avatar>
             <div class="min-w-0 flex flex-col gap-1">

@@ -19,6 +19,6 @@ describe('UpdateUserDto', () => {
   });
 
   it('rejects an attempt to set the avatar directly — avatars come from POST /me/avatar', () => {
-    expect(validate({ image: 'https://evil.example.com/x.svg' })).not.toHaveLength(0);
+    expect(validate({ avatarFileId: 7 })).not.toHaveLength(0);
   });
 });

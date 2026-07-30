@@ -2,24 +2,23 @@
  * Server-side image type detection.
  *
  * Both the multipart `mimetype` header and `originalname` are client-controlled, so
- * neither may decide what we store or how we serve it: the avatar bucket is publicly
- * readable, and an object stored as `image/svg+xml` containing `<script>` executes
- * when the URL is opened. We therefore sniff the leading bytes and derive both the
- * stored `Content-Type` and the object key's extension from the result.
+ * neither may decide what we store or how we serve it. The bucket is private and
+ * every read goes through `GET /files/:id`, but that endpoint still has to send a
+ * `Content-Type`, and a stored `image/svg+xml` containing `<script>` would execute
+ * in the browser that receives it. Sniffing the leading bytes is what guarantees
+ * the type we serve matches the bytes, and what keeps scriptable formats out of
+ * the store in the first place.
+ *
+ * The set of accepted types lives in `FILE_RULES` in `shared/`, so the client can
+ * pre-validate against exactly what the server accepts.
  */
 
 export interface DetectedImage {
-  /** Canonical mimetype, safe to serve from the public bucket. */
+  /** Canonical mimetype, safe to send as the response `Content-Type`. */
   mime: string;
   /** Extension (with leading dot) matching `mime`. */
   ext: string;
 }
-
-/**
- * Declared mimetypes accepted up-front by the multer `fileFilter`. This is only a
- * cheap early reject — `detectImageType` is the authoritative check.
- */
-export const ALLOWED_IMAGE_MIMETYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/webp'];
 
 export const ALLOWED_IMAGE_LABEL = 'PNG, JPEG or WebP';
 

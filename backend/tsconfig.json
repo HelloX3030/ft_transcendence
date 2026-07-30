@@ -2,6 +2,13 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    // `shared/` is consumed as raw TypeScript: Node loads its files directly
+    // with type stripping, and ESM has no directory or extensionless
+    // resolution, so its barrels carry explicit .ts specifiers. These two let
+    // tsc accept those while still emitting — `rewriteRelativeImportExtensions`
+    // rewrites any relative .ts specifier we emit ourselves.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
     "isolatedModules": true,

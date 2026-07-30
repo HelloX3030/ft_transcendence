@@ -14,7 +14,7 @@ import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
 import { invalidationMap } from '@/lib/event-router';
 import { notificationText } from '@/lib/notification-text';
-import { refreshSession } from '@/api/client';
+import { refreshSession } from '@/api/http';
 import { useChatStore } from './chat';
 import { useFriendsStore } from './friends';
 import { useNotificationsStore } from './notifications';

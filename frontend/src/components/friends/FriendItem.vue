@@ -15,6 +15,7 @@ import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
 import { useNotifyStore } from '@/stores/notify';
 import PresenceDot from '../PresenceDot.vue';
+import { fileUrl } from '@/lib/files';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -41,7 +42,7 @@ async function handleDelete() {
     <ItemMedia>
       <span class="relative inline-flex">
         <Avatar class="size-10">
-          <AvatarImage v-if="image" :src="image" :alt="username" />
+          <AvatarImage v-if="avatarFileId" :src="fileUrl(avatarFileId)" :alt="username" />
           <AvatarFallback><UserIcon /></AvatarFallback>
         </Avatar>
         <PresenceDot overlay :online="notify.isUserOnline(id)" />

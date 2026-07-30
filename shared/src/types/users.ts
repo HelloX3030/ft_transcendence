@@ -19,7 +19,8 @@ export interface UserMeResponse {
   username: string;
   email: string;
   language: LanguageCode;
-  image: string | null;
+  /** Id of the stored avatar; the client builds `/files/:id` from it. */
+  avatarFileId: number | null;
   role: UserRole;
   onboardingCompleted: boolean;
   genreIds: number[];
@@ -34,7 +35,7 @@ export interface GetUserRequest {
 
 export interface GetUserResponse {
   id: number;
-  image: string | null;
+  avatarFileId: number | null;
   username: string;
 }
 

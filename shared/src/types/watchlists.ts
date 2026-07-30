@@ -10,12 +10,10 @@ export interface WatchlistMovieResponse {
 
 export interface WatchlistCreateRequest {
   name: string;
-  image?: string;
 }
 
 export interface WatchlistUpdateRequest {
   name?: string;
-  image?: string;
 }
 
 export interface WatchlistRequest {
@@ -25,7 +23,6 @@ export interface WatchlistRequest {
 export interface WatchlistResponse {
   id: number;
   name: string;
-  image: string | null;
   posterPaths: string[];
   role: WatchlistRole;
   editorIds: number[];

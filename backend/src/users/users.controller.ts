@@ -20,7 +20,8 @@ import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
-import { ALLOWED_IMAGE_MIMETYPES, otpDto } from 'src/utils';
+import { otpDto } from 'src/utils';
+import { FILE_RULES } from '@trailertinder/shared';
 
 @Controller('users')
 export class UsersController {
@@ -65,10 +66,13 @@ export class UsersController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      // Same limits the client checks against, imported from shared so the two
+      // cannot drift. This is the backstop: the client's copy is UX only.
+      limits: { fileSize: FILE_RULES.avatar.maxBytes },
       // Cheap early reject on the declared type; the authoritative check is the
       // magic-byte sniff in UsersService.uploadAvatar (mimetype is client-supplied).
-      fileFilter: (_req, file, cb) => cb(null, ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype)),
+      fileFilter: (_req, file, cb) =>
+        cb(null, (FILE_RULES.avatar.mimes as readonly string[]).includes(file.mimetype)),
     }),
   )
   uploadAvatar(
@@ -77,6 +81,16 @@ export class UsersController {
   ) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.uploadAvatar(user.sub, file);
+  }
+
+  @Delete('me/avatar')
+  @ApiOperation({ summary: "Delete the authenticated user's avatar" })
+  @ApiResponse({ status: 200, description: 'Updated user profile, avatarFileId now null' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'No avatar to delete' })
+  deleteAvatar(@Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.usersService.deleteAvatar(user.sub);
   }
 
   @Delete('me')

@@ -5,11 +5,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue';
 import { UserRound, MessageCircle } from '@lucide/vue';
+import { fileUrl } from '@/lib/files';
 
 interface PublicProfile {
   id: number;
   username: string;
-  image: string | null;
+  avatarFileId: number | null;
 }
 
 const route = useRoute();
@@ -65,7 +66,11 @@ const initials = computed(() =>
     <template v-else-if="profile">
       <div class="flex flex-wrap items-center gap-5">
         <Avatar class="size-24">
-          <AvatarImage v-if="profile.image" :src="profile.image" :alt="profile.username" />
+          <AvatarImage
+            v-if="profile.avatarFileId"
+            :src="fileUrl(profile.avatarFileId)"
+            :alt="profile.username"
+          />
           <AvatarFallback class="text-2xl font-semibold">{{ initials }}</AvatarFallback>
         </Avatar>
 

@@ -23,6 +23,7 @@ import { storeToRefs } from 'pinia';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import type { GetUserResponse } from '@trailertinder/shared';
 import { useUserStore } from '@/stores/user';
+import { fileUrl } from '@/lib/files';
 
 const selectedEditors = defineModel<number[]>();
 const user = useUserStore();
@@ -39,7 +40,7 @@ const usersById = computed(() => {
     map.set(user.state.id, {
       username: user.state.username,
       id: user.state.id,
-      image: user.state.image,
+      avatarFileId: user.state.avatarFileId,
     });
   return map;
 });
@@ -106,7 +107,11 @@ watch(searchTerm, (f) => {
             "
           >
             <Avatar class="size-8">
-              <AvatarImage v-if="item.image" :src="item.image" :alt="item.username" />
+              <AvatarImage
+                v-if="item.avatarFileId"
+                :src="fileUrl(item.avatarFileId)"
+                :alt="item.username"
+              />
               <AvatarFallback><UserIcon /></AvatarFallback>
             </Avatar>
             <span>{{ item.username }}</span>

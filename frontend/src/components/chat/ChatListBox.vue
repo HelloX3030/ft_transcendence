@@ -59,7 +59,7 @@ function lastMessageOf(chat: Chat) {
         class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors h-auto justify-start"
         :class="activeChat?.friend.id === chat.friend.id && 'bg-white/10'"
       >
-        <UserAvatar :image="chat.friend.image" :username="chat.friend.username" />
+        <UserAvatar :avatar-file-id="chat.friend.avatarFileId" :username="chat.friend.username" />
 
         <div class="flex-1 min-w-0">
           <div class="flex justify-between items-baseline">
@@ -104,7 +104,7 @@ function lastMessageOf(chat: Chat) {
           "
           class="w-full flex items-center gap-3 p-3 text-left hover:bg-white/5 transition-colors h-auto justify-start"
         >
-          <UserAvatar :image="friend.image" :username="friend.username" />
+          <UserAvatar :avatar-file-id="friend.avatarFileId" :username="friend.username" />
           <span class="font-medium truncate">{{ friend.username }}</span>
         </Button>
       </template>

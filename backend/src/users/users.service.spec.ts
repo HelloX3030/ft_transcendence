@@ -20,12 +20,12 @@ const mockUser = {
   id: 1,
   username: 'testuser',
   email: 'test@example.com',
-  image: null,
+  avatarFileId: null,
   language: 'en',
   role: 'user',
 };
 
-const mockPublicUser = { id: 1, username: 'testuser', image: null };
+const mockPublicUser = { id: 1, username: 'testuser', avatarFileId: null };
 
 // PrismaService inherits a large generated client; only type the slice this service uses.
 const mockPrisma = {
@@ -37,7 +37,17 @@ const mockPrisma = {
     updateMany: jest.fn(),
     delete: jest.fn(),
   },
-} satisfies { users: Partial<jest.Mocked<PrismaService['users']>> };
+  files: {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    delete: jest.fn(),
+  },
+  $transaction: jest.fn(),
+} satisfies {
+  users: Partial<jest.Mocked<PrismaService['users']>>;
+  files: Partial<jest.Mocked<PrismaService['files']>>;
+  $transaction: unknown;
+};
 
 function prismaError(code: string, target?: string[]): PrismaClientKnownRequestError {
   return new PrismaClientKnownRequestError('error', {
@@ -50,7 +60,7 @@ function prismaError(code: string, target?: string[]): PrismaClientKnownRequestE
 const mockStorage = {
   upload: jest.fn(),
   delete: jest.fn(),
-  extractKey: jest.fn(),
+  getObject: jest.fn(),
 } satisfies Partial<jest.Mocked<StorageService>>;
 
 describe('UsersService', () => {
@@ -67,6 +77,9 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
     jest.clearAllMocks();
+    // uploadAvatar writes the files row and the users pointer in one transaction;
+    // running the callback against the same mocks keeps the assertions on it.
+    mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mockPrisma));
   });
 
   it('should be defined', () => {
@@ -177,9 +190,8 @@ describe('UsersService', () => {
     } as Express.Multer.File;
 
     it('stores the sniffed type and extension, ignoring the client-supplied ones', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
-      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.png');
+      mockPrisma.users.findUnique.mockResolvedValue({ avatarFile: null });
+      mockPrisma.files.create.mockResolvedValue({ id: 9 });
       mockPrisma.users.update.mockResolvedValue(mockUser);
 
       await service.uploadAvatar(1, file);
@@ -188,6 +200,19 @@ describe('UsersService', () => {
         expect.stringMatching(/^1-\d+-[0-9a-f]{8}\.png$/),
         pngBytes,
         'image/png',
+      );
+      expect(mockPrisma.files.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ownerId: 1,
+            mimetype: 'image/png',
+            size: pngBytes.length,
+            kind: 'avatar',
+          }) as object,
+        }),
+      );
+      expect(mockPrisma.users.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { avatarFileId: 9 } }),
       );
     });
 
@@ -202,12 +227,10 @@ describe('UsersService', () => {
       expect(mockStorage.upload).not.toHaveBeenCalled();
     });
 
-    it('deletes the just-uploaded object when the DB update fails', async () => {
+    it('deletes the just-uploaded object when the DB write fails', async () => {
       const error = prismaError('P2025');
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
-      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.png');
-      mockPrisma.users.update.mockRejectedValue(error);
+      mockPrisma.users.findUnique.mockResolvedValue({ avatarFile: null });
+      mockPrisma.files.create.mockRejectedValue(error);
 
       await expect(service.uploadAvatar(1, file)).rejects.toThrow(error);
       expect(mockStorage.delete).toHaveBeenCalledWith(
@@ -215,31 +238,23 @@ describe('UsersService', () => {
       );
     });
 
-    it('deletes old MinIO avatar when user has one', async () => {
-      const minioUrl = 'http://localhost:9000/avatars/1-old.jpg';
-      mockPrisma.users.findUnique.mockResolvedValue({ image: minioUrl });
-      mockStorage.extractKey.mockReturnValue('1-old.jpg');
-      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.jpg');
-      mockPrisma.users.update.mockResolvedValue({
-        ...mockUser,
-        image: 'http://localhost:9000/avatars/1-new.jpg',
+    it('discards the replaced avatar, row and object', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({
+        avatarFile: { id: 4, key: '1-old.jpg' },
       });
+      mockPrisma.files.create.mockResolvedValue({ id: 9 });
+      mockPrisma.users.update.mockResolvedValue({ ...mockUser, avatarFileId: 9 });
 
       await service.uploadAvatar(1, file);
 
+      expect(mockPrisma.files.delete).toHaveBeenCalledWith({ where: { id: 4 } });
       expect(mockStorage.delete).toHaveBeenCalledWith('1-old.jpg');
     });
 
-    it('does not call delete when user has no MinIO avatar', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({
-        image: 'https://oauth.example.com/avatar.jpg',
-      });
-      mockStorage.extractKey.mockReturnValue(null);
-      mockStorage.upload.mockResolvedValue('http://localhost:9000/avatars/1-new.jpg');
-      mockPrisma.users.update.mockResolvedValue({
-        ...mockUser,
-        image: 'http://localhost:9000/avatars/1-new.jpg',
-      });
+    it('deletes nothing when the user had no avatar', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ avatarFile: null });
+      mockPrisma.files.create.mockResolvedValue({ id: 9 });
+      mockPrisma.users.update.mockResolvedValue({ ...mockUser, avatarFileId: 9 });
 
       await service.uploadAvatar(1, file);
 
@@ -247,10 +262,30 @@ describe('UsersService', () => {
     });
   });
 
+  describe('deleteAvatar', () => {
+    it('deletes the row and the object, and reports the cleared profile', async () => {
+      mockPrisma.users.findUnique
+        .mockResolvedValueOnce({ avatarFile: { id: 4, key: '1-old.jpg' } })
+        .mockResolvedValueOnce({ ...mockUser, avatarFileId: null });
+
+      const result = await service.deleteAvatar(1);
+
+      expect(mockPrisma.files.delete).toHaveBeenCalledWith({ where: { id: 4 } });
+      expect(mockStorage.delete).toHaveBeenCalledWith('1-old.jpg');
+      expect(result.data).toMatchObject({ avatarFileId: null });
+    });
+
+    it('404s when there is no avatar to delete', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ avatarFile: null });
+
+      await expect(service.deleteAvatar(1)).rejects.toThrow(NotFoundException);
+      expect(mockStorage.delete).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deleteMe', () => {
     it('returns account deleted message on success', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
+      mockPrisma.files.findMany.mockResolvedValue([]);
       mockPrisma.users.delete.mockResolvedValue(undefined);
 
       const result = await service.deleteMe(1);
@@ -259,21 +294,20 @@ describe('UsersService', () => {
       expect(result).toEqual({ success: true, message: 'Account deleted', data: null });
     });
 
-    it('deletes MinIO avatar when user has one', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({
-        image: 'http://localhost:9000/avatars/1-old.jpg',
-      });
-      mockStorage.extractKey.mockReturnValue('1-old.jpg');
+    it('removes every object the user owned', async () => {
+      // The rows go with the user via cascade, but the objects have no such
+      // relationship and would be leaked without this.
+      mockPrisma.files.findMany.mockResolvedValue([{ key: '1-old.jpg' }, { key: '1-older.png' }]);
       mockPrisma.users.delete.mockResolvedValue(undefined);
 
       await service.deleteMe(1);
 
       expect(mockStorage.delete).toHaveBeenCalledWith('1-old.jpg');
+      expect(mockStorage.delete).toHaveBeenCalledWith('1-older.png');
     });
 
-    it('does not call delete when user has no avatar', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
+    it('does not call delete when the user owned no files', async () => {
+      mockPrisma.files.findMany.mockResolvedValue([]);
       mockPrisma.users.delete.mockResolvedValue(undefined);
 
       await service.deleteMe(1);
@@ -282,16 +316,14 @@ describe('UsersService', () => {
     });
 
     it('throws a Prisma P2025 error when deleting a non-existent user', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
+      mockPrisma.files.findMany.mockResolvedValue([]);
       mockPrisma.users.delete.mockRejectedValue(prismaError('P2025'));
 
       await expect(service.deleteMe(1)).rejects.toThrow();
     });
 
     it('re-throws non-P2025 errors', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue({ image: null });
-      mockStorage.extractKey.mockReturnValue(null);
+      mockPrisma.files.findMany.mockResolvedValue([]);
       const error = new Error('DB connection failed');
       mockPrisma.users.delete.mockRejectedValue(error);
 
