@@ -77,11 +77,10 @@ export const useNotifyStore = defineStore('notify', () => {
     socket.removeAllListeners();
     socket.disconnect();
 
-    isInit = false;
-
     $reset();
   }
   function $reset() {
+    isInit = false;
     count.value = 0;
     nofiyId.value = 0;
     notifyMsg.value = [];
