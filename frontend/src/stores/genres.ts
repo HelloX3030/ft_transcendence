@@ -47,6 +47,7 @@ export const useGenresStore = defineStore('genres', () => {
   function $reset() {
     genres.value = [];
     status.value = 'idle';
+    inFlight = null;
   }
   return { genres, status, genreMap, genreName, ensureLoaded, $reset };
 });
