@@ -25,6 +25,8 @@ jobs:
         run: npm run lint:check
       - name: Type check
         run: npm run type-check
+      - name: Tests
+        run: npm run test
 
   backend:
     runs-on: ubuntu-latest

@@ -9,20 +9,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { watchlistCreateDto, watchlistUpdateDto } from './dto';
-import { Prisma, watchlist_role, watchlists } from '@prisma/client';
+import { notification_type, Prisma, watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
-import {
-  MOVIE_ADDED_TO_WATCHLIST,
-  MOVIE_REMOVED_FROM_WATCHLIST,
-  successResponse,
-  UserUtils,
-  WATCHLIST_DELETED,
-  WATCHLIST_USER_ADDED,
-  WATCHLIST_USER_REMOVED,
-  WATCHLISTS_TITLE,
-} from 'src/utils';
+import { successResponse, UserUtils } from 'src/utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
-import { NotifyService } from 'src/notify/notify.service';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 // Number of movie posters stitched into a watchlist's mosaic cover.
 export const WATCHLIST_COVER_LIMIT = 4;
@@ -55,7 +46,7 @@ export class WatchlistsService {
 
   constructor(
     private prisma: PrismaService,
-    private notify: NotifyService,
+    private notifications: NotificationsService,
     private userUtils: UserUtils,
   ) {}
 
@@ -169,15 +160,18 @@ export class WatchlistsService {
       },
     });
 
-    const username = (await this.userUtils.getUser(currentUserId)).username;
-    const msg = WATCHLIST_DELETED(username, watchlistUser.watchlist.name);
-    for (const member of members) {
-      if (member.userId === currentUserId) continue;
-      this.notify.sendNotify(member.userId, {
-        title: WATCHLISTS_TITLE,
-        msg,
-      });
-    }
+    const actorUsername = (await this.userUtils.getUser(currentUserId)).username;
+    await this.notifications.createMany(
+      members.map(({ userId }) => userId),
+      {
+        type: 'watchlist_deleted',
+        actorId: currentUserId,
+        exceptUserId: currentUserId,
+        // The watchlist is gone, so entityId would dangle — the name lives in
+        // params, which is exactly why the snapshot exists.
+        params: { actorUsername, watchlist: watchlistUser.watchlist.name },
+      },
+    );
 
     return successResponse(null);
   }
@@ -236,9 +230,12 @@ export class WatchlistsService {
       throw error;
     }
 
-    const username = (await this.userUtils.getUser(currentUserId)).username;
-    const msg = MOVIE_ADDED_TO_WATCHLIST(username, movie.name, watchlistUser.watchlist.name);
-    await this.sendWatchlistNotify(id, currentUserId, msg);
+    const actorUsername = (await this.userUtils.getUser(currentUserId)).username;
+    await this.notifyMembers(id, currentUserId, 'watchlist_movie_added', {
+      actorUsername,
+      movie: movie.name,
+      watchlist: watchlistUser.watchlist.name,
+    });
 
     return successResponse(null);
   }
@@ -261,13 +258,12 @@ export class WatchlistsService {
       },
     });
 
-    const username = (await this.userUtils.getUser(currentUserId)).username;
-    const msg = MOVIE_REMOVED_FROM_WATCHLIST(
-      username,
-      movie.movie.name,
-      watchlistUser.watchlist.name,
-    );
-    await this.sendWatchlistNotify(id, currentUserId, msg);
+    const actorUsername = (await this.userUtils.getUser(currentUserId)).username;
+    await this.notifyMembers(id, currentUserId, 'watchlist_movie_removed', {
+      actorUsername,
+      movie: movie.movie.name,
+      watchlist: watchlistUser.watchlist.name,
+    });
 
     return successResponse(null);
   }
@@ -320,10 +316,13 @@ export class WatchlistsService {
       throw error;
     }
 
-    const msg = WATCHLIST_USER_ADDED(watchlistAccess.watchlist.name);
-    this.notify.sendNotify(dto.userId, {
-      title: WATCHLISTS_TITLE,
-      msg,
+    const actorUsername = (await this.userUtils.getUser(currentUserId)).username;
+    await this.notifications.create({
+      userId: dto.userId,
+      type: 'watchlist_user_added',
+      actorId: currentUserId,
+      entityId: id,
+      params: { actorUsername, watchlist: watchlistAccess.watchlist.name },
     });
 
     return successResponse(null);
@@ -409,10 +408,14 @@ export class WatchlistsService {
     });
 
     if (userId != currentUserId) {
-      const msg = WATCHLIST_USER_REMOVED(wl.watchlist.name);
-      this.notify.sendNotify(userId, {
-        title: WATCHLISTS_TITLE,
-        msg,
+      const actorUsername = (await this.userUtils.getUser(currentUserId)).username;
+      await this.notifications.create({
+        userId,
+        type: 'watchlist_user_removed',
+        actorId: currentUserId,
+        // No entityId: the recipient has just lost access, so a deep-link into
+        // the watchlist would only 404.
+        params: { actorUsername, watchlist: wl.watchlist.name },
       });
     }
 
@@ -502,19 +505,21 @@ export class WatchlistsService {
     }
   }
 
-  async sendWatchlistNotify(wlId: number, currentUserId: number, msg: string) {
+  async notifyMembers(
+    wlId: number,
+    currentUserId: number,
+    type: notification_type,
+    params: Record<string, string>,
+  ) {
     // Callers have already verified access, so query recipients directly
     // rather than re-running the access check via getUsers/checkUserAccess.
     const members = await this.prisma.watchlist_users.findMany({
       where: { watchlistId: wlId },
       select: { userId: true },
     });
-    for (const member of members) {
-      if (member.userId === currentUserId) continue;
-      this.notify.sendNotify(member.userId, {
-        title: WATCHLISTS_TITLE,
-        msg,
-      });
-    }
+    await this.notifications.createMany(
+      members.map(({ userId }) => userId),
+      { type, actorId: currentUserId, entityId: wlId, exceptUserId: currentUserId, params },
+    );
   }
 }

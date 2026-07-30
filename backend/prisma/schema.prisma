@@ -22,6 +22,28 @@ model friends {
   @@id([userAId, userBId])
 }
 
+/// One row per delivered notification. The row is the source of truth; the
+/// socket event is only the fast path, so an offline recipient loses nothing.
+model notifications {
+  id        Int               @id @default(autoincrement())
+  userId    Int               @map("user_id")
+  type      notification_type
+  actorId   Int?              @map("actor_id")
+  entityId  Int?              @map("entity_id")
+  /// Values snapshotted at event time, so a later rename cannot rewrite history.
+  params    Json              @default("{}")
+  readAt    DateTime?         @map("read_at")
+  createdAt DateTime          @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
+
+  user  users  @relation("notifyRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: "alice accepted your request" must survive alice
+  // deleting her account. params.actorUsername still renders it.
+  actor users? @relation("notifyActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, readAt])
+}
+
 model movies {
   id         Int     @id @default(autoincrement())
   tmdbId     Int     @unique @map("tmdb_id")
@@ -94,6 +116,9 @@ model users {
   ratings        ratings[]
   watchlistUsers watchlist_users[]
 
+  notifications      notifications[] @relation("notifyRecipient")
+  causedNotifications notifications[] @relation("notifyActor")
+
   sessions sessions[]
 }
 
@@ -133,6 +158,19 @@ model watchlists {
 enum friend_status {
   pending
   accepted
+}
+
+enum notification_type {
+  friend_request_created
+  friend_request_accepted
+  friend_request_declined
+  friend_request_cancelled
+  friend_removed
+  watchlist_user_added
+  watchlist_user_removed
+  watchlist_movie_added
+  watchlist_movie_removed
+  watchlist_deleted
 }
 
 enum language_code {

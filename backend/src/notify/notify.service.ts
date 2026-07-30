@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
-import { NotifyMsg } from '@trailertinder/shared';
+import { DomainEvent } from '@trailertinder/shared';
 import type { NotifySocket as Socket } from 'src/types';
 import { FriendUtils } from 'src/utils';
 import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
@@ -61,8 +61,13 @@ export class NotifyService {
   // -------------------------
   // Send Notifications
   // -------------------------
-  sendNotify(userId: number, message: NotifyMsg) {
-    this.notifyGateway.sendNotification(userId, message);
+  /**
+   * Pushes a typed domain event to every tab of `userId`. Fire-and-forget by
+   * design: the caller has already persisted whatever needs to survive, so a
+   * recipient with no open socket is not an error.
+   */
+  sendEvent(userId: number, event: DomainEvent) {
+    this.notifyGateway.sendDomainEvent(userId, event);
   }
 
   // -------------------------

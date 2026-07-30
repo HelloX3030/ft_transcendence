@@ -1,19 +1,20 @@
 import { ref } from 'vue';
 import { defineStore, storeToRefs } from 'pinia';
 import { io } from 'socket.io-client';
-import type { ChatMsgRecive, NotifyError, FriendsStatus, NotifyMsg } from '@trailertinder/shared';
+import type { ChatMsgRecive, DomainEvent, NotifyError, FriendsStatus } from '@trailertinder/shared';
 import { BACKEND_URL } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
+import { invalidationMap } from '@/lib/event-router';
+import { notificationText } from '@/lib/notification-text';
 import { refreshSession } from '@/api/client';
 import { useChatStore } from './chat';
 import { useFriendsStore } from './friends';
+import { useNotificationsStore } from './notifications';
+import { useWatchlistsStore } from './watchlists';
 
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
-  const count = ref<number>(0);
-  const notifyId = ref<number>(0);
-  const notifyMsg = ref<{ id: number; title: string; msg: string; date: string }[]>([]);
   // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
   // by the server on every (re)connect, then kept current by `online-status:<id>`.
   const friendsStatus = ref(new Map<number, boolean>());
@@ -23,7 +24,14 @@ export const useNotifyStore = defineStore('notify', () => {
 
   const chatStore = useChatStore();
   const friendsStore = useFriendsStore();
+  const notificationsStore = useNotificationsStore();
+  const watchlistsStore = useWatchlistsStore();
   const { friendsDetails } = storeToRefs(friendsStore);
+
+  const INVALIDATE = invalidationMap({
+    refetchFriends: () => void friendsStore.refetchFriends(),
+    invalidateWatchlists: () => watchlistsStore.invalidate(),
+  });
 
   function init() {
     if (isInit) return;
@@ -33,6 +41,9 @@ export const useNotifyStore = defineStore('notify', () => {
     socket.on('connect', () => {
       logger.debug('[notify] connected.');
       offline.value = false;
+      // Also runs on every reconnect: the socket was down, so events were missed
+      // and only a refetch can close that gap.
+      void notificationsStore.load();
     });
 
     socket.on('connect_error', (error) => {
@@ -66,13 +77,12 @@ export const useNotifyStore = defineStore('notify', () => {
       logger.error('[notify] exception: ', error.message);
     });
 
-    socket.on('notification', (msg) => {
-      if (!isNotifyMsg(msg)) {
-        logger.error('[notify] invalid notification payload', msg);
+    socket.on('event', (payload) => {
+      if (!isDomainEvent(payload)) {
+        logger.error('[notify] invalid event payload', payload);
         return;
       }
-
-      addNotification(msg);
+      handleEvent(payload);
     });
 
     initWatchFriendsOnlineStatus();
@@ -86,15 +96,31 @@ export const useNotifyStore = defineStore('notify', () => {
     isInit = true;
   }
 
+  /**
+   * Routes one typed event: fold it into the inbox, surface it, then invalidate
+   * whatever store it makes stale. An unknown type is logged and dropped — a
+   * throw here would take down the socket handler for every later event.
+   */
+  function handleEvent(event: DomainEvent) {
+    const invalidate = INVALIDATE[event.type] as (() => void) | undefined;
+    if (invalidate === undefined) {
+      logger.debug('[notify] ignoring unknown event type', event.type);
+      return;
+    }
+
+    notificationsStore.ingest(event);
+    toast.info(notificationText(event.type, event.params));
+    invalidate();
+  }
+
+  /** Clears the local cache only; the server keeps the inbox. */
   function stop() {
     socket.close();
     isInit = false;
-    count.value = 0;
-    notifyId.value = 0;
-    notifyMsg.value = [];
     friendsStatus.value = new Map();
     offline.value = true;
     chatStore.reset();
+    notificationsStore.reset();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -131,11 +157,6 @@ export const useNotifyStore = defineStore('notify', () => {
     return friendsStatus.value.get(Number(userId)) ?? false;
   }
 
-  function clearAllNotifications() {
-    notifyMsg.value = [];
-    count.value = 0;
-  }
-
   function initChat() {
     socket.on('chat', (data) => {
       if (!isChatMsgRecive(data)) {
@@ -154,8 +175,8 @@ export const useNotifyStore = defineStore('notify', () => {
       // both participants agree on the ordering.
       chatStore.addMessage(chat, data.senderUserId, data.msg, new Date(data.time).toISOString());
 
-      if (data.senderUserId === data.peerUserId)
-        addNotification({ title: 'Chat', msg: 'You have a new Chat message.' });
+      // Chat has no inbox row of its own yet, so only the transient toast.
+      if (data.senderUserId === data.peerUserId) toast.info('You have a new chat message.');
     });
   }
 
@@ -163,35 +184,29 @@ export const useNotifyStore = defineStore('notify', () => {
     socket.emit('chat', { peerUserId, msg });
   }
 
-  function addNotification(msg: NotifyMsg) {
-    count.value++;
-    const date = new Date(Date.now()).toLocaleString();
-    notifyMsg.value.unshift({ id: notifyId.value++, title: msg.title, msg: msg.msg, date });
-    toast.info(msg.msg);
-  }
-
   return {
     SYSTEM_SENDER_ID,
     offline,
     friendsStatus,
-    count,
-    notifyMsg,
     isUserOnline,
     init,
     stop,
-    clearAllNotifications,
     sendChatMsg,
   };
 });
 
-function isNotifyMsg(value: unknown): value is NotifyMsg {
+function isDomainEvent(value: unknown): value is DomainEvent {
+  if (typeof value !== 'object' || value === null) return false;
+
+  const event = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'title' in value &&
-    typeof (value as Record<string, unknown>).title === 'string' &&
-    'msg' in value &&
-    typeof (value as Record<string, unknown>).msg === 'string'
+    typeof event.type === 'string' &&
+    (event.actorId === null || typeof event.actorId === 'number') &&
+    (event.entityId === null || typeof event.entityId === 'number') &&
+    typeof event.params === 'object' &&
+    event.params !== null &&
+    (event.notificationId === null || typeof event.notificationId === 'number') &&
+    typeof event.at === 'number'
   );
 }
 

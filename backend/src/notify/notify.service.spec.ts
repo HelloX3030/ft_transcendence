@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { DomainEvent } from '@trailertinder/shared';
 import type { NotifySocket } from 'src/types';
 import { FriendUtils } from 'src/utils';
 import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
@@ -9,7 +10,7 @@ import { NotifyService } from './notify.service';
 const mockNotifyGateway = {
   addClientToStatusUpdate: jest.fn(),
   rmClientFromStatusUpdate: jest.fn(),
-  sendNotification: jest.fn(),
+  sendDomainEvent: jest.fn(),
 } satisfies Partial<jest.Mocked<NotifyGateway>>;
 
 const mockFriendUtils = {
@@ -126,13 +127,36 @@ describe('NotifyService', () => {
     });
   });
 
-  describe('sendNotify', () => {
+  describe('sendEvent', () => {
     it('delegates to the gateway', () => {
-      const message = { title: 'Hi', msg: 'You have a friend request.' };
+      const event: DomainEvent = {
+        type: 'friend.request.created',
+        actorId: 7,
+        entityId: null,
+        params: { actorUsername: 'alice' },
+        notificationId: 42,
+        at: 1_730_000_000_000,
+      };
 
-      service.sendNotify(5, message);
+      service.sendEvent(5, event);
 
-      expect(mockNotifyGateway.sendNotification).toHaveBeenCalledWith(5, message);
+      expect(mockNotifyGateway.sendDomainEvent).toHaveBeenCalledWith(5, event);
+    });
+
+    it('emits for an offline user too — the inbox row is the source of truth', () => {
+      const event: DomainEvent = {
+        type: 'friend.removed',
+        actorId: 7,
+        entityId: null,
+        params: {},
+        notificationId: 1,
+        at: 1_730_000_000_000,
+      };
+
+      service.sendEvent(99, event);
+
+      expect(service.isOnline(99)).toBe(false);
+      expect(mockNotifyGateway.sendDomainEvent).toHaveBeenCalledWith(99, event);
     });
   });
 

@@ -14,7 +14,7 @@ import type { JwtAccessPayload, NotifySocket as Socket } from 'src/types';
 import { NotifyService } from './notify.service';
 import { forwardRef, Inject, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { FriendsStatus, NotifyMsg } from '@trailertinder/shared';
+import { DomainEvent, FriendsStatus } from '@trailertinder/shared';
 import { ChatMsgDto } from './dto';
 import { FriendUtils, SYSTEM_SENDER_ID, UserUtils } from 'src/utils';
 import { ChatRequirementsException } from './exceptions/chat-requirements-exception';
@@ -191,8 +191,13 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   // -------------------------
   // Send Notifications
   // -------------------------
-  sendNotification(userId: number, message: NotifyMsg) {
-    this.server.to(userRoom(userId)).emit('notification', message);
+  /**
+   * One channel for every domain change. The client routes on `event.type`, so
+   * a new feature becomes live-updating by registering a type rather than by
+   * adding another socket event and another listener.
+   */
+  sendDomainEvent(userId: number, event: DomainEvent) {
+    this.server.to(userRoom(userId)).emit('event', event);
   }
 
   // -------------------------
