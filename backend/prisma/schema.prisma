@@ -71,6 +71,31 @@ model notifications {
   @@index([userId, readAt])
 }
 
+/// One row per stored object. Uploads are first-class rows rather than a URL
+/// string on the owning record, so access control, deletion and orphan cleanup
+/// all have something to hang off.
+///
+/// Ids are immutable: replacing an avatar inserts a new row rather than
+/// rewriting this one, which is what makes `/files/:id` safe to cache forever.
+model files {
+  id           Int       @id @default(autoincrement())
+  ownerId      Int       @map("owner_id")
+  /// Object key in MinIO.
+  key          String    @unique @db.VarChar(255)
+  /// Canonical mimetype, derived from the magic bytes — never from the request.
+  mimetype     String    @db.VarChar(64)
+  size         Int
+  originalName String    @map("original_name") @db.VarChar(255)
+  kind         file_kind
+  createdAt    DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
+
+  owner users @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  avatarOf users[] @relation("userAvatar")
+
+  @@index([ownerId, kind])
+}
+
 model movies {
   id         Int     @id @default(autoincrement())
   tmdbId     Int     @unique @map("tmdb_id")
@@ -115,7 +140,9 @@ model users {
   username String  @unique @db.VarChar(32)
   password String  @db.VarChar(512)
   email    String  @unique @db.VarChar(255)
-  image    String? @db.VarChar(255)
+  /// SetNull rather than a second write: deleting the file clears the reference
+  /// in one operation, so the two can never diverge.
+  avatarFileId Int? @map("avatar_file_id")
   totpSecret String?  @db.VarChar(512) @map("totp_secret")
   totpActive Boolean @default(false) @map("totp_active")
   // Highest TOTP counter already spent. A code is only accepted above this, so
@@ -151,6 +178,9 @@ model users {
   sentMessages messages[] @relation("msgSender")
 
   sessions sessions[]
+
+  files      files[]
+  avatarFile files? @relation("userAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
 }
 
 model watchlist_movies {
@@ -178,12 +208,17 @@ model watchlist_users {
 model watchlists {
   id    Int     @id @default(autoincrement())
   name  String  @db.VarChar(255)
-  image String? @db.VarChar(255)
 
   createdAt DateTime @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
 
   watchlistMovies watchlist_movies[]
   watchlistUsers  watchlist_users[]
+}
+
+/// Only `avatar` exists today. The enum is here so a second kind is additive
+/// rather than a redesign — authorization in FilesService branches on it.
+enum file_kind {
+  avatar
 }
 
 enum friend_status {

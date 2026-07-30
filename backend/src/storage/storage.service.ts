@@ -1,12 +1,25 @@
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
-  PutBucketPolicyCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import type { Readable } from 'node:stream';
+
+export interface StoredObject {
+  body: Readable;
+  /** Byte count reported by the store, or null if it did not send one. */
+  contentLength: number | null;
+}
 
 @Injectable()
 export class StorageService implements OnModuleInit {
@@ -14,7 +27,6 @@ export class StorageService implements OnModuleInit {
   private client: S3Client;
   private bucketReady = false;
   private readonly bucket = process.env.MINIO_BUCKET!;
-  private readonly publicUrl = process.env.MINIO_PUBLIC_URL!;
 
   async onModuleInit() {
     this.client = new S3Client({
@@ -37,7 +49,7 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  async upload(key: string, buffer: Buffer, mimetype: string): Promise<string> {
+  async upload(key: string, buffer: Buffer, mimetype: string): Promise<void> {
     try {
       await this.ensureBucket();
       await this.client.send(
@@ -52,14 +64,35 @@ export class StorageService implements OnModuleInit {
       this.logger.error(`Upload failed for "${key}": ${(err as Error).message}`);
       throw new ServiceUnavailableException('File storage is currently unavailable');
     }
-    return `${this.publicUrl}/${this.bucket}/${key}`;
   }
 
-  extractKey(imageUrl: string | null | undefined): string | null {
-    if (!imageUrl) return null;
-    const prefix = `${this.publicUrl}/${this.bucket}/`;
-    if (!imageUrl.startsWith(prefix)) return null;
-    return imageUrl.slice(prefix.length) || null;
+  /**
+   * Opens a read stream for an object. The bucket is private and only reachable
+   * from inside the network, so this is the single path bytes take to a client —
+   * and it runs behind the authorization in FilesService.
+   */
+  async getObject(key: string): Promise<StoredObject> {
+    let response;
+    try {
+      response = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (err) {
+      // A row without its object is a broken reference, not an outage — 404 so a
+      // stale id does not read as "storage is down".
+      if (this.isNotFound(err)) {
+        this.logger.warn(`Object "${key}" is referenced by a row but missing from the bucket`);
+        throw new NotFoundException('File not found');
+      }
+      this.logger.error(`Read failed for "${key}": ${(err as Error).message}`);
+      throw new ServiceUnavailableException('File storage is currently unavailable');
+    }
+
+    if (response.Body === undefined) {
+      throw new ServiceUnavailableException('File storage is currently unavailable');
+    }
+    return {
+      body: response.Body as Readable,
+      contentLength: response.ContentLength ?? null,
+    };
   }
 
   async delete(key: string): Promise<void> {
@@ -80,21 +113,10 @@ export class StorageService implements OnModuleInit {
       return;
     }
 
+    // No bucket policy: the bucket stays private and is never reachable from a
+    // browser. Every read goes through GET /files/:id, which authenticates first.
     await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
     this.logger.log(`Created bucket "${this.bucket}"`);
-
-    const policy = JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Effect: 'Allow',
-          Principal: { AWS: ['*'] },
-          Action: ['s3:GetObject'],
-          Resource: [`arn:aws:s3:::${this.bucket}/*`],
-        },
-      ],
-    });
-    await this.client.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
     this.bucketReady = true;
   }
 
@@ -113,6 +135,6 @@ export class StorageService implements OnModuleInit {
   private isNotFound(err: unknown): boolean {
     const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
     const name = (err as { name?: string })?.name;
-    return status === 404 || name === 'NotFound' || name === 'NoSuchBucket';
+    return status === 404 || name === 'NotFound' || name === 'NoSuchBucket' || name === 'NoSuchKey';
   }
 }

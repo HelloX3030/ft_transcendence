@@ -13,19 +13,35 @@ import { userEditSchema } from '@/lib/schemas';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
+import { ref } from 'vue';
+import { Progress } from '@/components/ui/progress';
+import AvatarDeleteDialog from '@/components/profile/AvatarDeleteDialog.vue';
 
 const {
   fileInput,
   avatarSrc,
   initials,
+  hasAvatar,
   onFileChange,
+  fileError,
   languageOptions,
   update,
   updateError,
   isLoading,
+  isUploading,
+  uploadProgress,
+  cancelUpload,
+  removeAvatar,
 } = useUserEdit();
 const userStore = useUserStore();
 const { state: profile } = storeToRefs(userStore);
+
+const showRemoveDialog = ref(false);
+
+async function confirmRemoveAvatar() {
+  await removeAvatar();
+  showRemoveDialog.value = false;
+}
 
 const form = useForm({
   validationSchema: toTypedSchema(userEditSchema),
@@ -73,11 +89,36 @@ const onSubmit = form.handleSubmit(({ username, email, language }) => {
             <input
               ref="fileInput"
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               class="hidden"
               @change="onFileChange"
             />
-            <p class="text-muted-foreground text-sm">Click the avatar to upload a new photo.</p>
+            <div class="flex flex-col gap-1">
+              <p class="text-muted-foreground text-sm">Click the avatar to upload a new photo.</p>
+              <p class="text-muted-foreground text-xs">PNG, JPEG or WebP, up to 5 MB.</p>
+              <Button
+                v-if="hasAvatar"
+                type="button"
+                variant="link"
+                class="text-destructive h-auto w-fit p-0 text-sm"
+                :disabled="isLoading"
+                @click="showRemoveDialog = true"
+              >
+                Remove photo
+              </Button>
+            </div>
+          </div>
+
+          <!-- Rejected client-side, before any bytes are sent -->
+          <p v-if="fileError" class="text-destructive text-sm">{{ fileError }}</p>
+
+          <!-- Real byte progress, with a working cancel -->
+          <div v-if="isUploading" class="flex items-center gap-3">
+            <Progress :model-value="uploadProgress ?? 0" class="flex-1" />
+            <span class="text-muted-foreground w-10 text-right text-xs tabular-nums">
+              {{ Math.round(uploadProgress ?? 0) }}%
+            </span>
+            <Button type="button" variant="outline" size="sm" @click="cancelUpload">Cancel</Button>
           </div>
 
           <!-- Username -->
@@ -136,5 +177,11 @@ const onSubmit = form.handleSubmit(({ username, email, language }) => {
         </CardFooter>
       </Card>
     </form>
+
+    <AvatarDeleteDialog
+      v-model:open="showRemoveDialog"
+      :is-deleting="isLoading"
+      @confirm="confirmRemoveAvatar"
+    />
   </div>
 </template>

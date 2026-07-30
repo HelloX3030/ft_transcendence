@@ -108,7 +108,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const known = details ?? friendsStore.friendsDetails.find((friend) => friend.id === friendId);
     const chat: Chat = {
-      friend: known ?? { id: friendId, username: `User ${friendId}`, image: null },
+      friend: known ?? { id: friendId, username: `User ${friendId}`, avatarFileId: null },
       messages: [],
       oldestCursor: null,
       hasMore: false,

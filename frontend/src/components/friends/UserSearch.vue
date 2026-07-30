@@ -11,6 +11,7 @@ import { toast } from 'vue-sonner';
 import ItemGroup from '../ui/item/ItemGroup.vue';
 import ItemSeparator from '../ui/item/ItemSeparator.vue';
 import { useFriendsStore } from '@/stores/friends.ts';
+import { fileUrl } from '@/lib/files';
 
 const friendStore = useFriendsStore();
 
@@ -84,7 +85,7 @@ watch(inputQuery, (value) => value.length <= 0 && handleClear());
             <Item>
               <ItemMedia>
                 <Avatar class="size-10">
-                  <AvatarImage v-if="user.image" :src="user.image" />
+                  <AvatarImage v-if="user.avatarFileId" :src="fileUrl(user.avatarFileId)" />
                   <AvatarFallback><UserIcon /></AvatarFallback>
                 </Avatar>
               </ItemMedia>

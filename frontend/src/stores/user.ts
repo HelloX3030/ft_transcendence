@@ -1,4 +1,5 @@
 import { userApi } from '@/api/endpoints/user';
+import type { UploadOptions } from '@/api/upload';
 import type { UpdateUserRequest, UserMeResponse } from '@trailertinder/shared';
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
@@ -20,12 +21,17 @@ export const useUserStore = defineStore('user', () => {
     return !state.value!.onboardingCompleted;
   });
 
-  async function uploadAvatar(file: File) {
+  async function uploadAvatar(file: File, opts?: UploadOptions) {
     const formData = new FormData();
     formData.append('file', file);
     // Awaited, so refetchUser() reads the new avatar rather than racing the
     // upload, and a rejection reaches the caller instead of going unhandled.
-    await userApi.uploadAvatar(formData);
+    await userApi.uploadAvatar(formData, opts);
+    await refetchUser();
+  }
+
+  async function deleteAvatar() {
+    await userApi.deleteAvatar();
     await refetchUser();
   }
 
@@ -57,6 +63,7 @@ export const useUserStore = defineStore('user', () => {
     error,
     refetchUser,
     uploadAvatar,
+    deleteAvatar,
     updateUser,
     completeOnboarding,
     activateTotp,

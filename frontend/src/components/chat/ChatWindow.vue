@@ -141,7 +141,10 @@ watch(
           <ArrowLeft class="h-5 w-5" />
         </Button>
 
-        <UserAvatar :image="activeChat.friend.image" :username="activeChat.friend.username" />
+        <UserAvatar
+          :avatar-file-id="activeChat.friend.avatarFileId"
+          :username="activeChat.friend.username"
+        />
         <span class="font-medium">{{ activeChat.friend.username }}</span>
 
         <div class="flex items-center">

@@ -4,6 +4,7 @@ import { SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '
 import { RouterLink } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
+import { fileUrl } from '@/lib/files';
 
 const userStore = useUserStore();
 
@@ -17,7 +18,11 @@ const { state: user } = storeToRefs(userStore);
         <SidebarMenuButton size="lg" as-child>
           <RouterLink to="/profile" active-class="border-r-2 border-primary rounded-r-xs">
             <Avatar>
-              <AvatarImage v-if="user?.image" :src="user.image" alt="avatar" />
+              <AvatarImage
+                v-if="user?.avatarFileId"
+                :src="fileUrl(user.avatarFileId)"
+                alt="avatar"
+              />
               <AvatarFallback>{{
                 user?.username?.slice(0, 2).toUpperCase() ?? '?'
               }}</AvatarFallback>

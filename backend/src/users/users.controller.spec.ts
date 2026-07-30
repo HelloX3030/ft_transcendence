@@ -77,7 +77,7 @@ describe('UsersController', () => {
         page: 1,
         limit: 20,
         total: 1,
-        results: [{ id: 7, username: 'alice', image: null }],
+        results: [{ id: 7, username: 'alice', avatarFileId: null }],
       };
       mockUsersService.searchUsers.mockResolvedValue(response);
 
@@ -90,7 +90,7 @@ describe('UsersController', () => {
 
   describe('getUser', () => {
     it('delegates to usersService.getUser with the route param id', async () => {
-      const publicProfile = { id: 7, username: 'other', image: null };
+      const publicProfile = { id: 7, username: 'other', avatarFileId: null };
       mockUsersService.getUser.mockResolvedValue(publicProfile);
 
       const result = await controller.getUser(7);

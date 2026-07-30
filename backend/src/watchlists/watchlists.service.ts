@@ -94,7 +94,6 @@ export class WatchlistsService {
     const watchlist = await this.prisma.watchlists.create({
       data: {
         name: dto.name,
-        image: dto.image,
         watchlistUsers: {
           create: {
             userId: currentUserId,
@@ -115,7 +114,7 @@ export class WatchlistsService {
   }
 
   async update(id: number, dto: watchlistUpdateDto, currentUserId: number) {
-    if (dto.name === undefined && dto.image === undefined) {
+    if (dto.name === undefined) {
       throw new BadRequestException('There is no data to update.');
     }
     const watchlistUser = await this.checkUserAccess(id, currentUserId);
@@ -124,8 +123,7 @@ export class WatchlistsService {
         id,
       },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.image !== undefined && { image: dto.image }),
+        name: dto.name,
       },
       include: COVER_INCLUDE,
     });
@@ -453,7 +451,6 @@ export class WatchlistsService {
     return {
       id: watchlistDb.id,
       name: watchlistDb.name,
-      image: watchlistDb.image,
       posterPaths,
       role: role,
       editorIds,

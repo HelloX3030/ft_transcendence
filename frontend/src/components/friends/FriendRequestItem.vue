@@ -9,6 +9,7 @@ import { Button } from '../ui/button';
 import { UserIcon, Check, X } from '@lucide/vue';
 import { useFriendsStore } from '@/stores/friends';
 import { useUserStore } from '@/stores/user';
+import { fileUrl } from '@/lib/files';
 
 const props = defineProps<Friend>();
 const friendsStore = useFriendsStore();
@@ -57,7 +58,11 @@ async function handleDecline() {
   <Item variant="outline">
     <ItemMedia>
       <Avatar class="size-10">
-        <AvatarImage v-if="userDetail?.image" :src="userDetail.image" :alt="userDetail.username" />
+        <AvatarImage
+          v-if="userDetail?.avatarFileId"
+          :src="fileUrl(userDetail.avatarFileId)"
+          :alt="userDetail.username"
+        />
         <AvatarFallback><UserIcon /></AvatarFallback>
       </Avatar>
     </ItemMedia>

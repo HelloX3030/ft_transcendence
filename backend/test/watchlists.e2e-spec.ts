@@ -16,7 +16,6 @@ interface ApiResponse<T = unknown> {
 // interface WatchlistResponse {
 //   id: number;
 //   name: string;
-//   image: string | null;
 //   posterPaths: string[];
 //   role: 'editor' | 'viewer';
 //   createdAt: string;
@@ -88,7 +87,6 @@ describe('Watchlists (e2e)', () => {
     expect(singleBody.data).toMatchObject({
       id: created.id,
       name: created.name,
-      image: created.image,
       posterPaths: [],
       role: 'editor',
     });
@@ -98,11 +96,10 @@ describe('Watchlists (e2e)', () => {
     const created = await createWatchlist(ownerAgent, `Update Target ${runId}`);
 
     const updatedName = `Updated Watchlist ${runId}`;
-    const updatedImage = 'https://example.com/new-image.jpg';
 
     const updateResponse = await ownerAgent
       .patch(`/watchlists/${created.id}`)
-      .send({ name: updatedName, image: updatedImage })
+      .send({ name: updatedName })
       .expect(200);
 
     const updateBody = updateResponse.body as ApiResponse<WatchlistResponse>;
@@ -110,7 +107,6 @@ describe('Watchlists (e2e)', () => {
     expect(updateBody.data).toMatchObject({
       id: created.id,
       name: updatedName,
-      image: updatedImage,
       role: 'editor',
     });
 
@@ -400,10 +396,7 @@ describe('Watchlists (e2e)', () => {
     const response = await agent
       .post('/watchlists')
       .set('Accept', 'application/json')
-      .send({
-        name,
-        image: 'https://example.com/image.jpg',
-      })
+      .send({ name })
       .expect('Content-Type', /json/)
       .expect(201);
 

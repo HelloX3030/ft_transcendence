@@ -23,8 +23,10 @@ export class UpdateUserDto implements UpdateUserRequest {
   @IsEnum(language_code)
   language?: language_code;
 
-  // `image` is deliberately not writable here: avatars come only from
-  // POST /users/me/avatar, which validates the bytes and owns bucket cleanup.
-  // A client sending it gets a 400 from the global ValidationPipe
-  // (forbidNonWhitelisted). It is still returned by ME_SELECT/PUBLIC_SELECT.
+  // `avatarFileId` is deliberately not writable here: avatars come only from
+  // POST /users/me/avatar, which validates the bytes and owns bucket cleanup,
+  // and go away via DELETE /users/me/avatar. Writable, it would let a client
+  // point their profile at someone else's file row. A client sending it gets a
+  // 400 from the global ValidationPipe (forbidNonWhitelisted). It is still
+  // returned by ME_SELECT/PUBLIC_SELECT.
 }

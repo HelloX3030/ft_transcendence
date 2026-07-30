@@ -8,6 +8,7 @@ import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
 import { useUserDetails } from '@/composables/useUserDetails.ts';
 import { Button } from '../ui/button/index.ts';
+import { fileUrl } from '@/lib/files';
 
 interface PropsType {
   watchlist: WatchlistResponse;
@@ -74,7 +75,11 @@ const open = ref(false);
               <Tooltip>
                 <TooltipTrigger
                   ><Avatar>
-                    <AvatarImage v-if="user.image" :src="user?.image" :alt="user.username" />
+                    <AvatarImage
+                      v-if="user.avatarFileId"
+                      :src="fileUrl(user.avatarFileId)"
+                      :alt="user.username"
+                    />
                     <AvatarFallback>
                       <UserIcon class="size-4 text-muted-foreground" />
                     </AvatarFallback> </Avatar

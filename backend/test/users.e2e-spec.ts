@@ -5,6 +5,7 @@ import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import {
   apiResponse,
+  FILE_RULES,
   GetUserResponse,
   UserMeResponse,
   UserSearchResponse,
@@ -25,16 +26,9 @@ const SVG_XSS = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.cookie)</script></svg>',
 );
 
-const MINIO_PUBLIC_URL = process.env.MINIO_PUBLIC_URL!;
-const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT!;
-const MINIO_BUCKET = process.env.MINIO_BUCKET!;
-
-// Stored avatar URLs use MINIO_PUBLIC_URL (browser-facing, e.g. http://localhost:9000),
-// which does not resolve from inside the backend container. Swap in the in-network
-// endpoint so the tests can actually fetch the object back.
-function internalUrl(imageUrl: string): string {
-  return imageUrl.replace(MINIO_PUBLIC_URL, MINIO_ENDPOINT);
-}
+// The bucket is private and no URL to it is ever handed to a client, so the
+// stored bytes are read back the only way anything can read them: through the
+// authenticated GET /files/:id.
 
 describe('Users (e2e)', () => {
   let app: INestApplication;
@@ -61,7 +55,7 @@ describe('Users (e2e)', () => {
         username: dto.username,
         email: dto.email,
         language: 'en',
-        image: null,
+        avatarFileId: null,
         onboardingCompleted: false,
         totpActive: false,
       });
@@ -109,16 +103,13 @@ describe('Users (e2e)', () => {
       expect((response.body as apiResponse<null>).message).toBe('Email already taken');
     });
 
-    it('refuses to set the avatar URL directly — avatars come only from the upload route', async () => {
+    it('refuses to set the avatar directly — avatars come only from the upload route', async () => {
       const agent = await registerUser(app, buildRegisterDto('patch-image'));
 
-      await agent
-        .patch('/users/me')
-        .send({ image: 'https://evil.example.com/payload.svg' })
-        .expect(400);
+      await agent.patch('/users/me').send({ avatarFileId: 1 }).expect(400);
 
       const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
-      expect(body.data!.image).toBeNull();
+      expect(body.data!.avatarFileId).toBeNull();
     });
 
     it('rejects a malformed email', async () => {
@@ -177,7 +168,7 @@ describe('Users (e2e)', () => {
   });
 
   describe('POST /users/me/avatar', () => {
-    it('stores a PNG and serves it from the bucket as image/png', async () => {
+    it('stores a PNG and serves it back as image/png', async () => {
       const agent = await registerUser(app, buildRegisterDto('avatar'));
 
       const response = await agent
@@ -185,31 +176,26 @@ describe('Users (e2e)', () => {
         .attach('file', PNG_1X1, { filename: 'me.png', contentType: 'image/png' })
         .expect(201);
 
-      const image = (response.body as apiResponse<UserMeResponse>).data!.image!;
-      expect(image).toMatch(
-        new RegExp(
-          `^${escapeRegExp(`${MINIO_PUBLIC_URL}/${MINIO_BUCKET}/`)}\\d+-\\d+-[0-9a-f]+\\.png$`,
-        ),
-      );
+      const fileId = (response.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
+      expect(fileId).toEqual(expect.any(Number));
 
-      const stored = await fetch(internalUrl(image));
-      expect(stored.status).toBe(200);
-      expect(stored.headers.get('content-type')).toBe('image/png');
-      expect(Buffer.from(await stored.arrayBuffer())).toEqual(PNG_1X1);
+      const stored = await agent.get(`/files/${fileId}`).expect(200);
+      expect(stored.headers['content-type']).toContain('image/png');
+      expect(stored.body).toEqual(PNG_1X1);
     });
 
-    it('derives the extension from the bytes, not the filename', async () => {
+    it('derives the stored type from the bytes, not the filename', async () => {
       const agent = await registerUser(app, buildRegisterDto('avatar-ext'));
 
-      // A PNG announced as "payload.svg": the key must not inherit that extension.
+      // A PNG announced as "payload.svg": the served type must not follow it.
       const response = await agent
         .post('/users/me/avatar')
         .attach('file', PNG_1X1, { filename: 'payload.svg', contentType: 'image/png' })
         .expect(201);
 
-      const image = (response.body as apiResponse<UserMeResponse>).data!.image!;
-      expect(image).toMatch(/\.png$/);
-      expect(image).not.toContain('svg');
+      const fileId = (response.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
+      const stored = await agent.get(`/files/${fileId}`).expect(200);
+      expect(stored.headers['content-type']).toContain('image/png');
     });
 
     it('accepts a JPEG and labels it image/jpeg', async () => {
@@ -220,11 +206,9 @@ describe('Users (e2e)', () => {
         .attach('file', JPEG_1X1, { filename: 'me.jpg', contentType: 'image/jpeg' })
         .expect(201);
 
-      const image = (response.body as apiResponse<UserMeResponse>).data!.image!;
-      expect(image).toMatch(/\.jpg$/);
-
-      const stored = await fetch(internalUrl(image));
-      expect(stored.headers.get('content-type')).toBe('image/jpeg');
+      const fileId = (response.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
+      const stored = await agent.get(`/files/${fileId}`).expect(200);
+      expect(stored.headers['content-type']).toContain('image/jpeg');
     });
 
     it('rejects SVG bytes that lie about their mimetype', async () => {
@@ -236,7 +220,7 @@ describe('Users (e2e)', () => {
         .expect(400);
 
       const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
-      expect(body.data!.image).toBeNull();
+      expect(body.data!.avatarFileId).toBeNull();
     });
 
     it('rejects a declared image/svg+xml upload', async () => {
@@ -248,30 +232,48 @@ describe('Users (e2e)', () => {
         .expect(400);
     });
 
+    it('rejects a file over the size limit', async () => {
+      const agent = await registerUser(app, buildRegisterDto('avatar-big'));
+
+      // A real PNG header followed by enough padding to clear FILE_RULES.avatar.maxBytes.
+      // 413, not 400: multer's own limit trips before the handler runs, which is
+      // the point — this is the backstop for a client that skipped its own check.
+      const oversize = Buffer.concat([PNG_1X1, Buffer.alloc(FILE_RULES.avatar.maxBytes)]);
+      await agent
+        .post('/users/me/avatar')
+        .attach('file', oversize, { filename: 'huge.png', contentType: 'image/png' })
+        .expect(413);
+
+      const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
+      expect(body.data!.avatarFileId).toBeNull();
+    });
+
     it('rejects a request with no file', async () => {
       const agent = await registerUser(app, buildRegisterDto('avatar-none'));
 
       await agent.post('/users/me/avatar').expect(400);
     });
 
-    it('removes the previous object when a new avatar replaces it', async () => {
+    it('removes the previous file when a new avatar replaces it', async () => {
       const agent = await registerUser(app, buildRegisterDto('avatar-replace'));
 
       const first = await agent
         .post('/users/me/avatar')
         .attach('file', PNG_1X1, { filename: 'first.png', contentType: 'image/png' })
         .expect(201);
-      const firstImage = (first.body as apiResponse<UserMeResponse>).data!.image!;
+      const firstId = (first.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
 
       const second = await agent
         .post('/users/me/avatar')
         .attach('file', PNG_1X1, { filename: 'second.png', contentType: 'image/png' })
         .expect(201);
-      const secondImage = (second.body as apiResponse<UserMeResponse>).data!.image!;
+      const secondId = (second.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
 
-      expect(secondImage).not.toBe(firstImage);
-      expect((await fetch(internalUrl(firstImage))).status).toBe(404);
-      expect((await fetch(internalUrl(secondImage))).status).toBe(200);
+      // Ids are immutable — a replacement is a new row, which is what makes the
+      // long immutable Cache-Control on /files/:id safe.
+      expect(secondId).not.toBe(firstId);
+      await agent.get(`/files/${firstId}`).expect(404);
+      await agent.get(`/files/${secondId}`).expect(200);
     });
 
     it('rejects an unauthenticated upload', async () => {
@@ -279,6 +281,33 @@ describe('Users (e2e)', () => {
         .post('/users/me/avatar')
         .attach('file', PNG_1X1, { filename: 'me.png', contentType: 'image/png' })
         .expect(401);
+    });
+  });
+
+  describe('DELETE /users/me/avatar', () => {
+    it('clears the reference and deletes the file', async () => {
+      const agent = await registerUser(app, buildRegisterDto('avatar-del'));
+
+      const upload = await agent
+        .post('/users/me/avatar')
+        .attach('file', PNG_1X1, { filename: 'me.png', contentType: 'image/png' })
+        .expect(201);
+      const fileId = (upload.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
+
+      const response = await agent.delete('/users/me/avatar').expect(200);
+      expect((response.body as apiResponse<UserMeResponse>).data!.avatarFileId).toBeNull();
+
+      await agent.get(`/files/${fileId}`).expect(404);
+    });
+
+    it('404s when there is no avatar to delete', async () => {
+      const agent = await registerUser(app, buildRegisterDto('avatar-del-none'));
+
+      await agent.delete('/users/me/avatar').expect(404);
+    });
+
+    it('rejects an unauthenticated request', async () => {
+      await request(app.getHttpServer()).delete('/users/me/avatar').expect(401);
     });
   });
 
@@ -349,7 +378,7 @@ describe('Users (e2e)', () => {
       expect(body.data).toEqual({
         id: targetId,
         username: targetDto.username,
-        image: null,
+        avatarFileId: null,
       });
     });
 
@@ -369,19 +398,21 @@ describe('Users (e2e)', () => {
   describe('DELETE /users/me', () => {
     it('deletes the account and its stored avatar', async () => {
       const agent = await registerUser(app, buildRegisterDto('delete'));
+      const viewer = await registerUser(app, buildRegisterDto('delete-viewer'));
 
       const upload = await agent
         .post('/users/me/avatar')
         .attach('file', PNG_1X1, { filename: 'me.png', contentType: 'image/png' })
         .expect(201);
-      const image = (upload.body as apiResponse<UserMeResponse>).data!.image!;
-      expect((await fetch(internalUrl(image))).status).toBe(200);
+      const fileId = (upload.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
+      await viewer.get(`/files/${fileId}`).expect(200);
 
       await agent.delete('/users/me').expect(200);
 
       // The token is still valid — the row behind it is gone.
       await agent.get('/users/me').expect(404);
-      expect((await fetch(internalUrl(image))).status).toBe(404);
+      // Checked from another session: the owner's own token would 404 anyway.
+      await viewer.get(`/files/${fileId}`).expect(404);
     });
 
     it('rejects an unauthenticated request', async () => {
@@ -422,8 +453,4 @@ function buildRegisterDto(prefix: string): RegisterDto {
     password: 'Test123!',
     language: 'en',
   };
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

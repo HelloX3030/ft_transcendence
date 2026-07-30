@@ -17,11 +17,14 @@ import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 
+/** `files.original_name` is VarChar(255) and the value is client-supplied. */
+const MAX_ORIGINAL_NAME_LENGTH = 255;
+
 export const ME_SELECT = {
   id: true,
   username: true,
   email: true,
-  image: true,
+  avatarFileId: true,
   language: true,
   role: true,
   onboardingCompleted: true,
@@ -42,7 +45,7 @@ const MOCK_ONBOARDING_DIRECTOR_IDS = [525, 138, 1032];
 export const PUBLIC_SELECT = {
   id: true,
   username: true,
-  image: true,
+  avatarFileId: true,
 } as const;
 
 @Injectable()
@@ -115,9 +118,11 @@ export class UsersService {
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
-    // The declared mimetype and the filename are both client-controlled, and the
-    // bucket is publicly readable — so the stored type and the key extension are
-    // derived from the actual bytes, never from the request.
+    // The declared mimetype and the filename are both client-controlled, so
+    // neither decides what we store: the canonical type and the key extension
+    // come from the actual bytes. This is also what keeps scriptable formats
+    // (SVG, HTML) out of the bucket, and what makes the Content-Type we serve
+    // from GET /files/:id trustworthy.
     const image = detectImageType(file.buffer);
     if (image === null) {
       throw new BadRequestException(`Unsupported image format. Allowed: ${ALLOWED_IMAGE_LABEL}`);
@@ -125,21 +130,37 @@ export class UsersService {
 
     const current = await this.prisma.users.findUnique({
       where: { id: userId },
-      select: { image: true },
+      select: { avatarFile: { select: { id: true, key: true } } },
     });
-    const oldKey = this.storage.extractKey(current?.image);
+    const previous = current?.avatarFile ?? null;
 
     // Random suffix: two uploads within the same millisecond would otherwise share a
     // key, and the old-object cleanup below would delete the one just written.
     const key = `${userId}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${image.ext}`;
-    const imageUrl = await this.storage.upload(key, file.buffer, image.mime);
+    await this.storage.upload(key, file.buffer, image.mime);
 
     let updated;
     try {
-      updated = await this.prisma.users.update({
-        where: { id: userId },
-        data: { image: imageUrl },
-        select: ME_SELECT,
+      // One transaction: a `files` row that nothing points at is an orphan, and
+      // an `avatarFileId` pointing at a row that was never written is a 404 on
+      // every avatar the user has.
+      updated = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.files.create({
+          data: {
+            ownerId: userId,
+            key,
+            mimetype: image.mime,
+            size: file.buffer.length,
+            originalName: file.originalname.slice(0, MAX_ORIGINAL_NAME_LENGTH),
+            kind: 'avatar',
+          },
+          select: { id: true },
+        });
+        return tx.users.update({
+          where: { id: userId },
+          data: { avatarFileId: row.id },
+          select: ME_SELECT,
+        });
       });
     } catch (error) {
       // The object is already in the bucket but nothing references it now — drop it
@@ -149,20 +170,54 @@ export class UsersService {
       throw error;
     }
 
-    if (oldKey) await this.storage.delete(oldKey);
+    // Replacing an avatar still cleans up the one it replaced; the explicit
+    // DELETE below is an addition, not a substitute.
+    if (previous !== null) await this.discardFile(previous);
     return successResponse(updated);
   }
 
-  async deleteMe(userId: number) {
+  /**
+   * Detaches and deletes the current avatar, falling the UI back to initials.
+   * Idempotent-ish: a user with no avatar gets a 404 rather than a silent no-op,
+   * so a stale button does not report success it did not achieve.
+   */
+  async deleteAvatar(userId: number) {
     const current = await this.prisma.users.findUnique({
       where: { id: userId },
-      select: { image: true },
+      select: { avatarFile: { select: { id: true, key: true } } },
     });
-    const oldKey = this.storage.extractKey(current?.image);
+    if (current === null) throw new NotFoundException('User not found');
+    if (current.avatarFile === null) throw new NotFoundException('No avatar to delete');
+
+    // Deleting the row clears users.avatarFileId through `onDelete: SetNull`, so
+    // the reference and the file cannot end up disagreeing.
+    await this.discardFile(current.avatarFile);
+
+    const updated = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: ME_SELECT,
+    });
+    if (updated === null) throw new NotFoundException('User not found');
+    return successResponse(updated);
+  }
+
+  /** Drops a file row and its object. Order matters: the row is the reference. */
+  private async discardFile(file: { id: number; key: string }) {
+    await this.prisma.files.delete({ where: { id: file.id } });
+    await this.storage.delete(file.key);
+  }
+
+  async deleteMe(userId: number) {
+    // Read the keys before the delete — the rows go with the user (cascade), but
+    // the objects in the bucket have no such relationship and would be leaked.
+    const files = await this.prisma.files.findMany({
+      where: { ownerId: userId },
+      select: { key: true },
+    });
 
     await this.prisma.users.delete({ where: { id: userId } });
 
-    if (oldKey) await this.storage.delete(oldKey);
+    for (const { key } of files) await this.storage.delete(key);
     return successResponse(null, 'Account deleted');
   }
 
