@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ChatModule } from './chat/chat.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { THROTTLERS } from './throttle.config';
 
@@ -53,6 +54,7 @@ import { THROTTLERS } from './throttle.config';
     TmdbModule,
     NotifyModule,
     NotificationsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

@@ -7,7 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { decodeCursor, encodeCursor, olderThanCursor, successResponse } from 'src/utils';
 import { ListNotificationsDto } from './dto';
 import { EVENT_TYPE } from './notification-events';
-import { daysAgo, MAX_RETENTION_DAYS, READ_RETENTION_DAYS } from './retention.config';
+import { daysAgo, MAX_RETENTION_DAYS, READ_RETENTION_DAYS } from 'src/retention.config';
 
 export interface CreateNotification {
   /** Who receives it. */

@@ -65,13 +65,45 @@ export interface FriendsStatus {
 export interface ChatMsgSend {
   peerUserId: number;
   msg: string;
+  /**
+   * Client-generated id, echoed back untouched. The sender's own tabs receive
+   * the broadcast too, so without it an optimistically rendered message would
+   * appear twice.
+   */
+  clientMsgId: string;
 }
 
-export interface ChatMsgRecive {
+/** One persisted message, as served over REST and pushed over the socket. */
+export interface ChatMessage {
+  id: number;
+  /** The other party, from the perspective of whoever receives this payload. */
   peerUserId: number;
   senderUserId: number;
-  time: number;
-  msg: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  clientMsgId?: string;
+}
+
+export interface ChatMessagePage {
+  /** Ascending, so the client can prepend a page without reversing it. */
+  messages: ChatMessage[];
+  nextCursor: string | null;
+}
+
+export interface ChatConversation {
+  peerUserId: number;
+  lastMessage: ChatMessage | null;
+  unreadCount: number;
+}
+
+/** Socket.io acknowledgement returned by the `chat` handler. */
+export type ChatAck = { ok: true; message: ChatMessage } | { ok: false; error: string };
+
+/** Emitted to the peer when their messages in a conversation are marked read. */
+export interface ChatReadEvent {
+  peerUserId: number;
+  readAt: string;
 }
 
 export interface NotifyError {

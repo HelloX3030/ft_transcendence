@@ -66,12 +66,20 @@ function lastMessageOf(chat: Chat) {
             <Skeleton v-if="friendsLoading" class="h-4 w-20" />
             <span v-else class="font-medium truncate">{{ chat.friend.username }}</span>
             <span v-if="lastMessageOf(chat)" class="text-xs text-muted-foreground shrink-0 ml-2">
-              {{ formatTime(lastMessageOf(chat)!.timestamp) }}
+              {{ formatTime(lastMessageOf(chat)!.createdAt) }}
             </span>
           </div>
-          <p class="text-sm text-muted-foreground truncate">
-            {{ lastMessageOf(chat)?.message ?? 'No messages yet' }}
-          </p>
+          <div class="flex items-center gap-2">
+            <p class="text-sm text-muted-foreground truncate flex-1">
+              {{ lastMessageOf(chat)?.body ?? 'No messages yet' }}
+            </p>
+            <span
+              v-if="chat.unreadCount > 0"
+              class="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-orange-500 px-1 text-xs font-bold text-white"
+            >
+              {{ chat.unreadCount }}
+            </span>
+          </div>
         </div>
       </Button>
 

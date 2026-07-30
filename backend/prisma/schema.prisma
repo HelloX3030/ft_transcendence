@@ -22,6 +22,33 @@ model friends {
   @@id([userAId, userBId])
 }
 
+/// Direct messages between two users.
+///
+/// Keyed by the canonical pair rather than sender/recipient: expressed as
+/// sender/recipient a history query is `(sender=A AND recipient=B) OR (sender=B
+/// AND recipient=A)`, an OR across two columns that no single index serves.
+/// Sorting the ids into `userAId < userBId` makes the conversation one equality
+/// prefix, so the index below answers both "latest page" and "page before
+/// cursor" as a single range scan with no sort step. Reuses the same idiom as
+/// `friends` — see `FriendUtils.getFriendsKey`.
+model messages {
+  id        Int       @id @default(autoincrement())
+  userAId   Int       @map("user_a_id")
+  userBId   Int       @map("user_b_id")
+  /// One of userAId / userBId. The recipient is derived, not stored.
+  senderId  Int       @map("sender_id")
+  body      String    @db.VarChar(2000)
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
+
+  userA  users @relation("msgUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB  users @relation("msgUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  sender users @relation("msgSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([userAId, userBId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userAId, userBId, readAt])
+}
+
 /// One row per delivered notification. The row is the source of truth; the
 /// socket event is only the fast path, so an offline recipient loses nothing.
 model notifications {
@@ -118,6 +145,10 @@ model users {
 
   notifications      notifications[] @relation("notifyRecipient")
   causedNotifications notifications[] @relation("notifyActor")
+
+  messagesA    messages[] @relation("msgUserA")
+  messagesB    messages[] @relation("msgUserB")
+  sentMessages messages[] @relation("msgSender")
 
   sessions sessions[]
 }
