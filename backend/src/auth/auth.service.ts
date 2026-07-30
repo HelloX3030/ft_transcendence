@@ -307,16 +307,25 @@ export class AuthService {
   }
 
   setCookies(tokens: JwtTokens, res: ExpressResponse) {
+    // `req.secure` reads the X-Forwarded-Proto that Caddy sets (see the
+    // `trust proxy` setting in main.ts), so in the running app — where the
+    // browser only ever arrives over HTTPS — both cookies are always Secure.
+    // Hardcoding `true` would be equivalent there, but would make the cookies
+    // undeliverable over the plain-HTTP in-network requests the e2e suite
+    // makes, hiding the whole auth flow from the tests.
+    // `sameSite: 'strict'` is now literally same-origin, not merely same-site.
+    const secure = res.req.secure;
+
     res.cookie('access_token', tokens.access_token, {
       httpOnly: true,
-      secure: false, // todo: set to true
+      secure,
       sameSite: 'strict',
       maxAge: 1000 * 60 * 15,
     });
 
     res.cookie('refresh_token', tokens.refresh_token, {
       httpOnly: true,
-      secure: false, // todo: set to true
+      secure,
       sameSite: 'strict',
       maxAge: 1000 * 60 * 60 * 24 * 15,
     });

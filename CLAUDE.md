@@ -10,8 +10,8 @@ TikTok-style movie discovery app: users swipe through trailers to find films the
 docker compose up --build
 ```
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:3000`
+- App: `https://localhost:8443` (accept the self-signed certificate warning once)
+- Backend API: `https://localhost:8443/api` — Swagger at `https://localhost:8443/api/docs`
 - pgAdmin: `http://localhost:5050` (login: `PGADMIN_EMAIL` and `PGADMIN_PASSWORD` from `.env` — email must be a valid address, e.g. `admin@example.com`)
 - PostgreSQL: `localhost:5432`
 

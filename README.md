@@ -10,7 +10,7 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 - [Architecture & Tech Decisions](_meta/doc/ARCHITECTURE.md)
 - [Implementation Roadmap](_meta/doc/ROADMAP.md)
-- `http://localhost:3000/api` Interactive docs with all endpoints, inputs, and responses: 
+- `https://localhost:8443/api/docs` Interactive docs with all endpoints, inputs, and responses: 
 
 ---
 
@@ -51,10 +51,19 @@ docker compose up --build
 
 | Service     | URL                   |
 | ----------- | --------------------- |
-| Frontend    | http://localhost:5173 |
-| Backend API | http://localhost:3000 |
-| pgAdmin     | http://localhost:5050 |
-| PostgreSQL  | localhost:5432        |
+| App         | https://localhost:8443     |
+| Backend API | https://localhost:8443/api |
+| Swagger     | https://localhost:8443/api/docs |
+| pgAdmin     | http://localhost:5050      |
+| PostgreSQL  | localhost:5432             |
+
+> **Expect one certificate warning.** The app is served over HTTPS with a self-signed certificate that Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate authority installed into the machine's trust store, neither of which belongs in a project you clone and run.
+>
+> Everything the browser talks to is behind `https://localhost:8443`. Ports `5173`, `3000` and `9000` are deliberately not published — if they were reachable, the plain-HTTP path would still exist. pgAdmin (`5050`), Postgres (`5432`) and the MinIO console (`9001`) stay exposed on purpose: they are developer tools, not part of the web application.
+>
+> **Why `:8443` and not `:443`?** The school machines run rootless Docker, which refuses to publish ports below 1024 — on `443` the stack fails to start at all. `8443` needs no host configuration and behaves identically.
+
+`http://localhost:8080` redirects to HTTPS.
 
 On subsequent runs `--build` can be omitted — node modules live in named Docker volumes and are installed automatically on first container start.
 
