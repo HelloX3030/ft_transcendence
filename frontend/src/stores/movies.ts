@@ -181,8 +181,9 @@ export const useMoviesStore = defineStore('movies', () => {
 
   function $reset() {
     filtered.value = true;
-    clearFilters();
+    discoverFeed.reset();
     resetSearch();
+    clearFilters();
   }
 
   return {
