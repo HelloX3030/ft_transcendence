@@ -49,6 +49,12 @@ export const useUserStore = defineStore('user', () => {
     await refetchUser();
   }
 
+  function $reset() {
+    state.value = null;
+    isReady.value = false;
+    error.value = null;
+  }
+
   return {
     state,
     requiresOnboarding,
@@ -61,5 +67,6 @@ export const useUserStore = defineStore('user', () => {
     completeOnboarding,
     activateTotp,
     deleteTotp,
+    $reset,
   };
 });

@@ -94,7 +94,8 @@ export const useMoviesStore = defineStore('movies', () => {
 
   // The discover filter bar (sort/genre/year). Its values are read when a page is
   // fetched, so the feed always reflects the current selection.
-  const { sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte } = useSearchFilter();
+  const { sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte, clearFilters } =
+    useSearchFilter();
 
   // Builds the discover request from pagination, the quality toggle and the
   // active filter bar, omitting any filter that isn't set.
@@ -178,6 +179,12 @@ export const useMoviesStore = defineStore('movies', () => {
     if (discoverFeed.status.value !== 'idle') void loadDiscover();
   });
 
+  function $reset() {
+    filtered.value = true;
+    clearFilters();
+    resetSearch();
+  }
+
   return {
     // Discover feed
     discover: discoverFeed.items,
@@ -202,5 +209,6 @@ export const useMoviesStore = defineStore('movies', () => {
     refresh,
     resetSearch,
     setFiltered,
+    $reset,
   };
 });

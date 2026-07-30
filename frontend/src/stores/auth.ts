@@ -9,6 +9,7 @@ import type {
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { useNotifyStore } from './notify';
+import { resetAllStores } from './plugins/resetPlugin';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
@@ -49,7 +50,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authApi.logout();
       notify.stop();
-      isLoggedIn.value = false;
+      // Drops isLoggedIn along with every other store's state, so nothing from
+      // the old session survives into the next one.
+      resetAllStores();
     } catch {
       // best-effort — clear local state regardless
     }
@@ -61,6 +64,10 @@ export const useAuthStore = defineStore('auth', () => {
     await startSession();
   }
 
+  function $reset() {
+    isLoggedIn.value = false;
+  }
+
   return {
     isLoggedIn,
     init,
@@ -68,5 +75,6 @@ export const useAuthStore = defineStore('auth', () => {
     verifyMfa,
     logout,
     register,
+    $reset,
   };
 });
