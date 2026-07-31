@@ -115,8 +115,11 @@ export const useNotificationsStore = defineStore('notifications', () => {
     unreadCount.value = count;
   }
 
-  /** Drops the local cache only — the server keeps the inbox. */
-  function reset() {
+  /**
+   * Drops the local cache only — the server keeps the inbox. Named `$reset` so
+   * the Pinia reset plugin clears it on logout.
+   */
+  function $reset() {
     items.value = [];
     nextCursor.value = null;
     unreadCount.value = 0;
@@ -137,6 +140,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
     markAllRead,
     remove,
     clear,
-    reset,
+    $reset,
   };
 });

@@ -7,9 +7,12 @@ import { storeToRefs } from 'pinia';
 import { UserPlus } from '@lucide/vue';
 import { ItemGroup } from '@/components/ui/item';
 import FriendItem from '@/components/friends/FriendItem.vue';
+import { onMounted } from 'vue';
 
 const store = useFriendsStore();
 const { state: friends, acceptedFriends, friendsDetails } = storeToRefs(store);
+
+onMounted(() => store.ensureLoaded());
 </script>
 
 <template>

@@ -6,15 +6,34 @@ import { defineStore } from 'pinia';
 import { computed } from 'vue';
 
 export const useUserStore = defineStore('user', () => {
+  let generation = 0;
+
   const {
     state,
     isLoading,
     isReady,
     error,
-    execute: refetchUser,
-  } = useAsyncState<UserMeResponse | null>(() => userApi.getMe(), null, {
-    immediate: false,
-  });
+    execute: executeRefetchUser,
+  } = useAsyncState<UserMeResponse | null>(
+    async () => {
+      const requestGeneration = generation;
+      try {
+        const user = await userApi.getMe();
+        return requestGeneration === generation ? user : null;
+      } catch (error) {
+        if (requestGeneration !== generation) return null;
+        throw error;
+      }
+    },
+    null,
+    {
+      immediate: false,
+    },
+  );
+
+  async function refetchUser() {
+    return executeRefetchUser();
+  }
 
   const requiresOnboarding = computed(() => {
     if (!isReady.value) return false;
@@ -55,6 +74,13 @@ export const useUserStore = defineStore('user', () => {
     await refetchUser();
   }
 
+  function $reset() {
+    generation++;
+    state.value = null;
+    isReady.value = false;
+    error.value = null;
+  }
+
   return {
     state,
     requiresOnboarding,
@@ -68,5 +94,6 @@ export const useUserStore = defineStore('user', () => {
     completeOnboarding,
     activateTotp,
     deleteTotp,
+    $reset,
   };
 });

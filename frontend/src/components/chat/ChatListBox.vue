@@ -15,6 +15,7 @@ import { useChatSearch } from '@/composables/chat/useChatSearch';
 import { storeToRefs } from 'pinia';
 import { useFriendsStore } from '@/stores/friends';
 import UserAvatar from '../UserAvatar.vue';
+import { onMounted } from 'vue';
 
 const chatStore = useChatStore();
 const { activeChat } = storeToRefs(chatStore);
@@ -26,6 +27,8 @@ const { searchTerm, filteredChats, filteredFriendsWithoutChat, clearSearch } = u
 function lastMessageOf(chat: Chat) {
   return chat.messages.at(-1) ?? null;
 }
+
+onMounted(() => friendsStore.ensureLoaded());
 </script>
 
 <template>

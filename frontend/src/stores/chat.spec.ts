@@ -182,7 +182,7 @@ describe('chat store', () => {
     });
   });
 
-  describe('reset', () => {
+  describe('$reset', () => {
     it('drops the cache only — the server keeps the transcripts', async () => {
       chatApi.conversations.mockResolvedValue([
         { peerUserId: PEER, lastMessage: message(), unreadCount: 1 },
@@ -190,7 +190,7 @@ describe('chat store', () => {
       const store = useChatStore();
       await store.hydrate();
 
-      store.reset();
+      store.$reset();
 
       expect(store.orderedChats).toEqual([]);
       expect(store.activeChat).toBeUndefined();

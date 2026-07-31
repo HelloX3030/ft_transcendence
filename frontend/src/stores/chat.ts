@@ -258,9 +258,13 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  /** Clears the cache only — the server keeps every transcript. */
-  function reset() {
-    chats.value = new Map();
+  /**
+   * Clears the cache only — the server keeps every transcript. Named `$reset` so
+   * the Pinia reset plugin picks it up and a logout cannot leak the previous
+   * session's chats into the next one.
+   */
+  function $reset() {
+    chats.value = new Map<number, Chat>();
     order.value = [];
     activeChat.value = undefined;
     isHydrated.value = false;
@@ -289,6 +293,6 @@ export const useChatStore = defineStore('chat', () => {
     markRead,
     deleteChat,
     getChat,
-    reset,
+    $reset,
   };
 });
