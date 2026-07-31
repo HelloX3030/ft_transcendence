@@ -130,12 +130,26 @@ export const useNotifyStore = defineStore('notify', () => {
 
   /** Clears the local cache only; the server keeps the inbox. */
   function stop() {
-    socket.close();
+    if (!isInit) return;
+
+    logger.debug('[notify] stop');
+
+    // Drop the handlers before disconnecting: init() re-registers them, and
+    // leaving the old ones attached would double up on the next login.
+    socket.removeAllListeners();
+    socket.disconnect();
+
+    $reset();
+  }
+
+  function $reset() {
     isInit = false;
-    friendsStatus.value = new Map();
+    friendsStatus.value = new Map<number, boolean>();
     offline.value = true;
-    chatStore.reset();
-    notificationsStore.reset();
+    // Also cleared here, not just by the reset plugin on logout: the socket is
+    // torn down on token expiry too, and the caches must not outlive it.
+    chatStore.$reset();
+    notificationsStore.$reset();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -228,6 +242,7 @@ export const useNotifyStore = defineStore('notify', () => {
     isUserOnline,
     init,
     stop,
+    $reset,
     sendChatMsg,
   };
 });

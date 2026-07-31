@@ -1,18 +1,34 @@
 import { friendsApi } from '@/api/endpoints/friends';
 import { useUserDetails } from '@/composables/useUserDetails';
+import type { Friend } from '@trailertinder/shared';
 
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { computed } from 'vue';
 
 export const useFriendsStore = defineStore('friends', () => {
+  let generation = 0;
+
   const {
     state,
     isLoading,
     isReady,
     error,
-    execute: refetchFriends,
-  } = useAsyncState(() => friendsApi.getAll(), []);
+    execute: executeRefetchFriends,
+  } = useAsyncState<Friend[]>(async () => {
+    const requestGeneration = generation;
+    try {
+      const friends = await friendsApi.getAll();
+      return requestGeneration === generation ? friends : [];
+    } catch (error) {
+      if (requestGeneration !== generation) return [];
+      throw error;
+    }
+  }, []);
+
+  async function refetchFriends() {
+    return executeRefetchFriends();
+  }
 
   const acceptedFriends = computed(() =>
     isReady.value ? state.value.filter((f) => f.status === 'accepted') : [],
@@ -41,6 +57,19 @@ export const useFriendsStore = defineStore('friends', () => {
     await refetchFriends();
   }
 
+  function $reset() {
+    generation++;
+    state.value = [];
+    isReady.value = false;
+    error.value = null;
+    friendsDetails.value = [];
+  }
+
+  async function ensureLoaded() {
+    if (isReady.value || isLoading.value) return;
+    await refetchFriends();
+  }
+
   return {
     state,
     friendsDetails,
@@ -53,5 +82,7 @@ export const useFriendsStore = defineStore('friends', () => {
     declineRequest,
     sendRequest,
     deleteFriend,
+    $reset,
+    ensureLoaded,
   };
 });
