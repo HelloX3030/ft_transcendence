@@ -1,4 +1,5 @@
 import { APP_NAME } from '@/lib/constants';
+import AuthCallbackView from '@/views/auth/AuthCallbackView.vue';
 import LoginView from '@/views/auth/LoginView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
@@ -77,6 +78,14 @@ const router = createRouter({
       path: '/signup',
       component: SignupView,
       meta: { guestOnly: true, hideLayout: true, title: 'Sign Up' },
+    },
+    {
+      // Where the Google callback lands. Deliberately neither requiresAuth nor
+      // guestOnly: it has to render before the session is confirmed, and the
+      // user arriving here is mid-login, so guestOnly would bounce them away.
+      path: '/auth/callback',
+      component: AuthCallbackView,
+      meta: { hideLayout: true, title: 'Signing in' },
     },
     {
       path: '/onboarding',

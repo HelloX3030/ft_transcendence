@@ -11,7 +11,7 @@ import { Eye, EyeOff } from '@lucide/vue';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import Separator from '@/components/ui/separator/Separator.vue';
+import GoogleButton from './GoogleButton.vue';
 import { ApiError } from '@/api/api-error';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/user';
@@ -117,15 +117,9 @@ const isPwVisible = ref(false);
     <div class="mt-8 flex flex-col space-y-4">
       <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
       <Button type="submit" class="w-full">Create Account</Button>
-      <div class="w-full flex items-center gap-2">
-        <Separator class="flex-1" />
-        <span class="shrink-0 px-2 text-xs text-muted-foreground uppercase"> OR </span>
-        <Separator class="flex-1" />
-      </div>
-      <!-- TODO: oauth implementation -->
-      <Button type="button" variant="outline" class="w-full"
-        ><img src="/google_icon.svg" class="size-6" /> Continue with Google
-      </Button>
+      <!-- Same endpoint as the login page: with the callback's resolution order,
+           "sign up with Google" and "sign in with Google" are one flow. -->
+      <GoogleButton />
     </div>
   </form>
 </template>

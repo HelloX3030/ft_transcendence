@@ -9,9 +9,9 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as argon2 from 'argon2';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { JwtRefreshPayload } from 'src/types';
+import { GoogleProfile, JwtRefreshPayload } from 'src/types';
 import { verifyTOTP } from 'src/utils/otp.utils';
-import { AuthService } from './auth.service';
+import { AuthService, generateUsernameStem, GoogleAuthException } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 
 jest.mock('argon2');
@@ -49,6 +49,7 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
     updateMany: jest.fn(),
+    update: jest.fn(),
   },
   sessions: {
     findUnique: jest.fn(),
@@ -62,20 +63,41 @@ const mockJwt = {
   verifyAsync: jest.fn(),
 } satisfies Partial<jest.Mocked<JwtService>>;
 
-// Returns the cookie spy alongside the response so assertions never reference
+// Returns the spies alongside the response so assertions never reference
 // `res.cookie` as an unbound method. `req.secure` is what decides the Secure
 // flag, so it has to be part of the fake response the way Express provides it.
-function mockResponse(secure = false): { res: ExpressResponse; cookie: jest.Mock } {
+function mockResponse(secure = false): {
+  res: ExpressResponse;
+  cookie: jest.Mock;
+  clearCookie: jest.Mock;
+  redirect: jest.Mock;
+} {
   const cookie = jest.fn();
-  return { res: { cookie, req: { secure } } as unknown as ExpressResponse, cookie };
+  const clearCookie = jest.fn();
+  const redirect = jest.fn();
+  return {
+    res: { cookie, clearCookie, redirect, req: { secure } } as unknown as ExpressResponse,
+    cookie,
+    clearCookie,
+    redirect,
+  };
 }
 
-function mockRequest(): ExpressRequest {
-  return { ip: '127.0.0.1', headers: { 'user-agent': 'jest' } } as unknown as ExpressRequest;
+function mockRequest(cookies: Record<string, string> = {}, query: Record<string, string> = {}) {
+  return {
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'jest' },
+    cookies,
+    query,
+  } as unknown as ExpressRequest;
 }
 
-function prismaError(code: string): PrismaClientKnownRequestError {
-  return new PrismaClientKnownRequestError('error', { code, clientVersion: '5.0.0' });
+function prismaError(code: string, target?: string[]): PrismaClientKnownRequestError {
+  return new PrismaClientKnownRequestError('error', {
+    code,
+    clientVersion: '5.0.0',
+    meta: target ? { target } : undefined,
+  });
 }
 
 const registerDto: RegisterDto = {
@@ -215,6 +237,28 @@ describe('AuthService', () => {
       expect(cookie).not.toHaveBeenCalled();
     });
 
+    // A Google-only account has no local password. argon2.verify on a null hash
+    // throws a raw error the global filter turns into a 500, so this has to be
+    // caught before the call — a clean 403, not a stack trace.
+    it('rejects a password login against a password-less account without calling argon2', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ ...plainUser, password: null });
+      const { res, cookie } = mockResponse();
+
+      await expect(service.login(mockRequest(), loginDto, res)).rejects.toThrow(ForbiddenException);
+      expect(mockArgon2.verify).not.toHaveBeenCalled();
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    // Same message as a wrong password: whether an account is Google-only is not
+    // something an unauthenticated caller should be able to probe for.
+    it('does not disclose that the account is Google-only', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ ...plainUser, password: null });
+
+      await expect(service.login(mockRequest(), loginDto, mockResponse().res)).rejects.toThrow(
+        'Invalid credentials',
+      );
+    });
+
     it('rejects a wrong password', async () => {
       mockPrisma.users.findUnique.mockResolvedValue(plainUser);
       mockArgon2.verify.mockResolvedValue(false);
@@ -304,6 +348,45 @@ describe('AuthService', () => {
       await service.verifyMfa(mockRequest(), dto, mockResponse().res);
 
       expect(mockArgon2.verify).not.toHaveBeenCalled();
+    });
+
+    // The Google flow ends in a redirect, so the client never sees a body to
+    // hold the challenge token in — the backend leaves it in a cookie instead.
+    it('falls back to the mfa_token cookie when the body omits it', async () => {
+      const { res, cookie } = mockResponse();
+
+      const result = await service.verifyMfa(
+        mockRequest({ mfa_token: 'cookie-token' }),
+        { otp: dto.otp },
+        res,
+      );
+
+      expect(mockJwt.verifyAsync).toHaveBeenCalledWith('cookie-token', expect.any(Object));
+      expect(result.data).toEqual({ mfaRequired: false, mfaType: 'none' });
+      expect(cookie).toHaveBeenCalledTimes(2);
+    });
+
+    it('prefers the body token over the cookie when both are present', async () => {
+      await service.verifyMfa(mockRequest({ mfa_token: 'cookie-token' }), dto, mockResponse().res);
+
+      expect(mockJwt.verifyAsync).toHaveBeenCalledWith('challenge-token', expect.any(Object));
+    });
+
+    it('rejects when neither the body nor a cookie carries a token', async () => {
+      const { res, cookie } = mockResponse();
+
+      await expect(service.verifyMfa(mockRequest(), { otp: dto.otp }, res)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('clears the challenge cookie once it has been spent', async () => {
+      const { res, clearCookie } = mockResponse();
+
+      await service.verifyMfa(mockRequest({ mfa_token: 'cookie-token' }), { otp: dto.otp }, res);
+
+      expect(clearCookie).toHaveBeenCalledWith('mfa_token');
     });
 
     it('burns the counter of a used code so it cannot be replayed', async () => {
@@ -455,6 +538,271 @@ describe('AuthService', () => {
 
       await expect(service.refresh(mockPayload, res)).rejects.toThrow(InternalServerErrorException);
       expect(cookie).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateUsernameStem', () => {
+    it('lowercases and strips the local part to [a-z0-9_]', () => {
+      // Separators go, the characters around them stay — plus-addressing is not
+      // unwrapped, it is simply stripped like any other punctuation.
+      expect(generateUsernameStem('Alice.Smith+tag@example.com')).toBe('alicesmithtag');
+      expect(generateUsernameStem('a_b-c.d@example.com')).toBe('a_bcd0');
+    });
+
+    // The backend's own minimum is 3, but the frontend's schemas require 6. A
+    // shorter name would leave a Google user on a profile form they cannot save.
+    it('pads a short local part to six characters', () => {
+      expect(generateUsernameStem('bo@example.com')).toHaveLength(6);
+    });
+
+    it('leaves room for a suffix inside the column width', () => {
+      const stem = generateUsernameStem(`${'a'.repeat(40)}@example.com`);
+
+      expect(stem).toHaveLength(28);
+      expect(`${stem}1234`.length).toBeLessThanOrEqual(32);
+    });
+
+    it('falls back to a readable stem when nothing survives stripping', () => {
+      expect(generateUsernameStem('日本語@example.com')).toBe('user00');
+    });
+  });
+
+  describe('googleLogin', () => {
+    const googleProfile: GoogleProfile = {
+      googleId: 'google-sub-123',
+      email: 'test@example.com',
+      emailVerified: true,
+      locale: 'de-DE',
+    };
+    const plainUser = { ...mockUser, totpActive: false, totpSecret: null, googleId: null };
+
+    beforeEach(() => {
+      mockJwt.signAsync.mockResolvedValue('signed-token');
+      mockPrisma.sessions.create.mockResolvedValue(mockSession);
+    });
+
+    it('logs in a user already linked to this Google account', async () => {
+      mockPrisma.users.findUnique.mockResolvedValueOnce({
+        ...plainUser,
+        googleId: googleProfile.googleId,
+      });
+      const { res, cookie } = mockResponse();
+
+      const result = await service.googleLogin(mockRequest(), googleProfile, res);
+
+      expect(result).toEqual({ mfaRequired: false });
+      expect(cookie).toHaveBeenCalledTimes(2);
+      // A known identity must not rewrite the account it belongs to.
+      expect(mockPrisma.users.update).not.toHaveBeenCalled();
+      expect(mockPrisma.users.create).not.toHaveBeenCalled();
+    });
+
+    it('links a verified email to an existing local account', async () => {
+      mockPrisma.users.findUnique
+        .mockResolvedValueOnce(null) // by googleId
+        .mockResolvedValueOnce(plainUser); // by email
+      mockPrisma.users.update.mockResolvedValue({
+        ...plainUser,
+        googleId: googleProfile.googleId,
+      });
+
+      await service.googleLogin(mockRequest(), googleProfile, mockResponse().res);
+
+      expect(mockPrisma.users.update).toHaveBeenCalledWith({
+        where: { id: plainUser.id },
+        data: { googleId: googleProfile.googleId },
+      });
+    });
+
+    // Unconditional linking is an account-takeover primitive: a provider that
+    // lets a user claim an arbitrary unverified address would hand them someone
+    // else's account here.
+    it('refuses to link an unverified email, and writes nothing', async () => {
+      mockPrisma.users.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(plainUser);
+      const { res, cookie } = mockResponse();
+
+      await expect(
+        service.googleLogin(mockRequest(), { ...googleProfile, emailVerified: false }, res),
+      ).rejects.toThrow(new GoogleAuthException('unverified_email'));
+
+      expect(mockPrisma.users.update).not.toHaveBeenCalled();
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    it('never overwrites an existing link to a different Google account', async () => {
+      mockPrisma.users.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ...plainUser, googleId: 'someone-else' });
+
+      await expect(
+        service.googleLogin(mockRequest(), googleProfile, mockResponse().res),
+      ).rejects.toThrow(new GoogleAuthException('email_taken'));
+
+      expect(mockPrisma.users.update).not.toHaveBeenCalled();
+    });
+
+    it('creates a password-less, un-onboarded account when nothing matches', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      mockPrisma.users.create.mockResolvedValue(plainUser);
+
+      await service.googleLogin(mockRequest(), googleProfile, mockResponse().res);
+
+      const created = (mockPrisma.users.create.mock.calls as unknown[][])[0][0] as {
+        data: Record<string, unknown>;
+      };
+      expect(created.data.password).toBeNull();
+      expect(created.data.googleId).toBe(googleProfile.googleId);
+      expect(created.data.username).toBe('test00');
+      // Mapped from Google's locale prefix; the column is non-null with no default.
+      expect(created.data.language).toBe('de');
+      // onboardingCompleted defaults to false, which is what routes the new user
+      // through /onboarding exactly like a local signup.
+      expect(created.data.onboardingCompleted).toBeUndefined();
+    });
+
+    it('defaults an unrecognised locale to English', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      mockPrisma.users.create.mockResolvedValue(plainUser);
+
+      await service.googleLogin(
+        mockRequest(),
+        { ...googleProfile, locale: 'fr-FR' },
+        mockResponse().res,
+      );
+
+      const created = (mockPrisma.users.create.mock.calls as unknown[][])[0][0] as {
+        data: { language: string };
+      };
+      expect(created.data.language).toBe('en');
+    });
+
+    it('retries a username collision with a different suffix each time', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      mockPrisma.users.create
+        .mockRejectedValueOnce(prismaError('P2002', ['username']))
+        .mockRejectedValueOnce(prismaError('P2002', ['username']))
+        .mockResolvedValue(plainUser);
+
+      await service.googleLogin(mockRequest(), googleProfile, mockResponse().res);
+
+      const names = (mockPrisma.users.create.mock.calls as unknown[][]).map(
+        (call) => (call[0] as { data: { username: string } }).data.username,
+      );
+      expect(names).toHaveLength(3);
+      expect(new Set(names).size).toBe(3);
+      // The clean stem first, so most signups never see a digit at all.
+      expect(names[0]).toBe('test00');
+    });
+
+    it('gives up after a bounded number of username attempts', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      mockPrisma.users.create.mockRejectedValue(prismaError('P2002', ['username']));
+
+      await expect(
+        service.googleLogin(mockRequest(), googleProfile, mockResponse().res),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(mockPrisma.users.create).toHaveBeenCalledTimes(5);
+    });
+
+    // An email collision is not something a different username can resolve, so
+    // retrying would just burn attempts on a guaranteed failure.
+    it('does not retry a collision on a column other than username', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      mockPrisma.users.create.mockRejectedValue(prismaError('P2002', ['email']));
+
+      await expect(
+        service.googleLogin(mockRequest(), googleProfile, mockResponse().res),
+      ).rejects.toThrow(PrismaClientKnownRequestError);
+
+      expect(mockPrisma.users.create).toHaveBeenCalledTimes(1);
+    });
+
+    // Skipping the second factor would mean a compromised Google account walks
+    // straight past it, which is the whole point of having one.
+    it('still demands the OTP when the target account has TOTP enabled', async () => {
+      mockPrisma.users.findUnique.mockResolvedValueOnce({
+        ...plainUser,
+        googleId: googleProfile.googleId,
+        totpActive: true,
+        totpSecret: 'iv:cipher',
+      });
+      const { res, cookie } = mockResponse();
+
+      const result = await service.googleLogin(mockRequest(), googleProfile, res);
+
+      expect(result).toEqual({ mfaRequired: true });
+      // The challenge cookie, and no session cookies.
+      expect(cookie).toHaveBeenCalledTimes(1);
+      expect(cookie).toHaveBeenCalledWith('mfa_token', 'signed-token', expect.any(Object));
+    });
+
+    it('scopes the challenge cookie to lax so it survives the redirect back', async () => {
+      mockPrisma.users.findUnique.mockResolvedValueOnce({
+        ...plainUser,
+        googleId: googleProfile.googleId,
+        totpActive: true,
+        totpSecret: 'iv:cipher',
+      });
+      const { res, cookie } = mockResponse(true);
+
+      await service.googleLogin(mockRequest(), googleProfile, res);
+
+      expect(cookie).toHaveBeenCalledWith(
+        'mfa_token',
+        'signed-token',
+        expect.objectContaining({ httpOnly: true, secure: true, sameSite: 'lax' }),
+      );
+    });
+  });
+
+  describe('google state', () => {
+    it('issues a state cookie and returns the same value for the URL', () => {
+      const { res, cookie } = mockResponse();
+
+      const state = service.issueGoogleState(res);
+
+      expect(state).toHaveLength(64);
+      expect(cookie).toHaveBeenCalledWith(
+        'oauth_state',
+        state,
+        expect.objectContaining({ httpOnly: true, sameSite: 'lax' }),
+      );
+    });
+
+    it('accepts a matching state and clears the cookie', () => {
+      const { res, clearCookie } = mockResponse();
+
+      expect(() =>
+        service.verifyGoogleState(mockRequest({ oauth_state: 'abc' }, { state: 'abc' }), res),
+      ).not.toThrow();
+      expect(clearCookie).toHaveBeenCalledWith('oauth_state');
+    });
+
+    it('rejects a mismatched state', () => {
+      expect(() =>
+        service.verifyGoogleState(
+          mockRequest({ oauth_state: 'abc' }, { state: 'not-abc' }),
+          mockResponse().res,
+        ),
+      ).toThrow(new GoogleAuthException('state_mismatch'));
+    });
+
+    // Without the cookie there is nothing to compare against, so the callback
+    // would otherwise accept any code — the login-CSRF the parameter prevents.
+    it('rejects a missing state cookie', () => {
+      expect(() =>
+        service.verifyGoogleState(mockRequest({}, { state: 'abc' }), mockResponse().res),
+      ).toThrow(new GoogleAuthException('state_mismatch'));
+    });
+
+    it('clears the cookie even when the check fails, so it cannot be replayed', () => {
+      const { res, clearCookie } = mockResponse();
+
+      expect(() =>
+        service.verifyGoogleState(mockRequest({ oauth_state: 'abc' }, {}), res),
+      ).toThrow();
+      expect(clearCookie).toHaveBeenCalledWith('oauth_state');
     });
   });
 });

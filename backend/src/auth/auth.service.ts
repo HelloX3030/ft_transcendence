@@ -11,8 +11,9 @@ import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
-import { createHmac, randomBytes } from 'crypto';
-import { JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
+import { createHmac, randomBytes, randomInt } from 'crypto';
+import { GoogleProfile, JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
+import { language_code } from '@prisma/client';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
@@ -21,6 +22,84 @@ import { apiResponse, LoginResponse } from '@trailertinder/shared';
 
 /** Long enough to read a code off a phone, short enough to be worth little if stolen. */
 const MFA_TOKEN_TTL = '5m';
+const MFA_TOKEN_TTL_MS = 1000 * 60 * 5;
+
+/** Carries the MFA challenge across the Google redirect, where no body exists. */
+const MFA_COOKIE = 'mfa_token';
+/** Carries the OAuth CSRF state between the two legs of the redirect flow. */
+const STATE_COOKIE = 'oauth_state';
+const STATE_TTL_MS = 1000 * 60 * 10;
+
+/**
+ * Generated usernames are padded to 6 rather than the backend's own minimum of
+ * 3: the frontend's registerSchema/userEditSchema require 6, so a shorter name
+ * would leave a Google user on a profile form they cannot save. The two limits
+ * disagreeing is a known defect tracked separately; padding to the stricter one
+ * is valid under either.
+ */
+const GENERATED_USERNAME_MIN = 6;
+/** Leaves room for a 4-digit collision suffix inside the column's 32 chars. */
+const GENERATED_USERNAME_STEM_MAX = 28;
+const USERNAME_ATTEMPTS = 5;
+
+/** Error codes the callback redirects with; the frontend maps them to copy. */
+export type GoogleAuthError =
+  | 'email_taken'
+  | 'unverified_email'
+  | 'state_mismatch'
+  | 'provider_error';
+
+export class GoogleAuthException extends Error {
+  constructor(readonly code: GoogleAuthError) {
+    super(code);
+  }
+}
+
+function readCookie(req: ExpressRequest, name: string): string | null {
+  const cookies = req.cookies as Record<string, unknown> | undefined;
+  const value = cookies?.[name];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * Google has no username to give us, so one is derived from the email: local
+ * part, lowercased, stripped to `[a-z0-9_]`, padded to the minimum and cut to
+ * leave room for a collision suffix.
+ */
+export function generateUsernameStem(email: string): string {
+  const local = email.split('@')[0] ?? '';
+  const cleaned = local.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+  // An address whose local part is entirely stripped (all-unicode, say) would
+  // otherwise pad to "uuuuuu" for everyone; "user" keeps it recognisable and
+  // the suffix retry still separates them.
+  const base = cleaned.length > 0 ? cleaned : 'user';
+
+  return base.padEnd(GENERATED_USERNAME_MIN, '0').slice(0, GENERATED_USERNAME_STEM_MAX);
+}
+
+function randomSuffix(): string {
+  // randomInt over Math.random: the suffix is short, and a predictable one lets
+  // an attacker sit on the names the next signup will be offered.
+  return randomInt(1000, 10000).toString();
+}
+
+/** True when a P2002 names `username`, as opposed to `email` or `google_id`. */
+function targetsUsername(error: PrismaClientKnownRequestError): boolean {
+  const target = error.meta?.target;
+  if (Array.isArray(target)) return target.includes('username');
+  return typeof target === 'string' && target.includes('username');
+}
+
+/**
+ * `language_code` is non-null with no default, so a value is always required.
+ * Google's locale is a BCP-47 tag ("de-DE"); only the prefix is of interest.
+ */
+function mapLocale(locale: string | undefined): language_code {
+  const prefix = locale?.split('-')[0];
+  if (prefix === 'de' || prefix === 'es') return prefix;
+  return 'en';
+}
 
 @Injectable()
 export class AuthService {
@@ -70,6 +149,11 @@ export class AuthService {
     });
     if (user === null) throw new ForbiddenException('Invalid credentials');
 
+    // Google-only accounts have no local password. argon2.verify on a null hash
+    // throws a raw error, which the global filter turns into a 500 — so this
+    // check is the difference between a clean 403 and a stack trace.
+    if (user.password === null) throw new ForbiddenException('Invalid credentials');
+
     const isPwMatch = await argon2.verify(user.password, dto.password);
     if (!isPwMatch) {
       throw new ForbiddenException('Invalid credentials');
@@ -103,7 +187,12 @@ export class AuthService {
     dto: MfaVerifyDto,
     res: ExpressResponse,
   ): Promise<apiResponse<LoginResponse>> {
-    const userId = await this.readMfaToken(dto.mfaToken);
+    // The password flow puts the token in the body; the Google flow cannot,
+    // because it arrives by redirect, so it leaves it in an httpOnly cookie.
+    const token = dto.mfaToken ?? readCookie(req, MFA_COOKIE);
+    if (token === null) throw new ForbiddenException('Invalid TOTP');
+
+    const userId = await this.readMfaToken(token);
 
     const user = await this.prisma.users.findUnique({ where: { id: userId } });
     // The account can be deleted, or TOTP turned off, between the two steps.
@@ -129,6 +218,9 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res);
+    // The Google path may have left this behind; the password path never sets
+    // it. Either way the challenge has been spent.
+    res.clearCookie(MFA_COOKIE);
     return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
   }
 
@@ -165,6 +257,177 @@ export class AuthService {
     } catch {
       throw new ForbiddenException('Invalid TOTP');
     }
+  }
+
+  // --- Google OAuth ---------------------------------------------------------
+
+  /**
+   * Issues the CSRF `state` for an outgoing authorization request.
+   *
+   * passport-google-oauth20 can do this itself, but only by stashing the value
+   * in a server-side session, and this app is stateless JWT-in-cookie. Without
+   * it the callback would accept any `code`, which is the login-CSRF the
+   * parameter exists to prevent.
+   *
+   * `sameSite: 'lax'` because it has to survive the cross-site navigation back
+   * from Google — `strict` would withhold it exactly when it is needed.
+   */
+  issueGoogleState(res: ExpressResponse): string {
+    const state = randomBytes(32).toString('hex');
+    res.cookie(STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: res.req.secure,
+      sameSite: 'lax',
+      maxAge: STATE_TTL_MS,
+    });
+    return state;
+  }
+
+  /**
+   * Compares the `state` Google echoed back against the cookie, and clears it
+   * either way so a value can never be replayed.
+   */
+  verifyGoogleState(req: ExpressRequest, res: ExpressResponse): void {
+    const expected = readCookie(req, STATE_COOKIE);
+    const actual = typeof req.query.state === 'string' ? req.query.state : null;
+    res.clearCookie(STATE_COOKIE);
+
+    if (expected === null || actual === null || expected !== actual) {
+      throw new GoogleAuthException('state_mismatch');
+    }
+  }
+
+  /**
+   * Resolves a Google identity to a session, in the order set by Spec 05 §2.3:
+   * known googleId → verified email match (link) → unverified email match
+   * (reject) → new account.
+   *
+   * Returns whether a second factor is still owed, so the caller can redirect
+   * to the OTP step rather than a finished session.
+   */
+  async googleLogin(
+    req: ExpressRequest,
+    profile: GoogleProfile,
+    res: ExpressResponse,
+  ): Promise<{ mfaRequired: boolean }> {
+    const user = await this.resolveGoogleUser(profile);
+
+    if (user.totpActive) {
+      if (user.totpSecret === null) {
+        this.logger.error('TOTP is enabled, but no totpSecret has been set.');
+        throw new GoogleAuthException('provider_error');
+      }
+      // A compromised Google account must not bypass the second factor. The
+      // challenge goes in a cookie, not the URL: a redirect target lands in
+      // browser history, in the Referer of anything the page loads, and in any
+      // proxy log along the way.
+      res.cookie(MFA_COOKIE, await this.createMfaToken(user.id), {
+        httpOnly: true,
+        secure: res.req.secure,
+        sameSite: 'lax',
+        maxAge: MFA_TOKEN_TTL_MS,
+      });
+      return { mfaRequired: true };
+    }
+
+    const tokens = await this.createJwt(user.id, user.email, req);
+    this.setCookies(tokens, res);
+    return { mfaRequired: false };
+  }
+
+  /**
+   * Terminates the callback. Every outcome is a redirect to the frontend's
+   * `/auth/callback`, because a redirect has no JSON body for a client to read.
+   *
+   * That landing route needs no authentication, which is what makes the session
+   * cookies work: they are `sameSite: 'strict'`, so they may not ride along on
+   * the cross-site navigation that arrives here. The SPA renders from the Vite
+   * shell and then calls `/auth/me` — a same-origin fetch, where the cookies are
+   * sent normally. Redirecting straight to `/` appears to work in some browsers
+   * and fails in others.
+   */
+  async googleCallback(
+    req: ExpressRequest,
+    profile: GoogleProfile,
+    res: ExpressResponse,
+  ): Promise<void> {
+    const base = `${process.env.CORS_ORIGIN ?? ''}/auth/callback`;
+
+    try {
+      const { mfaRequired } = await this.googleLogin(req, profile, res);
+      res.redirect(mfaRequired ? `${base}?mfa=1` : base);
+    } catch (error) {
+      // GoogleAuthException already names a cause the frontend can render, and
+      // GoogleAuthExceptionFilter redirects it. Anything else is ours to log and
+      // to reduce to a generic code, so no provider detail reaches the URL.
+      if (error instanceof GoogleAuthException) throw error;
+      this.logger.error('Google callback failed', error as Error);
+      throw new GoogleAuthException('provider_error');
+    }
+  }
+
+  private async resolveGoogleUser(profile: GoogleProfile) {
+    const byGoogleId = await this.prisma.users.findUnique({
+      where: { googleId: profile.googleId },
+    });
+    if (byGoogleId !== null) return byGoogleId;
+
+    const byEmail = await this.prisma.users.findUnique({ where: { email: profile.email } });
+    if (byEmail !== null) {
+      // Already linked to a different Google account: never overwrite that.
+      if (byEmail.googleId !== null) throw new GoogleAuthException('email_taken');
+
+      // Linking on an unverified address is an account-takeover primitive —
+      // anyone able to set an arbitrary unverified email on a provider profile
+      // could otherwise claim someone else's account here.
+      if (!profile.emailVerified) throw new GoogleAuthException('unverified_email');
+
+      return this.prisma.users.update({
+        where: { id: byEmail.id },
+        data: { googleId: profile.googleId },
+      });
+    }
+
+    return this.createGoogleUser(profile);
+  }
+
+  private async createGoogleUser(profile: GoogleProfile) {
+    const stem = generateUsernameStem(profile.email);
+
+    for (let attempt = 0; attempt < USERNAME_ATTEMPTS; attempt++) {
+      // The clean stem first, so the large majority of signups never see a
+      // digit. Each retry draws a fresh random suffix rather than deriving one
+      // from a count: a count is not a high-water mark (deleted accounts, and
+      // usernames set by hand, both push it out of step with what is free) and
+      // recomputing it yields the same name, so the loop would never progress.
+      const username = attempt === 0 ? stem : `${stem}${randomSuffix()}`;
+
+      try {
+        return await this.prisma.users.create({
+          data: {
+            username,
+            email: profile.email,
+            password: null,
+            googleId: profile.googleId,
+            language: mapLocale(profile.locale),
+            role: 'user',
+            totpActive: false,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof PrismaClientKnownRequestError &&
+          error.code === 'P2002' &&
+          targetsUsername(error)
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    this.logger.error(`Could not find a free username for stem "${stem}"`);
+    throw new InternalServerErrorException();
   }
 
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
