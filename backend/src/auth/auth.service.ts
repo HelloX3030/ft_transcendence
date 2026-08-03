@@ -6,12 +6,15 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { LoginDto, MfaVerifyDto, RegisterDto } from './dto';
+import { ForgotPasswordDto, LoginDto, MfaVerifyDto, RegisterDto, ResetPasswordDto } from './dto';
 import * as argon2 from 'argon2';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
-import { createHmac, randomBytes, randomInt } from 'crypto';
+import { createHash, createHmac, randomBytes, randomInt } from 'crypto';
+import { MailService } from 'src/mail/mail.service';
+import { RedisService } from 'src/redis/redis.service';
+import { DAY_MS, daysAgo, PASSWORD_RESET_RETENTION_DAYS } from 'src/retention.config';
 import { GoogleProfile, JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
 import { language_code } from '@prisma/client';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
@@ -29,6 +32,14 @@ const MFA_COOKIE = 'mfa_token';
 /** Carries the OAuth CSRF state between the two legs of the redirect flow. */
 const STATE_COOKIE = 'oauth_state';
 const STATE_TTL_MS = 1000 * 60 * 10;
+
+/**
+ * Long enough to walk away from the machine, short enough that a link sitting
+ * in an inbox is not a standing key.
+ */
+const RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
+/** Per-email, so rotating addresses cannot flood one victim's inbox past the IP throttle. */
+const RESET_COOLDOWN_SECONDS = 60;
 
 /**
  * Generated usernames are padded to 6 rather than the backend's own minimum of
@@ -59,6 +70,27 @@ function readCookie(req: ExpressRequest, name: string): string | null {
   const cookies = req.cookies as Record<string, unknown> | undefined;
   const value = cookies?.[name];
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/** SHA-256, per the reasoning on `password_resets.tokenHash` in the schema. */
+export function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Drops every session a user has, so their outstanding refresh tokens all fail
+ * at `sessions.findUnique` and the frontend bounces them to /login.
+ *
+ * Takes a transaction client so it can be part of a larger atomic change. Kept
+ * separate because three callers want exactly this: the password reset here, a
+ * future `PATCH /users/me/password`, and any "log out everywhere" control — one
+ * implementation, one place to be correct.
+ */
+export function revokeAllSessions(
+  tx: Pick<PrismaService, 'sessions'>,
+  userId: number,
+): Promise<{ count: number }> {
+  return tx.sessions.deleteMany({ where: { userId } });
 }
 
 /**
@@ -108,6 +140,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
+    private mail: MailService,
+    private redis: RedisService,
   ) {}
 
   async register(req: ExpressRequest, dto: RegisterDto, res: ExpressResponse) {
@@ -256,6 +290,164 @@ export class AuthService {
       return payload.sub;
     } catch {
       throw new ForbiddenException('Invalid TOTP');
+    }
+  }
+
+  // --- Password reset -------------------------------------------------------
+
+  /**
+   * Starts a reset. Answers the same 200 whatever happened, because a different
+   * response for a known and an unknown address turns this into an
+   * account-existence oracle — the same position `register` already takes with
+   * its deliberately vague "Credentials taken".
+   *
+   * The mail is sent *after* the response for the same reason: awaiting SMTP
+   * would leak through the response latency what the body refuses to say.
+   */
+  async forgotPassword(dto: ForgotPasswordDto): Promise<apiResponse<null>> {
+    const generic = successResponse(
+      null,
+      'If an account exists for that address, a reset link is on its way.',
+    );
+
+    const user = await this.prisma.users.findUnique({ where: { email: dto.email } });
+    if (user === null) return generic;
+
+    // The IP throttle does not stop someone flooding one inbox from rotating
+    // addresses, so the cooldown is per email. Fail-open when Redis is down:
+    // blocking password resets on a cache outage is worse than the flood.
+    const cooldownKey = `pwreset:cooldown:${user.id}`;
+    if ((await this.redis.get(cooldownKey)) !== null) return generic;
+    await this.redis.set(cooldownKey, '1', RESET_COOLDOWN_SECONDS);
+
+    // A Google-only account has no password to reset. Saying so beats letting
+    // them wait for a mail that would never explain itself.
+    if (user.password === null) {
+      this.mail.sendInBackground(
+        user.email,
+        'Signing in to CineMates',
+        'You asked to reset your password, but this account signs in with Google — ' +
+          'there is no password to reset.\n\n' +
+          'Use the "Continue with Google" button on the login page.',
+      );
+      return generic;
+    }
+
+    const token = randomBytes(32).toString('base64url');
+
+    // Three "it didn't arrive" clicks must not leave three live links.
+    await this.prisma.$transaction([
+      this.prisma.password_resets.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.password_resets.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashResetToken(token),
+          expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+        },
+      }),
+    ]);
+
+    const link = `${process.env.CORS_ORIGIN ?? ''}/reset-password?token=${token}`;
+    this.mail.sendInBackground(
+      user.email,
+      'Reset your CineMates password',
+      `Someone asked to reset the password for this account.\n\n${link}\n\n` +
+        'The link is good for 30 minutes and can be used once. ' +
+        'If this was not you, ignore this mail — nothing has changed.',
+    );
+
+    return generic;
+  }
+
+  /**
+   * Completes a reset. The password write, the token consumption and the
+   * session purge are one transaction: a password written without the token
+   * being consumed leaves a reusable link, and a token consumed without the
+   * password written locks the user out of their own account.
+   */
+  async resetPassword(dto: ResetPasswordDto): Promise<apiResponse<null>> {
+    const record = await this.prisma.password_resets.findUnique({
+      where: { tokenHash: hashResetToken(dto.token) },
+      include: { user: true },
+    });
+
+    // Unknown, already spent and expired answer identically. Telling them apart
+    // would confirm that a token was once real, and for whom.
+    if (record === null || record.usedAt !== null || record.expiresAt < new Date()) {
+      throw new BadRequestException('This reset link is invalid or has expired');
+    }
+
+    // Only after the token is known good. Answering "this account has 2FA" for
+    // an invalid token would leak account state to anyone guessing tokens.
+    if (record.user.totpActive) {
+      await this.verifyResetOtp(record.user, dto.otp);
+    }
+
+    const hash = await argon2.hash(dto.password);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.users.update({ where: { id: record.userId }, data: { password: hash } });
+      await tx.password_resets.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      });
+      // The security payload of the whole feature: a reset that leaves existing
+      // sessions alive does not evict whoever caused the reset.
+      await revokeAllSessions(tx, record.userId);
+    });
+
+    // Deliberately not logged in. Auto-login would mean access to a mailbox
+    // alone produces a session, and it hides whether the new password works.
+    return successResponse(null, 'Password updated. You can now log in.');
+  }
+
+  /**
+   * The TOTP check for a reset. Without it a reset link turns email access into
+   * full account access, and the second factor — which exists precisely to
+   * survive a compromised password — is bypassed by password recovery.
+   */
+  private async verifyResetOtp(
+    user: { id: number; totpSecret: string | null },
+    otp: string | undefined,
+  ): Promise<void> {
+    if (user.totpSecret === null) {
+      this.logger.error('TOTP is enabled, but no totpSecret has been set.');
+      throw new InternalServerErrorException();
+    }
+
+    if (otp === undefined) {
+      throw new ForbiddenException({
+        message: 'A one-time code is required to reset this password',
+        mfaRequired: true,
+      });
+    }
+
+    const counter = verifyTOTP(user.totpSecret, otp);
+    if (counter === null) throw new BadRequestException('Invalid TOTP');
+
+    // Same atomic idiom as verifyMfa: the counter is both filter and payload, so
+    // a code cannot be spent twice inside its ~90-second acceptance window.
+    const { count } = await this.prisma.users.updateMany({
+      where: {
+        id: user.id,
+        OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: counter } }],
+      },
+      data: { totpLastCounter: counter },
+    });
+    if (count === 0) throw new BadRequestException('Invalid TOTP');
+  }
+
+  @Interval(DAY_MS)
+  async passwordResetCleanUp() {
+    try {
+      await this.prisma.password_resets.deleteMany({
+        where: { expiresAt: { lt: daysAgo(PASSWORD_RESET_RETENTION_DAYS) } },
+      });
+    } catch (error) {
+      this.logger.error('Password reset cleanup failed', error as Error);
     }
   }
 

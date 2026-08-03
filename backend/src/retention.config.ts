@@ -26,6 +26,13 @@ export const MESSAGE_RETENTION_DAYS = 90;
  */
 export const ORPHAN_FILE_RETENTION_DAYS = 1;
 
+/**
+ * Password-reset rows are dead the moment they expire — the token in them is no
+ * longer accepted either way, so keeping them buys nothing and leaves a table of
+ * hashes tied to accounts that recently forgot their password.
+ */
+export const PASSWORD_RESET_RETENTION_DAYS = 1;
+
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function daysAgo(days: number, now: number = Date.now()): Date {

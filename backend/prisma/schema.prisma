@@ -183,8 +183,39 @@ model users {
 
   sessions sessions[]
 
+  passwordResets password_resets[]
+
   files      files[]
   avatarFile files? @relation("userAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+}
+
+/// One row per outstanding password-reset request. The row is what makes a reset
+/// link single-use and revocable; a self-contained JWT could be neither — it
+/// stays valid for its whole TTL even after the password has already changed.
+model password_resets {
+  id     Int @id @default(autoincrement())
+  userId Int @map("user_id")
+
+  /// SHA-256 of the token that was mailed, not argon2, and deliberately so.
+  /// argon2 hashes are salted, so `WHERE tokenHash = ?` cannot find the row —
+  /// the alternative is scanning every outstanding row and verifying each, which
+  /// is O(rows) argon2 calls on an unauthenticated endpoint: a free
+  /// denial-of-service. `sessions` can afford argon2 because the refresh JWT
+  /// carries its `sessionId`; a reset link carries only the token. A slow KDF
+  /// protects low-entropy secrets, and this is 32 bytes from randomBytes, so
+  /// SHA-256 gives an indexed lookup and loses nothing that matters here.
+  tokenHash String @unique @map("token_hash") @db.VarChar(64)
+
+  expiresAt DateTime  @map("expires_at")
+  /// Set in the same statement that consumes the token, which is what makes a
+  /// link single-use.
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @map("created_at")
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model watchlist_movies {

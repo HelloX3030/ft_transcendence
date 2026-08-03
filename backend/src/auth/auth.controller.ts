@@ -11,7 +11,7 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { GoogleAuthExceptionFilter } from './google-auth-exception.filter';
-import { LoginDto, MfaVerifyDto, RegisterDto } from './dto';
+import { ForgotPasswordDto, LoginDto, MfaVerifyDto, RegisterDto, ResetPasswordDto } from './dto';
 import { AuthService } from './auth.service';
 import { GoogleCallbackGuard, GoogleGuard, JwtRefreshGuard, Public } from './guard';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
@@ -76,6 +76,37 @@ export class AuthController {
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
     return this.authService.verifyMfa(req, dto, res);
+  }
+
+  @Public()
+  @Post('password/forgot')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Requests a password reset link by email' })
+  // One response, always. A different answer for a known and an unknown address
+  // would turn this into an account-existence oracle.
+  @ApiResponse({ status: 200, description: 'Generic acknowledgement, whatever the address was' })
+  @ApiResponse({ status: 400, description: 'Malformed email address' })
+  @ApiResponse({ status: 429, description: 'Too many attempts from this IP' })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('password/reset')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Completes a password reset and revokes every session' })
+  @ApiResponse({ status: 200, description: 'Password updated' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid, expired or already-used link, weak password, or invalid TOTP',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'The account has TOTP enabled and no `otp` was supplied (`mfaRequired: true`)',
+  })
+  @ApiResponse({ status: 429, description: 'Too many attempts from this IP' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   // Both legs can fail with a GoogleAuthException, which has to leave as a
