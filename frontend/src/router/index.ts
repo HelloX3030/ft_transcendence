@@ -1,6 +1,8 @@
 import { APP_NAME } from '@/lib/constants';
 import AuthCallbackView from '@/views/auth/AuthCallbackView.vue';
+import ForgotPasswordView from '@/views/auth/ForgotPasswordView.vue';
 import LoginView from '@/views/auth/LoginView.vue';
+import ResetPasswordView from '@/views/auth/ResetPasswordView.vue';
 import OnboardingView from '@/views/auth/OnboardingView.vue';
 import SignupView from '@/views/auth/SignupView.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
@@ -78,6 +80,16 @@ const router = createRouter({
       path: '/signup',
       component: SignupView,
       meta: { guestOnly: true, hideLayout: true, title: 'Sign Up' },
+    },
+    {
+      path: '/forgot-password',
+      component: ForgotPasswordView,
+      meta: { guestOnly: true, hideLayout: true, title: 'Forgot Password' },
+    },
+    {
+      path: '/reset-password',
+      component: ResetPasswordView,
+      meta: { guestOnly: true, hideLayout: true, title: 'Reset Password' },
     },
     {
       // Where the Google callback lands. Deliberately neither requiresAuth nor

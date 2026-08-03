@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
+import { RouterLink } from 'vue-router';
 import { loginSchema } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -40,8 +41,9 @@ const onSubmit = form.handleSubmit(({ email, password }) => {
       <FormItem>
         <div class="flex items-center justify-between">
           <FormLabel>Password</FormLabel>
-          <!-- TODO: forgot password logic -->
-          <Button type="button" variant="link">Forgot password?</Button>
+          <RouterLink to="/forgot-password" class="text-primary hover:underline text-sm">
+            Forgot password?
+          </RouterLink>
         </div>
         <FormControl>
           <Input

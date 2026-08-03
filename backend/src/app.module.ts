@@ -11,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { WatchlistsModule } from './watchlists/watchlists.module';
 import { TmdbModule } from './tmdb/tmdb.module';
 import { RedisModule } from './redis/redis.module';
+import { MailModule } from './mail/mail.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
@@ -44,6 +45,9 @@ import { THROTTLERS } from './throttle.config';
         GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
         GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
         GOOGLE_CALLBACK_URL: Joi.string().allow('').optional(),
+        SMTP_HOST: Joi.string().required(),
+        SMTP_PORT: Joi.number().required(),
+        MAIL_FROM: Joi.string().required(),
         PORT: Joi.number().default(3000),
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },
@@ -53,6 +57,7 @@ import { THROTTLERS } from './throttle.config';
     ThrottlerModule.forRoot(THROTTLERS),
     PrismaModule,
     RedisModule,
+    MailModule,
     FriendsModule,
     MoviesModule,
     AuthModule,

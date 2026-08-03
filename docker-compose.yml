@@ -61,6 +61,9 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      MAIL_FROM: ${MAIL_FROM}
     depends_on:
       db:
         condition: service_healthy
@@ -75,6 +78,17 @@ services:
   redis:
     image: redis:7-alpine
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - web
+
+  # Captures every mail the backend sends and shows it in a web UI instead of
+  # delivering it. A real SMTP provider would need credentials nobody cloning
+  # this repo has, plus outbound network — the feature would be dead on any
+  # machine but one. Only the UI port is published; SMTP on 1025 stays internal.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
     networks:
       - web
 

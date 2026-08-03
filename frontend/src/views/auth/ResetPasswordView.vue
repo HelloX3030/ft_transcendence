@@ -1,0 +1,152 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { toTypedSchema } from '@vee-validate/zod';
+import { useForm } from 'vee-validate';
+import { ApiError } from '@/api/api-error';
+import { authApi } from '@/api/endpoints/auth';
+import { resetPasswordSchema } from '@/lib/schemas';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
+const route = useRoute();
+const router = useRouter();
+
+const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : null));
+
+const loading = ref(false);
+const errorMessage = ref<string | null>(null);
+/** Set once the backend answers 403 mfaRequired — never guessed up front, because
+ *  that would mean asking the server whether an account has 2FA before the token
+ *  has been shown to be valid. */
+const mfaRequired = ref(false);
+const otp = ref('');
+
+const form = useForm({
+  validationSchema: toTypedSchema(resetPasswordSchema),
+});
+
+const onSubmit = form.handleSubmit(async ({ password }) => {
+  if (token.value === null) return;
+  if (mfaRequired.value && otp.value.length !== 6) {
+    errorMessage.value = 'Enter the 6-digit code from your authenticator app.';
+    return;
+  }
+
+  loading.value = true;
+  errorMessage.value = null;
+  try {
+    await authApi.resetPassword({
+      token: token.value,
+      password,
+      ...(mfaRequired.value ? { otp: otp.value } : {}),
+    });
+    // Deliberately not logged in: the user proves the new password works by
+    // using it. Only the session cookies would say otherwise.
+    await router.replace('/login');
+  } catch (err: unknown) {
+    if (!(err instanceof ApiError)) {
+      errorMessage.value = 'Could not reach the server. Please try again.';
+    } else if (err.status === 403 && !mfaRequired.value) {
+      // First time through: the link is valid, the account just has 2FA.
+      mfaRequired.value = true;
+      errorMessage.value = 'This account uses two-factor authentication.';
+    } else {
+      errorMessage.value = err.message || 'Something went wrong.';
+    }
+  } finally {
+    loading.value = false;
+  }
+});
+</script>
+
+<template>
+  <div class="flex flex-1 items-center justify-center p-8">
+    <Card class="w-full max-w-sm md:max-w-md">
+      <CardHeader class="text-center">
+        <CardTitle class="text-2xl">Choose a new password</CardTitle>
+        <CardDescription v-if="token !== null">
+          Setting a new password signs you out everywhere else.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <!-- No token means there is nothing to submit; an empty form that fails
+             on submit would be a worse way to say the same thing. -->
+        <div v-if="token === null" class="space-y-6 text-center">
+          <p class="text-sm text-destructive">
+            This reset link is invalid or has expired. Request a new one to continue.
+          </p>
+          <Button class="w-full" @click="router.replace('/forgot-password')">
+            Request a new link
+          </Button>
+        </div>
+
+        <form v-else @submit.prevent="onSubmit" class="space-y-6">
+          <FormField v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>New password</FormLabel>
+              <FormControl>
+                <Input
+                  v-bind="componentField"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="••••••••••••"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="confirmPassword">
+            <FormItem>
+              <FormLabel>Confirm new password</FormLabel>
+              <FormControl>
+                <Input
+                  v-bind="componentField"
+                  type="password"
+                  autocomplete="new-password"
+                  placeholder="••••••••••••"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <div v-if="mfaRequired" class="space-y-2">
+            <p class="text-sm font-medium">Authenticator code</p>
+            <div class="flex justify-center">
+              <InputOTP v-model="otp" :maxlength="6">
+                <InputOTPGroup>
+                  <InputOTPSlot v-for="i in 6" :key="i" :index="i - 1" />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+          </div>
+
+          <p v-if="errorMessage" class="text-sm text-destructive text-center">{{ errorMessage }}</p>
+
+          <Button type="submit" class="w-full" :disabled="loading">
+            {{ loading ? 'Saving…' : 'Set new password' }}
+          </Button>
+        </form>
+      </CardContent>
+
+      <CardFooter class="flex justify-center">
+        <RouterLink to="/login" class="text-primary hover:underline text-sm">
+          Back to login
+        </RouterLink>
+      </CardFooter>
+    </Card>
+  </div>
+</template>

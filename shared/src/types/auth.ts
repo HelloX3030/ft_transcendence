@@ -40,3 +40,14 @@ export interface LoginResponse {
 export interface otp {
   otp: string;
 }
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+  /** Required only when the target account has TOTP enabled. */
+  otp?: string;
+}

@@ -1,8 +1,11 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { MailService } from 'src/mail/mail.service';
+import { RedisService } from 'src/redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -11,7 +14,12 @@ import type { Request as ExpressRequest, Response as ExpressResponse } from 'exp
 import { PrismaService } from 'src/prisma/prisma.service';
 import { GoogleProfile, JwtRefreshPayload } from 'src/types';
 import { verifyTOTP } from 'src/utils/otp.utils';
-import { AuthService, generateUsernameStem, GoogleAuthException } from './auth.service';
+import {
+  AuthService,
+  generateUsernameStem,
+  GoogleAuthException,
+  hashResetToken,
+} from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 
 jest.mock('argon2');
@@ -55,7 +63,34 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
     create: jest.fn(),
+    deleteMany: jest.fn(),
   },
+  password_resets: {
+    findUnique: jest.fn(),
+    create: jest.fn(),
+    updateMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  $transaction: jest.fn(),
+};
+
+// The client handed to an interactive $transaction callback. Separate from
+// mockPrisma so a test can assert a write happened *inside* the transaction
+// rather than merely on the service's own client.
+const mockTx = {
+  users: { update: jest.fn() },
+  password_resets: { update: jest.fn() },
+  sessions: { deleteMany: jest.fn() },
+};
+
+const mockMail = {
+  send: jest.fn(),
+  sendInBackground: jest.fn(),
+};
+
+const mockRedis = {
+  get: jest.fn(),
+  set: jest.fn(),
 };
 
 const mockJwt = {
@@ -118,11 +153,14 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
+        { provide: MailService, useValue: mockMail },
+        { provide: RedisService, useValue: mockRedis },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    Object.values(mockTx).forEach((model) => Object.values(model).forEach((fn) => fn.mockReset()));
   });
 
   it('should be defined', () => {
@@ -538,6 +576,254 @@ describe('AuthService', () => {
 
       await expect(service.refresh(mockPayload, res)).rejects.toThrow(InternalServerErrorException);
       expect(cookie).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    const withPassword = { ...mockUser, password: 'hashed-password' };
+
+    beforeEach(() => {
+      mockRedis.get.mockResolvedValue(null);
+      mockPrisma.$transaction.mockResolvedValue([]);
+    });
+
+    // A different response for a known and an unknown address turns this into
+    // an account-existence oracle, which is the position `register` already
+    // takes with its deliberately vague "Credentials taken".
+    it('answers identically for a known and an unknown address', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+      const unknown = await service.forgotPassword({ email: 'nobody@example.com' });
+
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+      const known = await service.forgotPassword({ email: withPassword.email });
+
+      expect(unknown).toEqual(known);
+    });
+
+    it('creates no row and sends no mail for an unknown address', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+
+      await service.forgotPassword({ email: 'nobody@example.com' });
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockMail.sendInBackground).not.toHaveBeenCalled();
+    });
+
+    it('creates exactly one row and sends one mail for a known address', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockMail.sendInBackground).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates earlier outstanding tokens before issuing a new one', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      // Otherwise three "it didn't arrive" clicks leave three live links.
+      expect(mockPrisma.password_resets.updateMany).toHaveBeenCalledWith({
+        where: { userId: withPassword.id, usedAt: null },
+        data: { usedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('stores only the hash, and mails a token that is not in the database', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      const created = (mockPrisma.password_resets.create.mock.calls as unknown[][])[0][0] as {
+        data: { tokenHash: string };
+      };
+      const body = (mockMail.sendInBackground.mock.calls as unknown[][])[0][2] as string;
+      const token = /token=([^\s]+)/.exec(body)?.[1];
+
+      expect(token).toBeDefined();
+      expect(created.data.tokenHash).toBe(hashResetToken(token as string));
+      // A database dump must not be enough to reset anyone's password.
+      expect(body).not.toContain(created.data.tokenHash);
+    });
+
+    it('tells a Google-only account it has no password, and issues no token', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ ...withPassword, password: null });
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockMail.sendInBackground).toHaveBeenCalledTimes(1);
+      expect((mockMail.sendInBackground.mock.calls as unknown[][])[0][2]).toContain('Google');
+    });
+
+    // The IP throttle does not stop someone flooding one inbox from rotating
+    // addresses, so the cooldown is keyed on the account.
+    it('skips the send while the per-email cooldown is live', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+      mockRedis.get.mockResolvedValue('1');
+
+      const result = await service.forgotPassword({ email: withPassword.email });
+
+      expect(mockMail.sendInBackground).not.toHaveBeenCalled();
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      // Still the same answer: the cooldown must not become an oracle either.
+      expect(result.message).toContain('If an account exists');
+    });
+
+    // Blocking password resets because a cache is down is worse than the flood
+    // the cooldown prevents; RedisService already reports failures as a miss.
+    it('sends anyway when Redis is unavailable', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+      mockRedis.get.mockResolvedValue(null);
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      expect(mockMail.sendInBackground).toHaveBeenCalledTimes(1);
+    });
+
+    // Awaiting SMTP would leak through the response latency what the body
+    // refuses to say.
+    it('does not await the send', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(withPassword);
+
+      await service.forgotPassword({ email: withPassword.email });
+
+      expect(mockMail.send).not.toHaveBeenCalled();
+      expect(mockMail.sendInBackground).toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    const validRecord = {
+      id: 7,
+      userId: mockUser.id,
+      tokenHash: hashResetToken('plain-token'),
+      expiresAt: new Date(Date.now() + 60_000),
+      usedAt: null,
+      user: { ...mockUser, totpActive: false, totpSecret: null },
+    };
+    const dto = { token: 'plain-token', password: 'N3w!Password' };
+
+    beforeEach(() => {
+      mockArgon2.hash.mockResolvedValue('new-hash');
+      mockPrisma.$transaction.mockImplementation(async (fn: unknown) =>
+        typeof fn === 'function' ? await (fn as (tx: unknown) => Promise<void>)(mockTx) : undefined,
+      );
+    });
+
+    it('writes the new hash, spends the token and drops every session at once', async () => {
+      mockPrisma.password_resets.findUnique.mockResolvedValue(validRecord);
+
+      await service.resetPassword(dto);
+
+      expect(mockTx.users.update).toHaveBeenCalledWith({
+        where: { id: validRecord.userId },
+        data: { password: 'new-hash' },
+      });
+      expect(mockTx.password_resets.update).toHaveBeenCalledWith({
+        where: { id: validRecord.id },
+        data: { usedAt: expect.any(Date) as Date },
+      });
+      // The security payload: a reset that leaves sessions alive does not evict
+      // whoever caused the reset.
+      expect(mockTx.sessions.deleteMany).toHaveBeenCalledWith({
+        where: { userId: validRecord.userId },
+      });
+    });
+
+    it('never stores the plaintext password', async () => {
+      mockPrisma.password_resets.findUnique.mockResolvedValue(validRecord);
+
+      await service.resetPassword(dto);
+
+      const written = (mockTx.users.update.mock.calls as unknown[][])[0][0] as {
+        data: { password: string };
+      };
+      expect(written.data.password).toBe('new-hash');
+      expect(written.data.password).not.toBe(dto.password);
+    });
+
+    it('does not log the user in', async () => {
+      mockPrisma.password_resets.findUnique.mockResolvedValue(validRecord);
+
+      // No response object is even passed: a mailbox alone must not produce a
+      // session, and it would hide whether the new password actually works.
+      const result = await service.resetPassword(dto);
+
+      expect(result.message).toContain('log in');
+      expect(mockPrisma.sessions.create).not.toHaveBeenCalled();
+    });
+
+    // Telling these three apart would confirm that a token was once real.
+    it.each([
+      ['an unknown token', null],
+      ['an already-used token', { ...validRecord, usedAt: new Date() }],
+      ['an expired token', { ...validRecord, expiresAt: new Date(Date.now() - 1) }],
+    ])('rejects %s with the same generic message', async (_label, record) => {
+      mockPrisma.password_resets.findUnique.mockResolvedValue(record);
+
+      await expect(service.resetPassword(dto)).rejects.toThrow(
+        'This reset link is invalid or has expired',
+      );
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    describe('with TOTP active', () => {
+      const totpRecord = {
+        ...validRecord,
+        user: { ...mockUser, totpActive: true, totpSecret: 'iv:cipher' },
+      };
+
+      beforeEach(() => {
+        mockPrisma.password_resets.findUnique.mockResolvedValue(totpRecord);
+        mockVerifyTOTP.mockReturnValue(58_000_000);
+        mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+      });
+
+      // Otherwise a reset link turns email access into full account access, and
+      // the second factor is bypassed by password recovery.
+      it('refuses to reset without an OTP and says one is needed', async () => {
+        await expect(service.resetPassword(dto)).rejects.toMatchObject({
+          status: 403,
+          response: { mfaRequired: true },
+        });
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('accepts a correct OTP', async () => {
+        await service.resetPassword({ ...dto, otp: '213846' });
+
+        expect(mockTx.users.update).toHaveBeenCalled();
+      });
+
+      it('rejects a wrong OTP without touching the password', async () => {
+        mockVerifyTOTP.mockReturnValue(null);
+
+        await expect(service.resetPassword({ ...dto, otp: '000000' })).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('rejects an OTP that has already been spent', async () => {
+        mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+
+        await expect(service.resetPassword({ ...dto, otp: '213846' })).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      // Answering "this account has 2FA" for a token that was never valid would
+      // leak account state to anyone guessing tokens.
+      it('does not reveal that the account has 2FA when the token is invalid', async () => {
+        mockPrisma.password_resets.findUnique.mockResolvedValue(null);
+
+        await expect(service.resetPassword(dto)).rejects.toThrow(
+          'This reset link is invalid or has expired',
+        );
+      });
     });
   });
 

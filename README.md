@@ -10,6 +10,7 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 - [Architecture & Tech Decisions](_meta/doc/ARCHITECTURE.md)
 - [Implementation Roadmap](_meta/doc/ROADMAP.md)
+- [Email (Mailpit)](#email-mailpit) — where password-reset mail actually goes
 - [Google Sign-In setup](#google-sign-in-optional) — optional; the app runs without it
 - `https://localhost:8443/api/docs` Interactive docs with all endpoints, inputs, and responses: 
 
@@ -58,6 +59,7 @@ docker compose up --build
 | Backend API | https://localhost:8443/api |
 | Swagger     | https://localhost:8443/api/docs |
 | pgAdmin     | http://localhost:5050      |
+| Mailpit     | http://localhost:8025      |
 | PostgreSQL  | localhost:5432             |
 
 > **Expect one certificate warning.** The app is served over HTTPS with a self-signed certificate that Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate authority installed into the machine's trust store, neither of which belongs in a project you clone and run.
@@ -100,6 +102,20 @@ docker compose exec backend  sh -c "npx prisma migrate dev"
 ```
 
 `npx prisma migrate dev`: Applies database migrations in development, creating or updating your database schema to match your Prisma schema.
+
+---
+
+## Email (Mailpit)
+
+**No mail ever leaves the machine, and that is deliberate.** The stack runs [Mailpit](https://github.com/axllent/mailpit), which accepts everything the backend sends over SMTP and shows it in a web UI instead of delivering it.
+
+Anything the app mails — currently password-reset links — appears at **http://localhost:8025** within a second of being sent. Open it, click the link in the message, and continue in the app.
+
+This needs no account, no credentials and no outbound network, so password recovery works on a clean clone and offline. Delivering for real would mean a provider account nobody cloning this repo has, and unverified senders get rate-limited or silently dropped — which fails during a demo rather than during development.
+
+Switching to real delivery is `SMTP_HOST`, `SMTP_PORT` and `MAIL_FROM` in `.env`, and no code change.
+
+> **If a reset mail seems not to arrive, look in Mailpit, not your inbox.** It was never sent anywhere else.
 
 ---
 
