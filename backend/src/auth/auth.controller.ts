@@ -5,15 +5,17 @@ import {
   Get,
   Post,
   UseGuards,
+  UseFilters,
   Request,
   Response,
   HttpCode,
 } from '@nestjs/common';
+import { GoogleAuthExceptionFilter } from './google-auth-exception.filter';
 import { LoginDto, MfaVerifyDto, RegisterDto } from './dto';
 import { AuthService } from './auth.service';
-import { JwtRefreshGuard, Public } from './guard';
+import { GoogleCallbackGuard, GoogleGuard, JwtRefreshGuard, Public } from './guard';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
-import { JwtRefreshPayload } from 'src/types';
+import { GoogleProfile, JwtRefreshPayload } from 'src/types';
 import { ApiOperation, ApiResponse, ApiTooManyRequestsResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
@@ -74,6 +76,33 @@ export class AuthController {
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
     return this.authService.verifyMfa(req, dto, res);
+  }
+
+  // Both legs can fail with a GoogleAuthException, which has to leave as a
+  // redirect rather than JSON — the browser arrives here by navigation.
+  @UseFilters(GoogleAuthExceptionFilter)
+  @Public()
+  @Get('google')
+  @ApiOperation({ summary: 'Starts the Google OAuth 2.0 redirect flow' })
+  @ApiResponse({ status: 302, description: "Redirect to Google's consent screen" })
+  @ApiResponse({ status: 503, description: 'Google sign-in is not configured on this server' })
+  @UseGuards(GoogleGuard)
+  googleAuth() {
+    // The guard redirects to Google, so this body is never reached.
+  }
+
+  @UseFilters(GoogleAuthExceptionFilter)
+  @Public()
+  @Get('google/callback')
+  @ApiOperation({ summary: 'Google OAuth 2.0 callback — establishes the session' })
+  @ApiResponse({ status: 302, description: 'Redirect to the frontend /auth/callback route' })
+  @ApiResponse({ status: 503, description: 'Google sign-in is not configured on this server' })
+  // No `passthrough`: this handler owns the response because every outcome,
+  // success or failure, is a redirect rather than a JSON body.
+  @UseGuards(GoogleCallbackGuard)
+  async googleCallback(@Request() req: ExpressRequest, @Response() res: ExpressResponse) {
+    if (req.user === undefined) throw new BadRequestException();
+    return this.authService.googleCallback(req, req.user as GoogleProfile, res);
   }
 
   // Cookie-authenticated, so there is nothing here to guess; a shared IP would

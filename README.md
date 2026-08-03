@@ -10,6 +10,7 @@ TrailerTinder is a mobile-first web app where users swipe through film trailers 
 
 - [Architecture & Tech Decisions](_meta/doc/ARCHITECTURE.md)
 - [Implementation Roadmap](_meta/doc/ROADMAP.md)
+- [Google Sign-In setup](#google-sign-in-optional) — optional; the app runs without it
 - `https://localhost:8443/api/docs` Interactive docs with all endpoints, inputs, and responses: 
 
 ---
@@ -26,6 +27,8 @@ Edit `.env` to set real passwords if desired.
 
 To create a new MFA_KEY, run the following command.
 `openssl rand -hex 32`
+
+The Google keys in `.env` are optional — see [Google Sign-In](#google-sign-in-optional) below.
 
 **2. Install local dependencies** (first time only):
 
@@ -97,6 +100,72 @@ docker compose exec backend  sh -c "npx prisma migrate dev"
 ```
 
 `npx prisma migrate dev`: Applies database migrations in development, creating or updating your database schema to match your Prisma schema.
+
+---
+
+## Google Sign-In (optional)
+
+**The app runs fine without this.** Leave the Google keys in `.env` empty and everything else works exactly as documented — the stack boots, and the "Continue with Google" button is simply hidden. A missing button is the expected state, not a failure.
+
+Google sign-in needs OAuth credentials that cannot be committed to a repository, so each person who wants to exercise it creates their own. It takes about five minutes.
+
+**1. Create a Google Cloud project**
+
+Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a project. Any Google account works — a personal one is fine.
+
+**2. Configure the OAuth consent screen**
+
+Under *APIs & Services → OAuth consent screen*:
+
+- User type: **External**
+- Fill in the app name and the required contact emails
+- Leave the publishing status on **Testing** — no verification review is needed
+
+**3. Add yourself as a test user**
+
+Still on the consent screen, under **Test users**, add every Google account you intend to log in with (up to 100).
+
+> **Do not skip this.** An account that is not on the list is refused at Google's own consent screen with *"app has not completed the Google verification process"*. It looks like a bug in this app, but nothing here is involved — the request never reaches us.
+
+**4. Create the OAuth client**
+
+Under *APIs & Services → Credentials → Create credentials → OAuth client ID*:
+
+- Application type: **Web application**
+- Under **Authorized redirect URIs**, add exactly:
+
+  ```
+  https://localhost:8443/api/v1/auth/google/callback
+  ```
+
+Google compares this string character for character against what the backend sends, so it has to match `GOOGLE_CALLBACK_URL` in `.env` precisely — no trailing slash, no `http`, no different port.
+
+**5. Fill in `.env`**
+
+Copy the client ID and secret from the console:
+
+```bash
+GOOGLE_CLIENT_ID=<from the console>
+GOOGLE_CLIENT_SECRET=<from the console>
+GOOGLE_CALLBACK_URL=https://localhost:8443/api/v1/auth/google/callback
+GOOGLE_ENABLED=true
+```
+
+`GOOGLE_ENABLED` is what reveals the button in the frontend; set it only once the three values above are filled in. Then restart the stack so both containers pick up the new environment:
+
+```bash
+docker compose up -d --force-recreate frontend backend
+```
+
+**Troubleshooting**
+
+| What you see | Cause |
+|---|---|
+| `redirect_uri_mismatch` at Google | The Authorized redirect URI in the console and `GOOGLE_CALLBACK_URL` differ. Compare them character by character. |
+| "Access blocked" / "has not completed verification" | The Google account you are signing in with is not on the **Test users** list (step 3). |
+| No "Continue with Google" button | `GOOGLE_ENABLED` is not `true`, or the frontend container was not restarted after the change. |
+| `503` from `/api/v1/auth/google` | The backend has no credentials — one of the three `GOOGLE_*` values is empty, or the backend was not restarted. |
+| Signed in at Google, then bounced back to login | The session cookie did not survive the redirect. Check that you reached the app over `https://localhost:8443` and not some other host or port. |
 
 ---
 

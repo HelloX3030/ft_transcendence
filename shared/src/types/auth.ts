@@ -11,7 +11,12 @@ export interface LoginRequest {
  * which is never sent twice.
  */
 export interface MfaVerifyRequest {
-  mfaToken: string;
+  /**
+   * Omitted on the Google path: that login ends in a redirect, so the challenge
+   * token travels in an httpOnly cookie the browser sends automatically rather
+   * than in a body the client never saw.
+   */
+  mfaToken?: string;
   otp: string;
 }
 

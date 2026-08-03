@@ -40,10 +40,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // Second step of an MFA login. Takes the challenge token from login(), not the
-  // password — that is deliberately not kept around.
+  // password — that is deliberately not kept around. On the Google path the
+  // token is omitted entirely and the backend reads it from a cookie instead.
   async function verifyMfa(payload: MfaVerifyRequest) {
     await authApi.verifyMfa(payload);
     await startSession();
+  }
+
+  /**
+   * Tail of an OAuth login. The session cookies were set by the backend during
+   * the redirect, so there is nothing to send — this only confirms they work
+   * before treating the user as logged in.
+   *
+   * Returns false when they do not, which is how the callback view tells a
+   * silently dropped cookie from a successful sign-in.
+   */
+  async function completeOAuthLogin(): Promise<boolean> {
+    await init();
+    if (!isLoggedIn.value) return false;
+    await startSession();
+    return true;
   }
 
   async function logout() {
@@ -73,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     init,
     login,
     verifyMfa,
+    completeOAuthLogin,
     logout,
     register,
     $reset,

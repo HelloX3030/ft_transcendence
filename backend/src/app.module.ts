@@ -37,6 +37,13 @@ import { THROTTLERS } from './throttle.config';
         MFA_KEY: Joi.string().length(64).hex().required(),
         TMDB_API_KEY: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
+        // Optional on purpose. `.required()` would mean a checkout without
+        // Google credentials fails to boot — every developer, CI, and any
+        // evaluator who clones the repo. Absent, the strategy is not registered
+        // and GET /auth/google answers 503; see google.strategy.ts.
+        GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+        GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+        GOOGLE_CALLBACK_URL: Joi.string().allow('').optional(),
         PORT: Joi.number().default(3000),
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },

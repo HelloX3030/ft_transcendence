@@ -20,9 +20,23 @@ export interface JwtRefreshPayload {
   session: string;
 }
 
+/**
+ * What GoogleStrategy.validate hands to the callback route. Google's access and
+ * refresh tokens are deliberately not part of it: they are used once, during the
+ * exchange, and never stored.
+ */
+export interface GoogleProfile {
+  /** Google's `sub` claim — stable per account, unlike the email. */
+  googleId: string;
+  email: string;
+  /** Gates account linking. Never assume Google only returns verified addresses. */
+  emailVerified: boolean;
+  locale?: string;
+}
+
 declare module 'express' {
   export interface Request {
-    user?: JwtRefreshPayload | JwtAccessPayload;
+    user?: JwtRefreshPayload | JwtAccessPayload | GoogleProfile;
   }
 }
 

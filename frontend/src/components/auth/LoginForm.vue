@@ -5,7 +5,7 @@ import { loginSchema } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
+import GoogleButton from './GoogleButton.vue';
 
 defineProps<{ error: string | null }>();
 const emit = defineEmits<{ submit: [email: string, password: string] }>();
@@ -59,15 +59,7 @@ const onSubmit = form.handleSubmit(({ email, password }) => {
       <p v-if="error" class="text-sm text-destructive text-center">{{ error }}</p>
       <Button type="submit" class="w-full">Login</Button>
 
-      <div class="w-full flex items-center gap-2">
-        <Separator class="flex-1" />
-        <span class="shrink-0 px-2 text-xs text-muted-foreground uppercase">OR</span>
-        <Separator class="flex-1" />
-      </div>
-
-      <Button type="button" variant="outline" class="w-full">
-        <img src="/google_icon.svg" class="size-6" /> Continue with Google
-      </Button>
+      <GoogleButton />
     </div>
   </form>
 </template>

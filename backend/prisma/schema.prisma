@@ -138,8 +138,12 @@ model sessions {
 model users {
   id       Int     @id @default(autoincrement())
   username String  @unique @db.VarChar(32)
-  password String  @db.VarChar(512)
+  /// Null for accounts created through an external provider, which never had a
+  /// local password. Every read site has to handle that before hitting argon2.
+  password String? @db.VarChar(512)
   email    String  @unique @db.VarChar(255)
+  /// Google's `sub` claim. Unique so two accounts can never claim one identity.
+  googleId String? @unique @map("google_id") @db.VarChar(255)
   /// SetNull rather than a second write: deleting the file clears the reference
   /// in one operation, so the two can never diverge.
   avatarFileId Int? @map("avatar_file_id")
