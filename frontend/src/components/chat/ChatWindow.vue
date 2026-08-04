@@ -134,7 +134,14 @@ watch(
 </script>
 
 <template>
-  <section class="flex-1 flex-col relative min-h-0" :class="activeChat ? 'flex' : 'hidden sm:flex'">
+  <!-- min-w-0: a flex item's default min-width is auto, i.e. its min-content
+       size. A message containing one unbreakable token (a URL, a pasted hash)
+       has a min-content width of the whole token, so without this the chat
+       column refuses to shrink and the conversation list is squeezed instead. -->
+  <section
+    class="flex-1 min-w-0 flex-col relative min-h-0"
+    :class="activeChat ? 'flex' : 'hidden sm:flex'"
+  >
     <template v-if="activeChat">
       <div class="p-4 border-b border-white/10 flex items-center gap-3">
         <Button variant="ghost" size="icon" class="sm:hidden -ml-2" @click="chatStore.closeChat()">
@@ -155,7 +162,11 @@ watch(
         </div>
       </div>
 
-      <div ref="viewport" class="p-4 flex-1 min-h-0 overflow-y-auto" @scroll.passive="onScroll">
+      <div
+        ref="viewport"
+        class="p-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+        @scroll.passive="onScroll"
+      >
         <div ref="topSentinel" class="h-px" />
 
         <div v-if="activeChat.isLoadingOlder" class="flex justify-center py-2">

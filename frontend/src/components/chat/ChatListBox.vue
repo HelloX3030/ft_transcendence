@@ -33,7 +33,7 @@ onMounted(() => friendsStore.ensureLoaded());
 
 <template>
   <aside
-    class="w-full h-full sm:w-80 min-h-0 border-r border-white/10 flex-col"
+    class="w-full h-full sm:w-80 sm:shrink-0 min-h-0 border-r border-white/10 flex-col"
     :class="activeChat ? 'hidden sm:flex' : 'flex'"
   >
     <div class="p-4 border-b border-white/10">
