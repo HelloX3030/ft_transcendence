@@ -27,6 +27,60 @@ import { apiResponse, LoginResponse } from '@trailertinder/shared';
 const MFA_TOKEN_TTL = '5m';
 const MFA_TOKEN_TTL_MS = 1000 * 60 * 5;
 
+/**
+ * The idle timeout: how far `expiresAt`, the refresh JWT and the refresh cookie
+ * are pushed out on each use. One constant so the three cannot disagree — they
+ * used to be four separate "15 day" literals.
+ */
+const REFRESH_TTL_MS = 15 * DAY_MS;
+
+/**
+ * The hard stop, measured from `sessions.createdAt`. Without it the sliding
+ * window alone means an actively used session never ends: every refresh pushes
+ * `expiresAt` out again, and the frontend refreshes every few minutes while a
+ * tab is open. "Sessions last 15 days" would describe only an *idle* timeout,
+ * and a token stolen from a machine that stays in use would be valid forever.
+ */
+const ABSOLUTE_SESSION_LIFETIME_MS = 30 * DAY_MS;
+
+/**
+ * How long the pre-rotation key stays acceptable.
+ *
+ * Rotation and multi-tab browsing conflict: the in-flight refresh is coalesced
+ * within one tab, but the cookie is shared across all of them, so two tabs
+ * hitting a 401 at the same moment both present the same key and the slower one
+ * would be refused while holding a perfectly good, freshly rotated cookie. Two
+ * open tabs is not an edge case, so without this the rotation would introduce a
+ * routine, unreproducible-looking logout.
+ *
+ * Generous next to a request that takes milliseconds, far short of anything
+ * useful to an attacker who must also have stolen the cookie.
+ */
+const REFRESH_GRACE_MS = 30_000;
+
+/** Matches the access JWT's own `expiresIn`, so the cookie and the token agree. */
+const ACCESS_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * The cookie attributes that decide whether a `clearCookie` matches the
+ * `cookie` that set it. Express only clears a cookie when they line up, and the
+ * two used to be written out separately — `clearCookie` passed no options at
+ * all. `path` and `domain` are what actually decide the match and both default
+ * to `/` here, so it very probably worked; "very probably" is the wrong property
+ * for the code path that ends a session.
+ *
+ * `req.secure` reads the X-Forwarded-Proto that Caddy sets (see `trust proxy` in
+ * main.ts), so in the running app — where the browser only ever arrives over
+ * HTTPS — both cookies are always Secure. Hardcoding `true` would be equivalent
+ * there, but would make the cookies undeliverable over the plain-HTTP in-network
+ * requests the e2e suite makes, hiding the whole auth flow from the tests.
+ *
+ * `sameSite: 'strict'` is now literally same-origin, not merely same-site.
+ */
+function cookieOptions(res: ExpressResponse) {
+  return { httpOnly: true, secure: res.req.secure, sameSite: 'strict' as const };
+}
+
 /** Carries the MFA challenge across the Google redirect, where no body exists. */
 const MFA_COOKIE = 'mfa_token';
 /** Carries the OAuth CSRF state between the two legs of the redirect flow. */
@@ -137,6 +191,27 @@ function mapLocale(locale: string | undefined): language_code {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  /**
+   * The token most recently issued for a session, keyed by session id and kept
+   * only for the grace window.
+   *
+   * This is what lets a racing sibling tab converge on the key the winner
+   * already holds. The tabs share one cookie, so the two responses race to write
+   * it — if the loser were handed a *different* key, the cookie could end up
+   * holding one that dies when the grace window closes, and the logout the grace
+   * window exists to prevent would simply arrive 15 minutes late. Answering with
+   * the winner's own token is the only way both writes leave the same value.
+   *
+   * The key's plaintext cannot come from the database (it is argon2-hashed), so
+   * it is remembered here instead of stored. In-process and short-lived by
+   * design: a restart inside the window just falls back to re-signing the key
+   * the caller presented, which is correct for the far commoner single-tab case.
+   */
+  private readonly recentRefresh = new Map<
+    number,
+    { previousKey: string; token: string; expiresAt: Date; at: number }
+  >();
+
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
@@ -159,7 +234,7 @@ export class AuthService {
         },
       });
       const tokens = await this.createJwt(user.id, user.email, req);
-      this.setCookies(tokens, res);
+      this.setCookies(tokens, res, tokens.refreshExpiresAt);
       return successResponse(null, 'User registered successfully');
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -207,7 +282,7 @@ export class AuthService {
     }
 
     const tokens = await this.createJwt(user.id, user.email, req);
-    this.setCookies(tokens, res);
+    this.setCookies(tokens, res, tokens.refreshExpiresAt);
     return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
   }
 
@@ -251,7 +326,7 @@ export class AuthService {
     if (count === 0) throw new ForbiddenException('Invalid TOTP');
 
     const tokens = await this.createJwt(user.id, user.email, req);
-    this.setCookies(tokens, res);
+    this.setCookies(tokens, res, tokens.refreshExpiresAt);
     // The Google path may have left this behind; the password path never sets
     // it. Either way the challenge has been spent.
     res.clearCookie(MFA_COOKIE);
@@ -523,7 +598,7 @@ export class AuthService {
     }
 
     const tokens = await this.createJwt(user.id, user.email, req);
-    this.setCookies(tokens, res);
+    this.setCookies(tokens, res, tokens.refreshExpiresAt);
     return { mfaRequired: false };
   }
 
@@ -622,6 +697,17 @@ export class AuthService {
     throw new InternalServerErrorException();
   }
 
+  /**
+   * Exchanges a refresh token for a new pair, rotating the session key.
+   *
+   * The key is rotated on *every* use. Without that, a captured refresh token
+   * stayed valid for its full lifetime no matter how many times the legitimate
+   * user refreshed — using it did not consume it — and the theft was
+   * undetectable, because both parties could keep refreshing forever with
+   * nothing ever looking anomalous. It also made the argon2 hashing of the key
+   * largely decorative: the value protected at rest was one the client kept
+   * handing back in a long-lived cookie.
+   */
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
     const session = await this.prisma.sessions.findUnique({
       where: {
@@ -633,13 +719,33 @@ export class AuthService {
       throw new ForbiddenException('Invalid session id');
     }
 
-    const isMatch = await argon2.verify(session.sessionHash, payload.session);
-    if (!isMatch) {
+    if (session.userId !== payload.sub) {
+      this.logger.error('refresh token subject does not match the owner of the session');
       throw new ForbiddenException('Invalid session id');
     }
 
-    if (session.userId !== payload.sub) {
-      this.logger.error('refresh token subject does not match the owner of the session');
+    // Enforced here, not left to the 5-minute sweep: the sweep is garbage
+    // collection, and a row past its expiry that has not been collected yet
+    // would otherwise still mint a fresh pair of tokens.
+    if (session.expiresAt.getTime() <= Date.now()) {
+      throw new ForbiddenException('Invalid session id');
+    }
+
+    const isCurrent = await argon2.verify(session.sessionHash, payload.session);
+
+    // A racing sibling tab, not a replay: answer with the key that already won
+    // the race so both tabs converge, without rotating again or extending
+    // expiresAt a second time — otherwise two tabs can ping-pong rotations.
+    const isGraced = !isCurrent && (await this.matchesGracedKey(session, payload.session));
+
+    if (!isCurrent && !isGraced) {
+      // Deliberately not deleting the session. Reuse detection is what rotation
+      // buys, but the blast radius of a false positive is logging a legitimate
+      // user out of every device, and the false-positive sources are the hard
+      // ones to enumerate: a tab restored from bfcache with a stale in-flight
+      // request, a browser replaying after sleep, a mobile network retrying.
+      // The warning is free and is the data needed before turning it on.
+      this.logger.warn(`stale refresh key presented for session ${session.id}`);
       throw new ForbiddenException('Invalid session id');
     }
 
@@ -652,30 +758,56 @@ export class AuthService {
       this.logger.error('could not find the user in the database to issue a new JWT');
       throw new InternalServerErrorException();
     }
+
+    // Returns null when a sibling tab rotated this same key first. The graced
+    // branch deliberately neither rotates again nor extends expiresAt: doing
+    // either would let two tabs ping-pong rotations, and the point is to
+    // converge on one key, not to issue a second.
+    let refresh = isCurrent ? await this.updateRefreshJwt(user.id, session, payload.session) : null;
+
+    // Either this caller lost the rotation race or it arrived on the key that
+    // was just superseded. Both are the same situation seen from different
+    // sides, and both are answered with the token the winner received.
+    refresh ??= this.replayRecentRefresh(session.id, payload.session);
+
+    // Only reachable if the process restarted inside the grace window, so the
+    // winner's token is no longer in memory. Re-signing the presented key beats
+    // logging the user out: it is still accepted, just until the window closes.
+    refresh ??= await this.signRefreshJwt(user.id, session.id, payload.session, session.expiresAt);
+
     const tokens = {
       access_token: (await this.createAccessJwt(user.id, user.email)).access_token,
-      refresh_token: (await this.updateRefreshJwt(user.id, payload.sessionId, payload.session))
-        .refresh_token,
+      refresh_token: refresh.refresh_token,
     };
-    this.setCookies(tokens, res);
+    this.setCookies(tokens, res, refresh.expiresAt);
     return successResponse(null, 'Token refreshed');
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
-    await this.prisma.sessions.delete({
+    // deleteMany, not delete: `delete` on a missing row throws P2025, which the
+    // Prisma filter turns into a 404 — and a second logout is entirely normal
+    // (the session was swept, another tab logged out, the request was retried).
+    // Logging out is the operation that should above all be safe to repeat.
+    await this.prisma.sessions.deleteMany({
       where: {
         id: payload.sessionId,
       },
     });
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    res.clearCookie('access_token', cookieOptions(res));
+    res.clearCookie('refresh_token', cookieOptions(res));
     return successResponse(null, 'Logged out');
   }
 
-  async createJwt(userId: number, email: string, req: ExpressRequest): Promise<JwtTokens> {
+  async createJwt(
+    userId: number,
+    email: string,
+    req: ExpressRequest,
+  ): Promise<JwtTokens & { refreshExpiresAt: Date }> {
+    const refresh = await this.createRefreshJwt(userId, req);
     return {
       access_token: (await this.createAccessJwt(userId, email)).access_token,
-      refresh_token: (await this.createRefreshJwt(userId, req)).refresh_token,
+      refresh_token: refresh.refresh_token,
+      refreshExpiresAt: refresh.expiresAt,
     };
   }
 
@@ -686,7 +818,7 @@ export class AuthService {
     };
 
     const token = await this.jwt.signAsync(payload, {
-      expiresIn: '15m',
+      expiresIn: ACCESS_TTL_MS / 1000,
       secret: process.env.JWT_ACCESS_SECRET,
     });
 
@@ -695,7 +827,10 @@ export class AuthService {
     };
   }
 
-  async createRefreshJwt(userId: number, req: ExpressRequest): Promise<{ refresh_token: string }> {
+  async createRefreshJwt(
+    userId: number,
+    req: ExpressRequest,
+  ): Promise<{ refresh_token: string; expiresAt: Date }> {
     const sessionKey = randomBytes(32).toString('hex');
     const sessionHash = await argon2.hash(sessionKey);
 
@@ -705,46 +840,125 @@ export class AuthService {
       ip = ip.replace('::ffff:', '');
     }
 
+    const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
+
     const session = await this.prisma.sessions.create({
       data: {
         userId: userId,
         sessionHash: sessionHash,
         ipAddress: ip,
         userAgent: req.headers['user-agent'] || 'unknown',
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
+        expiresAt,
       },
     });
 
-    const payload = {
-      sub: userId,
-      sessionId: session.id,
-      session: sessionKey,
-    };
-
-    const token = await this.jwt.signAsync(payload, {
-      expiresIn: '15d',
-      secret: process.env.JWT_REFRESH_SECRET,
-    });
-
-    return {
-      refresh_token: token,
-    };
+    return this.signRefreshJwt(userId, session.id, sessionKey, expiresAt);
   }
 
+  /**
+   * Rotates the session key and slides the expiry, clamped to the absolute cap.
+   *
+   * The previous hash is kept for the grace window so a sibling tab racing on
+   * the same cookie is answered rather than logged out (see REFRESH_GRACE_MS).
+   */
   async updateRefreshJwt(
+    userId: number,
+    session: { id: number; sessionHash: string; createdAt: Date },
+    consumedKey: string,
+  ): Promise<{ refresh_token: string; expiresAt: Date } | null> {
+    const sessionKey = randomBytes(32).toString('hex');
+    const sessionHash = await argon2.hash(sessionKey);
+
+    // Sliding window, hard stop at the cap. Re-login is required at most monthly.
+    const cap = session.createdAt.getTime() + ABSOLUTE_SESSION_LIFETIME_MS;
+    const expiresAt = new Date(Math.min(Date.now() + REFRESH_TTL_MS, cap));
+    if (expiresAt.getTime() <= Date.now()) {
+      throw new ForbiddenException('Session expired');
+    }
+
+    // Conditional on the hash that was read, which makes the read-modify-write
+    // atomic. Two tabs refreshing at once genuinely do read the same row —
+    // argon2 is deliberately slow, so the window is wide — and if both wrote,
+    // the second would overwrite previousHash with the first's *new* hash and
+    // strand the first tab on a key that is neither current nor previous.
+    const { count } = await this.prisma.sessions.updateMany({
+      where: {
+        id: session.id,
+        sessionHash: session.sessionHash,
+      },
+      data: {
+        sessionHash,
+        previousHash: session.sessionHash,
+        rotatedAt: new Date(),
+        expiresAt,
+      },
+    });
+    if (count === 0) return null;
+
+    const issued = await this.signRefreshJwt(userId, session.id, sessionKey, expiresAt);
+    this.rememberRecentRefresh(session.id, consumedKey, issued);
+    return issued;
+  }
+
+  /**
+   * True when the presented key is the one rotated away from, recently enough to
+   * be a sibling tab rather than a replay.
+   */
+  private async matchesGracedKey(
+    session: { previousHash: string | null; rotatedAt: Date | null },
+    presentedKey: string,
+  ): Promise<boolean> {
+    const { previousHash, rotatedAt } = session;
+    // Truthiness rather than `!== null`: a session that has never rotated has no
+    // previous key, and neither column is meaningful without the other.
+    if (!previousHash || !rotatedAt) return false;
+    if (Date.now() - rotatedAt.getTime() > REFRESH_GRACE_MS) return false;
+
+    return argon2.verify(previousHash, presentedKey);
+  }
+
+  /** Records the just-issued token so a racing sibling tab can be handed the same one. */
+  private rememberRecentRefresh(
+    sessionId: number,
+    previousKey: string,
+    issued: { refresh_token: string; expiresAt: Date },
+  ) {
+    const now = Date.now();
+    for (const [id, entry] of this.recentRefresh) {
+      if (now - entry.at > REFRESH_GRACE_MS) this.recentRefresh.delete(id);
+    }
+    this.recentRefresh.set(sessionId, {
+      previousKey,
+      token: issued.refresh_token,
+      expiresAt: issued.expiresAt,
+      at: now,
+    });
+  }
+
+  /** The token issued to whoever won the race, if this caller lost the same one. */
+  private replayRecentRefresh(
+    sessionId: number,
+    presentedKey: string,
+  ): { refresh_token: string; expiresAt: Date } | null {
+    const entry = this.recentRefresh.get(sessionId);
+    if (entry === undefined) return null;
+    if (entry.previousKey !== presentedKey) return null;
+    if (Date.now() - entry.at > REFRESH_GRACE_MS) return null;
+
+    return { refresh_token: entry.token, expiresAt: entry.expiresAt };
+  }
+
+  /**
+   * Signs the JWT around a key that is already stored. `expiresIn` comes from the
+   * row's own expiry rather than a literal, so the token, the cookie and the row
+   * always agree — including when the absolute cap has clamped the window.
+   */
+  private async signRefreshJwt(
     userId: number,
     sessionId: number,
     sessionKey: string,
-  ): Promise<{ refresh_token: string }> {
-    await this.prisma.sessions.update({
-      where: {
-        id: sessionId,
-      },
-      data: {
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 15),
-      },
-    });
-
+    expiresAt: Date,
+  ): Promise<{ refresh_token: string; expiresAt: Date }> {
     const payload = {
       sub: userId,
       sessionId: sessionId,
@@ -752,37 +966,25 @@ export class AuthService {
     };
 
     const token = await this.jwt.signAsync(payload, {
-      expiresIn: '15d',
+      expiresIn: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
       secret: process.env.JWT_REFRESH_SECRET,
     });
 
     return {
       refresh_token: token,
+      expiresAt,
     };
   }
 
-  setCookies(tokens: JwtTokens, res: ExpressResponse) {
-    // `req.secure` reads the X-Forwarded-Proto that Caddy sets (see the
-    // `trust proxy` setting in main.ts), so in the running app — where the
-    // browser only ever arrives over HTTPS — both cookies are always Secure.
-    // Hardcoding `true` would be equivalent there, but would make the cookies
-    // undeliverable over the plain-HTTP in-network requests the e2e suite
-    // makes, hiding the whole auth flow from the tests.
-    // `sameSite: 'strict'` is now literally same-origin, not merely same-site.
-    const secure = res.req.secure;
-
+  setCookies(tokens: JwtTokens, res: ExpressResponse, refreshExpiresAt?: Date) {
     res.cookie('access_token', tokens.access_token, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      maxAge: 1000 * 60 * 15,
+      ...cookieOptions(res),
+      maxAge: ACCESS_TTL_MS,
     });
 
     res.cookie('refresh_token', tokens.refresh_token, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      maxAge: 1000 * 60 * 60 * 24 * 15,
+      ...cookieOptions(res),
+      maxAge: (refreshExpiresAt?.getTime() ?? Date.now() + REFRESH_TTL_MS) - Date.now(),
     });
   }
 

@@ -21,6 +21,7 @@ import {
   hashResetToken,
 } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
+import { DAY_MS } from 'src/retention.config';
 
 jest.mock('argon2');
 const mockArgon2 = jest.mocked(argon2);
@@ -38,6 +39,8 @@ const mockSession = {
   id: 10,
   userId: 1,
   sessionHash: 'hashed-session-key',
+  previousHash: null,
+  rotatedAt: null,
   ipAddress: '127.0.0.1',
   userAgent: 'jest',
   expiresAt: new Date(Date.now() + 1000),
@@ -62,6 +65,7 @@ const mockPrisma = {
   sessions: {
     findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     create: jest.fn(),
     deleteMany: jest.fn(),
   },
@@ -512,6 +516,7 @@ describe('AuthService', () => {
       mockArgon2.verify.mockResolvedValue(true);
       mockJwt.signAsync.mockResolvedValue('signed-token');
       mockPrisma.sessions.update.mockResolvedValue(mockSession);
+      mockPrisma.sessions.updateMany.mockResolvedValue({ count: 1 });
     });
 
     it('issues new tokens and sets both cookies on a valid session', async () => {
@@ -576,6 +581,200 @@ describe('AuthService', () => {
 
       await expect(service.refresh(mockPayload, res)).rejects.toThrow(InternalServerErrorException);
       expect(cookie).not.toHaveBeenCalled();
+    });
+
+    // Without rotation a captured refresh token stays valid for its whole
+    // lifetime however often the real user refreshes: using it never spends it.
+    it('writes a session hash different from the one it read', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue(mockSession);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+      mockArgon2.hash.mockResolvedValue('rotated-hash');
+
+      await service.refresh(mockPayload, mockResponse().res);
+
+      const update = (mockPrisma.sessions.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { sessionHash: string; previousHash: string; rotatedAt: Date };
+      };
+      expect(update.data.sessionHash).toBe('rotated-hash');
+      expect(update.data.sessionHash).not.toBe(mockSession.sessionHash);
+    });
+
+    it('keeps the superseded hash and the rotation time for the grace window', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue(mockSession);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+
+      await service.refresh(mockPayload, mockResponse().res);
+
+      const update = (mockPrisma.sessions.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { previousHash: string; rotatedAt: Date };
+      };
+      expect(update.data.previousHash).toBe(mockSession.sessionHash);
+      expect(update.data.rotatedAt).toBeInstanceOf(Date);
+    });
+
+    // The multi-tab race: both tabs read the same cookie and both refresh. The
+    // loser must not be logged out while holding a freshly rotated cookie.
+    it('accepts the superseded key inside the grace window without rotating again', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue({
+        ...mockSession,
+        previousHash: 'superseded-hash',
+        rotatedAt: new Date(Date.now() - 1000),
+      });
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+      // Current hash fails, previous hash matches.
+      mockArgon2.verify.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      const { res, cookie } = mockResponse();
+
+      const result = await service.refresh(mockPayload, res);
+
+      expect(result.success).toBe(true);
+      expect(cookie).toHaveBeenCalledWith('refresh_token', 'signed-token', expect.any(Object));
+      // Neither a second rotation nor a second extension of expiresAt: two tabs
+      // could otherwise ping-pong rotations indefinitely.
+      expect(mockPrisma.sessions.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects the superseded key once the grace window has passed', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue({
+        ...mockSession,
+        previousHash: 'superseded-hash',
+        rotatedAt: new Date(Date.now() - 60_000),
+      });
+      mockArgon2.verify.mockResolvedValue(false);
+      const { res, cookie } = mockResponse();
+
+      await expect(service.refresh(mockPayload, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    // Reuse detection is deliberately not wired up: a false positive would log a
+    // legitimate user out of every device.
+    it('does not delete the session when a stale key is presented', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue(mockSession);
+      mockArgon2.verify.mockResolvedValue(false);
+
+      await expect(service.refresh(mockPayload, mockResponse().res)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.sessions.deleteMany).not.toHaveBeenCalled();
+    });
+
+    // The 5-minute sweep is garbage collection, not the enforcement mechanism.
+    it('rejects a session past its expiry even though the row still exists', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue({
+        ...mockSession,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      const { res, cookie } = mockResponse();
+
+      await expect(service.refresh(mockPayload, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+      expect(mockPrisma.sessions.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('slides the expiry by the refresh lifetime on an ordinary refresh', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue(mockSession);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+
+      await service.refresh(mockPayload, mockResponse().res);
+
+      const update = (mockPrisma.sessions.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { expiresAt: Date };
+      };
+      const slid = update.data.expiresAt.getTime() - Date.now();
+      expect(slid).toBeGreaterThan(14.9 * DAY_MS);
+      expect(slid).toBeLessThanOrEqual(15 * DAY_MS);
+    });
+
+    // Sliding alone means an actively used session never ends.
+    it('clamps the expiry to the absolute lifetime measured from createdAt', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue({
+        ...mockSession,
+        createdAt: new Date(Date.now() - 20 * DAY_MS),
+      });
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+
+      await service.refresh(mockPayload, mockResponse().res);
+
+      const update = (mockPrisma.sessions.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { expiresAt: Date };
+      };
+      // 30-day cap, 20 days in: 10 days left, not another 15.
+      const remaining = update.data.expiresAt.getTime() - Date.now();
+      expect(remaining).toBeLessThanOrEqual(10 * DAY_MS);
+      expect(remaining).toBeGreaterThan(9.9 * DAY_MS);
+    });
+
+    it('refuses a session older than the absolute lifetime', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue({
+        ...mockSession,
+        createdAt: new Date(Date.now() - 31 * DAY_MS),
+      });
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+      const { res, cookie } = mockResponse();
+
+      await expect(service.refresh(mockPayload, res)).rejects.toThrow(ForbiddenException);
+      expect(cookie).not.toHaveBeenCalled();
+    });
+
+    // The cookie, the JWT and the row all derive from one number, so they cannot
+    // drift apart the way four separate "15 day" literals could.
+    it('derives the refresh cookie maxAge and the JWT expiry from the row', async () => {
+      mockPrisma.sessions.findUnique.mockResolvedValue(mockSession);
+      mockPrisma.users.findUnique.mockResolvedValue(mockUser);
+      const { res, cookie } = mockResponse();
+
+      await service.refresh(mockPayload, res);
+
+      const update = (mockPrisma.sessions.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { expiresAt: Date };
+      };
+      const rowTtlSeconds = Math.floor((update.data.expiresAt.getTime() - Date.now()) / 1000);
+
+      const refreshSign = (mockJwt.signAsync.mock.calls as unknown[][]).find(
+        (call) => typeof call[0] === 'object' && call[0] !== null && 'session' in call[0],
+      ) as [unknown, { expiresIn: number }];
+      expect(refreshSign[1].expiresIn).toBeCloseTo(rowTtlSeconds, -1);
+
+      const refreshCookie = cookie.mock.calls.find(
+        (call: unknown[]) => call[0] === 'refresh_token',
+      ) as [string, string, { maxAge: number }];
+      expect(refreshCookie[2].maxAge / 1000).toBeCloseTo(rowTtlSeconds, -1);
+    });
+  });
+
+  describe('logout', () => {
+    // `delete` throws P2025 on a missing row, which the Prisma filter turns into
+    // a 404. A second logout is entirely normal — the session may have been
+    // swept, or another tab may have logged out already.
+    it('is idempotent when the session row is already gone', async () => {
+      mockPrisma.sessions.deleteMany.mockResolvedValue({ count: 0 });
+      const { res } = mockResponse();
+
+      const result = await service.logout(mockPayload, res);
+
+      expect(result).toEqual({ success: true, message: 'Logged out', data: null });
+      expect(mockPrisma.sessions.deleteMany).toHaveBeenCalledWith({
+        where: { id: mockPayload.sessionId },
+      });
+    });
+
+    // Express only clears a cookie when the options match those it was set with.
+    it('clears both cookies with the options they were set with', async () => {
+      mockPrisma.sessions.deleteMany.mockResolvedValue({ count: 1 });
+      const { res, cookie, clearCookie } = mockResponse();
+
+      service.setCookies({ access_token: 'a', refresh_token: 'r' }, res);
+      await service.logout(mockPayload, res);
+
+      const setOptions = (cookie.mock.calls[0] as [string, string, Record<string, unknown>])[2];
+      for (const name of ['access_token', 'refresh_token']) {
+        expect(clearCookie).toHaveBeenCalledWith(name, {
+          httpOnly: setOptions.httpOnly,
+          secure: setOptions.secure,
+          sameSite: setOptions.sameSite,
+        });
+      }
     });
   });
 
