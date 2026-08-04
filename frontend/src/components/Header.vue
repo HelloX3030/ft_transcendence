@@ -1,12 +1,29 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Bell } from '@lucide/vue';
+import { Bell, WifiOff } from '@lucide/vue';
 import Separator from './ui/separator/Separator.vue';
+import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDelayedLoading } from '@/composables/useDelayedLoading';
 import { useNotifyStore } from '@/stores/notify.ts';
 import { useNotificationsStore } from '@/stores/notifications.ts';
 
 const notify = useNotifyStore();
 const notifications = useNotificationsStore();
+
+const isReconnecting = computed(() => notify.connectionStatus === 'connecting');
+const isDisconnected = computed(() => notify.connectionStatus === 'offline');
+
+// `immediate` because notify.init() runs from main.ts before the app mounts, so
+// the status is usually already 'connecting' by the time this component exists —
+// there would be no transition left for the watcher to see. The long delay keeps
+// an ordinary handshake, which takes a few hundred ms, entirely silent.
+const showReconnecting = useDelayedLoading(isReconnecting, {
+  delay: 1500,
+  minDuration: 600,
+  immediate: true,
+});
 </script>
 
 <template>
@@ -27,8 +44,36 @@ const notifications = useNotificationsStore();
         </RouterLink>
       </div>
 
-      <!-- Rechts: Bell -->
-      <div class="flex justify-end">
+      <!-- Rechts: Verbindungsstatus + Bell -->
+      <div class="flex justify-end items-center gap-3">
+        <Tooltip v-if="showReconnecting || isDisconnected">
+          <TooltipTrigger as-child>
+            <span
+              role="status"
+              aria-live="polite"
+              :aria-label="
+                isDisconnected
+                  ? 'Disconnected — live updates are paused'
+                  : 'Reconnecting — live updates are paused'
+              "
+              class="flex items-center"
+            >
+              <Spinner
+                v-if="showReconnecting"
+                class="size-4 text-muted-foreground motion-reduce:animate-none"
+              />
+              <WifiOff v-else class="size-4 text-destructive" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {{
+              isDisconnected
+                ? 'Disconnected. Live updates are paused — try reloading.'
+                : 'Reconnecting… live updates are paused.'
+            }}
+          </TooltipContent>
+        </Tooltip>
+
         <RouterLink
           to="/notifications"
           class="hover:text-primary transition-colors"
@@ -49,10 +94,4 @@ const notifications = useNotificationsStore();
     </div>
   </header>
   <Separator orientation="horizontal" />
-  <div
-    v-if="notify.offline"
-    class="w-full bg-red-600 text-white text-center py-1 px-2 text-sm font-medium"
-  >
-    You are offline.
-  </div>
 </template>

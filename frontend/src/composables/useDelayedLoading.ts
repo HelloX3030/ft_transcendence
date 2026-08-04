@@ -5,6 +5,12 @@ interface Options {
   delay?: number;
   /** Once shown, keep the loader up for at least this many ms. */
   minDuration?: number;
+  /**
+   * Evaluate the source once on creation instead of waiting for a change. Needed
+   * when the source can already be true before this composable exists — without
+   * it there is no transition to react to and the loader never appears.
+   */
+  immediate?: boolean;
 }
 
 /**
@@ -14,7 +20,7 @@ interface Options {
  * ref is the one to render.
  */
 export function useDelayedLoading(source: Ref<boolean>, options: Options = {}): Ref<boolean> {
-  const { delay = 200, minDuration = 400 } = options;
+  const { delay = 200, minDuration = 400, immediate = false } = options;
   const visible = ref(false);
 
   let delayTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,38 +41,42 @@ export function useDelayedLoading(source: Ref<boolean>, options: Options = {}): 
     }
   }
 
-  watch(source, (loading) => {
-    if (loading) {
-      // A new load cancels any pending hide and keeps the loader up.
-      clearMin();
-      if (visible.value || delayTimer !== null) return;
-      delayTimer = setTimeout(() => {
-        visible.value = true;
-        shownAt = Date.now();
-        delayTimer = null;
-      }, delay);
-      return;
-    }
-
-    // Finished before the delay elapsed → never show anything.
-    if (delayTimer !== null) {
-      clearDelay();
-      return;
-    }
-
-    // Already showing → hold for the remainder of the minimum duration.
-    if (visible.value) {
-      const remaining = minDuration - (Date.now() - shownAt);
-      if (remaining <= 0) {
-        visible.value = false;
-      } else {
-        minTimer = setTimeout(() => {
-          visible.value = false;
-          minTimer = null;
-        }, remaining);
+  watch(
+    source,
+    (loading) => {
+      if (loading) {
+        // A new load cancels any pending hide and keeps the loader up.
+        clearMin();
+        if (visible.value || delayTimer !== null) return;
+        delayTimer = setTimeout(() => {
+          visible.value = true;
+          shownAt = Date.now();
+          delayTimer = null;
+        }, delay);
+        return;
       }
-    }
-  });
+
+      // Finished before the delay elapsed → never show anything.
+      if (delayTimer !== null) {
+        clearDelay();
+        return;
+      }
+
+      // Already showing → hold for the remainder of the minimum duration.
+      if (visible.value) {
+        const remaining = minDuration - (Date.now() - shownAt);
+        if (remaining <= 0) {
+          visible.value = false;
+        } else {
+          minTimer = setTimeout(() => {
+            visible.value = false;
+            minTimer = null;
+          }, remaining);
+        }
+      }
+    },
+    { immediate },
+  );
 
   onScopeDispose(() => {
     clearDelay();
