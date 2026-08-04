@@ -20,6 +20,16 @@ import { useFriendsStore } from './friends';
 import { useNotificationsStore } from './notifications';
 import { useWatchlistsStore } from './watchlists';
 
+/**
+ * `connecting` covers socket.io's own retry loop, which never gives up on its
+ * own — `offline` is this store's decision that the retries have gone on long
+ * enough to be worth telling the user about.
+ */
+export type ConnectionStatus = 'idle' | 'connecting' | 'online' | 'offline';
+
+/** Consecutive failed handshakes before `connecting` becomes `offline`. */
+const OFFLINE_AFTER_FAILED_ATTEMPTS = 5;
+
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
@@ -35,7 +45,8 @@ export const useNotifyStore = defineStore('notify', () => {
     withCredentials: true,
     autoConnect: false,
   });
-  const offline = ref<boolean>(true);
+  const connectionStatus = ref<ConnectionStatus>('idle');
+  let failedAttempts = 0;
 
   const chatStore = useChatStore();
   const friendsStore = useFriendsStore();
@@ -54,15 +65,26 @@ export const useNotifyStore = defineStore('notify', () => {
 
     socket.on('connect', () => {
       logger.debug('[notify] connected.');
-      offline.value = false;
+      connectionStatus.value = 'online';
+      failedAttempts = 0;
       // Also runs on every reconnect: the socket was down, so events and
       // messages were missed, and only a refetch can close that gap.
       void notificationsStore.load();
       void chatStore.hydrate();
     });
 
+    // socket.io reports a dropped connection here and only tries again after a
+    // backoff, so without this handler the store would keep claiming `online`
+    // through exactly the window where live updates are actually missing.
+    socket.on('disconnect', (reason) => {
+      logger.debug('[notify] disconnected: ', reason);
+      connectionStatus.value = 'connecting';
+    });
+
     socket.on('connect_error', (error) => {
-      offline.value = true;
+      failedAttempts += 1;
+      connectionStatus.value =
+        failedAttempts >= OFFLINE_AFTER_FAILED_ATTEMPTS ? 'offline' : 'connecting';
       if (!isError(error)) {
         logger.error('[notify] invalid connect_error payload ', error);
       } else {
@@ -107,6 +129,7 @@ export const useNotifyStore = defineStore('notify', () => {
     // and pushes the snapshot itself on every connect. Emitting from here fired
     // once and never again, so presence used to die after any reconnect — the
     // socket comes back with a new server-side id and no rooms.
+    connectionStatus.value = 'connecting';
     socket.connect();
     isInit = true;
   }
@@ -145,7 +168,8 @@ export const useNotifyStore = defineStore('notify', () => {
   function $reset() {
     isInit = false;
     friendsStatus.value = new Map<number, boolean>();
-    offline.value = true;
+    connectionStatus.value = 'idle';
+    failedAttempts = 0;
     // Also cleared here, not just by the reset plugin on logout: the socket is
     // torn down on token expiry too, and the caches must not outlive it.
     chatStore.$reset();
@@ -237,7 +261,7 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   return {
-    offline,
+    connectionStatus,
     friendsStatus,
     isUserOnline,
     init,
