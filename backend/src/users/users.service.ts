@@ -335,16 +335,72 @@ export class UsersService {
     return successResponse(null, 'TOTP verified and activated successfully.');
   }
 
-  async deleteTOTP(userId: number) {
-    await this.prisma.users.update({
+  /**
+   * Turning 2FA off is the security-relevant direction, so it is gated the same
+   * way turning it on is. Without this, anyone holding a live session obtained by
+   * any route that is not a login — an unlocked machine, a lifted cookie, a script
+   * on the origin — could remove the second factor permanently in one request,
+   * leaving the account password-only without the owner ever being prompted again.
+   *
+   * The gate is a current code rather than the password: Google-only accounts have
+   * no password to present, and the password is the very factor TOTP exists to
+   * survive. A code proves possession of the enrolled device, which is what "still
+   * the legitimate owner" actually means.
+   */
+  async deleteTOTP(userId: number, otp?: string) {
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: { totpSecret: true, totpActive: true },
+    });
+    if (user === null) throw new NotFoundException('User not found.');
+
+    if (!user.totpActive) {
+      // An unconfirmed secret has never guarded anything, so there is nothing to
+      // protect — and a code cannot be demanded for a QR the user never scanned.
+      // It has to stay clearable: createTOTP refuses to replace an existing
+      // secret, so an abandoned setup would otherwise be unrecoverable.
+      // `totpActive: false` in the filter, not just the lookup, so a concurrent
+      // activation cannot have its now-live secret cleared without a code.
+      await this.prisma.users.updateMany({
+        where: { id: userId, totpActive: false },
+        data: { totpSecret: null },
+      });
+      return successResponse(null, 'TOTP deleted.');
+    }
+
+    if (user.totpSecret === null) {
+      // Active with no secret is a corrupt row: verifyMfa already refuses such an
+      // account, so it can never complete a login and there is no code that could
+      // be demanded. Clearing the flag is the only way out, not a bypass.
+      await this.prisma.users.updateMany({
+        where: { id: userId, totpActive: true, totpSecret: null },
+        data: { totpActive: false },
+      });
+      return successResponse(null, 'TOTP deleted.');
+    }
+
+    if (otp === undefined) throw new BadRequestException('TOTP code is required.');
+
+    const counter = verifyTOTP(user.totpSecret, otp);
+    if (counter === null) throw new BadRequestException('TOTP code is invalid.');
+
+    // Same atomic idiom as verifyMfa and activateTOTP: the counter is both filter
+    // and payload, so the check and the write are one statement. A code stays
+    // valid for ~90 seconds, and this is what stops one that is concurrently
+    // being spent on a login from also disabling 2FA.
+    const { count } = await this.prisma.users.updateMany({
       where: {
         id: userId,
+        totpActive: true,
+        OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: counter } }],
       },
-      data: {
-        totpSecret: null,
-        totpActive: false,
-      },
+      data: { totpSecret: null, totpActive: false, totpLastCounter: counter },
     });
+    if (count === 0) throw new BadRequestException('TOTP code is invalid.');
+
+    // totpLastCounter is deliberately left set: re-enrolling generates a fresh
+    // secret, so a stale counter is harmless, and clearing it would open a replay
+    // window across a disable/re-enable cycle.
     return successResponse(null, 'TOTP deleted.');
   }
 

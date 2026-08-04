@@ -58,12 +58,28 @@ export function useTotp() {
   // Disable
   const isDisableDialogOpen = ref(false);
   const isDisabling = ref(false);
+  const disableOtp = ref('');
+  const disableError = ref(false);
 
+  function openDisableDialog() {
+    disableOtp.value = '';
+    disableError.value = false;
+    isDisableDialogOpen.value = true;
+  }
+
+  // Mirrors verifyOtp above: the two only differed because disabling used to have
+  // nothing to validate. Closing in a `finally` regardless of outcome would
+  // swallow a rejected code entirely, so the dialog stays open on failure.
   async function disableTotp() {
+    if (disableOtp.value.length !== 6) return;
     isDisabling.value = true;
+    disableError.value = false;
     try {
-      await user.deleteTotp();
+      await user.deleteTotp(disableOtp.value);
       isDisableDialogOpen.value = false;
+    } catch {
+      disableError.value = true;
+      disableOtp.value = '';
     } finally {
       isDisabling.value = false;
     }
@@ -71,7 +87,7 @@ export function useTotp() {
 
   function handle2faButtonClick(is2faEnabled: boolean) {
     if (is2faEnabled) {
-      isDisableDialogOpen.value = true;
+      openDisableDialog();
     } else {
       void openSetupDialog();
     }
@@ -87,6 +103,9 @@ export function useTotp() {
     qrLoadError,
     isDisableDialogOpen,
     isDisabling,
+    disableOtp,
+    disableError,
+    openDisableDialog,
     verifyOtp,
     downloadQrCode,
     disableTotp,

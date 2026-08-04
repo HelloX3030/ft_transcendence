@@ -471,15 +471,114 @@ describe('UsersService', () => {
   });
 
   describe('deleteTOTP', () => {
-    it('clears both the secret and the active flag', async () => {
-      mockPrisma.users.update.mockResolvedValue(mockUser);
+    const activeUser = { totpSecret: 'iv:cipher', totpActive: true };
+    const COUNTER = 58_000_000;
 
-      await service.deleteTOTP(1);
+    it('clears both the secret and the active flag for a valid code', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(activeUser);
+      mockVerifyTOTP.mockReturnValue(COUNTER);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
 
-      expect(mockPrisma.users.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { totpSecret: null, totpActive: false },
+      const result = await service.deleteTOTP(1, '213846');
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 1,
+          totpActive: true,
+          OR: [{ totpLastCounter: null }, { totpLastCounter: { lt: COUNTER } }],
+        },
+        data: { totpSecret: null, totpActive: false, totpLastCounter: COUNTER },
       });
+    });
+
+    // The check and the write are one statement, so a code being spent
+    // concurrently on a login cannot also disable 2FA.
+    it('burns the code in the same statement that disables 2FA', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(activeUser);
+      mockVerifyTOTP.mockReturnValue(COUNTER);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.deleteTOTP(1, '213846');
+
+      const arg = (mockPrisma.users.updateMany.mock.calls as unknown[][])[0][0] as {
+        data: { totpLastCounter?: number; totpActive?: boolean };
+      };
+      expect(arg.data.totpLastCounter).toBe(COUNTER);
+      expect(arg.data.totpActive).toBe(false);
+    });
+
+    it('rejects a wrong code without touching the row', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(activeUser);
+      mockVerifyTOTP.mockReturnValue(null);
+
+      await expect(service.deleteTOTP(1, '000000')).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+    });
+
+    // count === 0 means the counter filter did not match: the code verified, but
+    // it had already been spent inside its ~90-second acceptance window.
+    it('rejects a code at or below the last spent counter', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(activeUser);
+      mockVerifyTOTP.mockReturnValue(COUNTER);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.deleteTOTP(1, '213846')).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an omitted code while 2FA is active', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(activeUser);
+
+      await expect(service.deleteTOTP(1)).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+      expect(mockVerifyTOTP).not.toHaveBeenCalled();
+    });
+
+    // An abandoned setup has to stay clearable without a code: nothing has ever
+    // been protected by it, the user never scanned the QR, and createTOTP refuses
+    // to replace an existing secret.
+    it('clears an abandoned, never-activated secret without a code', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ totpSecret: 'iv:cipher', totpActive: false });
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.deleteTOTP(1);
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, totpActive: false },
+        data: { totpSecret: null },
+      });
+      expect(mockVerifyTOTP).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op on an account that never had TOTP', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ totpSecret: null, totpActive: false });
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.deleteTOTP(1);
+
+      expect(result.success).toBe(true);
+    });
+
+    // Active with no secret can never clear MFA at login either, so there is no
+    // code that could be demanded — clearing the flag is the only way out.
+    it('repairs an active row whose secret is missing instead of crashing', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ totpSecret: null, totpActive: true });
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.deleteTOTP(1);
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, totpActive: true, totpSecret: null },
+        data: { totpActive: false },
+      });
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteTOTP(1, '213846')).rejects.toThrow(NotFoundException);
     });
   });
 
