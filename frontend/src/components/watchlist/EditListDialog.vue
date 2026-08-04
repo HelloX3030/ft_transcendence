@@ -111,8 +111,10 @@ watch(isOpen, async (open) => {
 
         <div class="grid gap-3">
           <Label for="movies">Add Movies</Label>
+          <!-- Capped well below the picker: at the old max-h-80 a long selection
+               could claim as much height as the grid it was selected from. -->
           <div
-            class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary"
+            class="max-h-24 overflow-y-auto scrollbar-thumb-primary"
             v-show="selectedMovies.length > 0"
           >
             <TagsInput
@@ -134,13 +136,14 @@ watch(isOpen, async (open) => {
           </div>
           <MovieSearch />
           <MovieFilterToggle />
-          <div class="max-h-40 md:max-h-80 overflow-y-auto scrollbar-thumb-primary">
-            <MovieBrowser :show-label="false">
+          <div class="max-h-64 md:max-h-96 overflow-y-auto scrollbar-thumb-primary">
+            <MovieBrowser :show-label="false" density="compact">
               <template #movie="{ movie }">
                 <MovieCard
                   :title="movie.title"
                   :img="movie.poster_path"
                   :selected="isSelected(movie.id)"
+                  size="sm"
                   @select="addMovie(movie)"
                 />
               </template>

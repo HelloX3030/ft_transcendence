@@ -8,7 +8,24 @@ import { useMoviesStore } from '@/stores/movies';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
 import type { TmdbMovie } from '@trailertinder/shared';
 
-withDefaults(defineProps<{ showLabel?: boolean }>(), { showLabel: true });
+const props = withDefaults(
+  defineProps<{ showLabel?: boolean; density?: 'comfortable' | 'compact' }>(),
+  { showLabel: true, density: 'comfortable' },
+);
+
+// Complete literals, never assembled from fragments — Tailwind only emits CSS for
+// classes that appear whole in the source. `comfortable` is verbatim what the grid
+// carried before this prop existed, which is what keeps the full-page browses
+// (Discover, Onboarding) unchanged.
+const GRIDS = {
+  comfortable: 'grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8',
+  compact: 'grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8',
+} as const;
+
+const gridClass = computed(() => GRIDS[props.density]);
+// The consumer sizes its own cards via the slot; the skeletons are ours, so they
+// have to be told, or a compact grid loads with 2xl corners and lands on lg ones.
+const skeletonSize = computed(() => (props.density === 'compact' ? 'sm' : 'default'));
 
 // Each movie is rendered by the consumer, so it controls what a card does
 // (select during onboarding, open details from search, …).
@@ -64,7 +81,10 @@ const noResults = computed(
 );
 const reachedEnd = computed(() => !activeHasMore.value && displayMovies.value.length > 0);
 
-const SKELETON_COUNT = 12;
+// Follows the density so the placeholder block is whole rows rather than a ragged
+// last one: 12 fills the comfortable grid's 2- and 4-column steps, 18 fills the
+// compact grid's 3- and 6-column steps — the widths each density is actually used at.
+const SKELETON_COUNT = computed(() => (props.density === 'compact' ? 18 : 12));
 
 // Infinite scroll. The observer only tracks whether the sentinel is in view;
 // it does NOT call loadMore directly, because IntersectionObserver fires on
@@ -115,7 +135,7 @@ function onRetry() {
       <span class="text-sm font-medium text-muted-foreground">{{ sectionLabel }}</span>
     </div>
 
-    <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+    <div :class="gridClass">
       <template v-if="showSkeletons">
         <MovieCard
           v-for="n in SKELETON_COUNT"
@@ -123,6 +143,7 @@ function onRetry() {
           title=""
           :img="null"
           :loading="true"
+          :size="skeletonSize"
         />
       </template>
       <template v-else>
