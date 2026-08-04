@@ -69,8 +69,8 @@ export const useUserStore = defineStore('user', () => {
     await refetchUser();
   }
 
-  async function deleteTotp() {
-    await userApi.deleteTotp();
+  async function deleteTotp(otp: string) {
+    await userApi.deleteTotp(otp);
     await refetchUser();
   }
 

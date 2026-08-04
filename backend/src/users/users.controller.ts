@@ -20,7 +20,7 @@ import { memoryStorage } from 'multer';
 import { JwtAccessPayload } from 'src/types';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
-import { otpDto } from 'src/utils';
+import { disableTotpDto, otpDto } from 'src/utils';
 import { FILE_RULES } from '@trailertinder/shared';
 
 @Controller('users')
@@ -160,14 +160,28 @@ export class UsersController {
   }
 
   @Delete('mfa/totp')
-  @ApiOperation({ summary: 'Disable TOTP for authenticated user' })
+  @ApiOperation({
+    summary: 'Disable TOTP for authenticated user',
+    description:
+      'Requires a current, unspent TOTP code while 2FA is active — the access token alone is not enough, or a stolen session could remove the second factor outright. The code is burned on use. An abandoned setup (secret generated, never activated) is cleared without a code.',
+  })
+  @ApiBody({
+    type: disableTotpDto,
+    required: false,
+    description: 'Omit only when TOTP is not active.',
+    examples: { code: { value: { otp: '823641' } } },
+  })
   @ApiResponse({
     status: 200,
     description: 'TOTP disabled successfully',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'TOTP code is missing, invalid, or already spent',
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  deleteTOTP(@Request() req: ExpressRequest) {
+  deleteTOTP(@Request() req: ExpressRequest, @Body() dto: disableTotpDto) {
     const user = req.user as JwtAccessPayload;
-    return this.usersService.deleteTOTP(user.sub);
+    return this.usersService.deleteTOTP(user.sub, dto.otp);
   }
 }

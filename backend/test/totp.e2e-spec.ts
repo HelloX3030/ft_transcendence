@@ -92,7 +92,10 @@ describe('TOTP MFA (e2e)', () => {
     });
 
     expect(updatedUser?.totpActive).toBe(true);
-    await userAgent.delete('/users/mfa/totp').expect(200);
+    // Teardown, not an assertion: disabling now needs a code, and spending one
+    // here would move totpLastCounter forward for every test that follows. The
+    // delete endpoint has its own cases below.
+    await resetTotp(userId);
   });
 
   it('requires TOTP during login when TOTP is active', async () => {
@@ -204,23 +207,109 @@ describe('TOTP MFA (e2e)', () => {
       .expect(403);
   });
 
-  it('deletes TOTP successfully', async () => {
-    const response = await userAgent.delete('/users/mfa/totp').expect(200);
+  // Each delete case gets its own account: only one code per time step can be
+  // spent, and window: 1 means a code more than one step ahead is not accepted
+  // either, so a shared account would run out of usable codes without sleeping.
+  it('refuses to disable TOTP with no code at all', async () => {
+    const { agent, id } = await freshTotpUser('totp-del-nobody');
+
+    await agent.delete('/users/mfa/totp').expect(400);
+
+    const user = await prisma.users.findUnique({ where: { id } });
+    expect(user?.totpActive).toBe(true);
+    expect(user?.totpSecret).not.toBeNull();
+  });
+
+  it('refuses to disable TOTP with a wrong code', async () => {
+    const { agent, id } = await freshTotpUser('totp-del-wrong');
+
+    await agent.delete('/users/mfa/totp').send({ otp: '000000' }).expect(400);
+
+    const user = await prisma.users.findUnique({ where: { id } });
+    expect(user?.totpActive).toBe(true);
+    expect(user?.totpSecret).not.toBeNull();
+  });
+
+  // The one that catches a non-atomic implementation: the code is verified and
+  // burned in a single statement, so one already spent on a login is dead.
+  it('refuses a code that was just spent logging in', async () => {
+    const { agent, id, secret, credentials: dto } = await freshTotpUser('totp-del-replay');
+
+    const loginAgent = request.agent(app.getHttpServer());
+    const otp = nextWindowOtp(secret);
+    await loginAgent
+      .post('/auth/mfa/verify')
+      .send({ mfaToken: await startMfaLogin(loginAgent, dto), otp })
+      .expect(200);
+
+    await agent.delete('/users/mfa/totp').send({ otp }).expect(400);
+
+    const user = await prisma.users.findUnique({ where: { id } });
+    expect(user?.totpActive).toBe(true);
+  });
+
+  it('disables TOTP with a fresh valid code, and login stops asking for one', async () => {
+    const { agent, id, secret, credentials: dto } = await freshTotpUser('totp-del-ok');
+
+    const response = await agent
+      .delete('/users/mfa/totp')
+      .send({ otp: nextWindowOtp(secret) })
+      .expect(200);
 
     const body = response.body as apiResponse<null>;
-
     expect(body.success).toBe(true);
     expect(body.message).toBe('TOTP deleted.');
 
-    const user = await prisma.users.findUnique({
-      where: {
-        id: userId,
-      },
-    });
+    const user = await prisma.users.findUnique({ where: { id } });
+    expect(user?.totpSecret).toBeNull();
+    expect(user?.totpActive).toBe(false);
 
+    const login = await request
+      .agent(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: dto.email, password: dto.password })
+      .expect(200);
+
+    expect((login.body as apiResponse<LoginResponse>).data).toMatchObject({
+      mfaRequired: false,
+    });
+  });
+
+  // An abandoned enrolment has nothing to protect and no scanned QR to read a
+  // code from, and createTOTP refuses to replace an existing secret — so this
+  // has to stay clearable or the account is stuck with no way to enrol.
+  it('clears a never-activated setup without a code', async () => {
+    const dto = buildRegisterDto('totp-del-pending');
+    const agent = await registerUser(app, dto);
+    const id = await getCurrentUserId(agent);
+
+    await agent.post('/users/mfa/totp/setup').expect(201);
+    expect((await prisma.users.findUnique({ where: { id } }))?.totpSecret).not.toBeNull();
+
+    await agent.delete('/users/mfa/totp').expect(200);
+
+    const user = await prisma.users.findUnique({ where: { id } });
     expect(user?.totpSecret).toBeNull();
     expect(user?.totpActive).toBe(false);
   });
+
+  /** A brand-new account with TOTP already enrolled and active. */
+  async function freshTotpUser(prefix: string) {
+    const dto = buildRegisterDto(prefix);
+    const agent = await registerUser(app, dto);
+    const id = await getCurrentUserId(agent);
+    const secret = await enableTotpFor(agent, id);
+
+    return { agent, id, secret, credentials: dto };
+  }
+
+  /** Direct write on purpose: teardown must not spend a TOTP counter. */
+  async function resetTotp(id: number) {
+    await prisma.users.update({
+      where: { id },
+      data: { totpSecret: null, totpActive: false, totpLastCounter: null },
+    });
+  }
 
   /** Runs the password step and returns the challenge token it hands back. */
   async function startMfaLogin(

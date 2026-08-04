@@ -49,5 +49,10 @@ export const userApi = {
       body: JSON.stringify({ otp }),
     }),
 
-  deleteTotp: () => backendClient('/users/mfa/totp', { method: 'DELETE' }),
+  deleteTotp: (otp: string) =>
+    backendClient('/users/mfa/totp', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ otp }),
+    }),
 };

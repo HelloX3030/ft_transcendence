@@ -18,6 +18,8 @@ const {
   qrLoadError,
   isDisableDialogOpen,
   isDisabling,
+  disableOtp,
+  disableError,
   verifyOtp,
   downloadQrCode,
   disableTotp,
@@ -75,7 +77,9 @@ const {
 
   <TotpDisableDialog
     v-model:open="isDisableDialogOpen"
+    v-model:otp-value="disableOtp"
     :is-disabling="isDisabling"
+    :disable-error="disableError"
     @confirm="disableTotp"
   />
 </template>
