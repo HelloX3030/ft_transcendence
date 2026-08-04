@@ -127,6 +127,14 @@ model sessions {
   id          Int      @id @default(autoincrement())
   userId      Int      @map("user_id")
   sessionHash String   @map("session_hash") @db.VarChar(512)
+  /// Hash of the key this session used before the most recent rotation. A refresh
+  /// that arrives on the previous key within the grace window is a racing sibling
+  /// tab, not a replay: cookies are shared across tabs but the in-flight refresh
+  /// is coalesced only within one, so two tabs can legitimately present the same
+  /// key. It is answered with the *current* token rather than rotated again.
+  /// Older than the window, it is treated as a replay and refused.
+  previousHash String?   @map("previous_hash") @db.VarChar(512)
+  rotatedAt    DateTime? @map("rotated_at")
   ipAddress   String   @map("ip_address") @db.VarChar(128)
   userAgent   String   @map("user_agent") @db.VarChar(255)
   expiresAt   DateTime @map("expires_at")

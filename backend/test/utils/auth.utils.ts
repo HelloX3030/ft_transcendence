@@ -15,6 +15,10 @@ export async function register(agent: TestAgent, user: RegisterDto) {
   checkCookies(response);
   const body = response.body as apiResponse<null>;
   expect(body.message).toBe('User registered successfully');
+
+  // Returned so a caller can keep the cookies this response set, which an agent
+  // would overwrite on the next request.
+  return response;
 }
 
 export async function login(agent: TestAgent, user: LoginDto) {
@@ -34,8 +38,14 @@ export async function login(agent: TestAgent, user: LoginDto) {
 export async function logout(agent: TestAgent) {
   const responsLogout = await agent.get('/auth/logout').expect(200);
   const cookies = responsLogout.headers['set-cookie'];
-  expect(cookies[0]).toBe('access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
-  expect(cookies[1]).toBe('refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  // The clearing cookies carry the same attributes as the ones that set them —
+  // Express only clears a cookie when the options match.
+  expect(cookies[0]).toBe(
+    'access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+  );
+  expect(cookies[1]).toBe(
+    'refresh_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+  );
 }
 
 export function checkCookies(response: Response) {
