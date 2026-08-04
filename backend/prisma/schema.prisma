@@ -106,12 +106,15 @@ model movies {
   watchlistMovies watchlist_movies[]
 }
 
+/// One row per user × movie: the reaction to the trailer, plus how long they
+/// watched. Deliberately has no 0-5 score — an explicit post-watch rating is a v2
+/// idea (ProduktVersion §6.10), not a gap. The trailer reaction is the swipe
+/// mechanic and the recommender's only ground-truth signal, so it stays.
 model ratings {
   userId  Int @map("user_id")
   movieId Int @map("movie_id")
 
   trailerRating reaction_type @map("trailer_rating")
-  movieRating   Int           @default(0) @map("movie_rating") @db.SmallInt
 
   watchTime Int? @map("watch_time") @db.SmallInt
 
