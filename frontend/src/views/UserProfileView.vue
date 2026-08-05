@@ -1,11 +1,10 @@
 <script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue';
 import { UserRound, MessageCircle } from '@lucide/vue';
-import { fileUrl } from '@/lib/files';
 
 interface PublicProfile {
   id: number;
@@ -35,10 +34,6 @@ onMounted(async () => {
     loading.value = false;
   }
 });
-
-const initials = computed(() =>
-  profile.value ? profile.value.username.slice(0, 2).toUpperCase() : '??',
-);
 </script>
 
 <template>
@@ -65,14 +60,11 @@ const initials = computed(() =>
     <!-- Profile -->
     <template v-else-if="profile">
       <div class="flex flex-wrap items-center gap-5">
-        <Avatar class="size-24">
-          <AvatarImage
-            v-if="profile.avatarFileId"
-            :src="fileUrl(profile.avatarFileId)"
-            :alt="profile.username"
-          />
-          <AvatarFallback class="text-2xl font-semibold">{{ initials }}</AvatarFallback>
-        </Avatar>
+        <UserAvatar
+          :avatar-file-id="profile.avatarFileId"
+          :username="profile.username"
+          class="size-24 text-2xl font-semibold"
+        />
 
         <div class="flex flex-1 flex-col gap-3">
           <h1 class="text-2xl font-bold">{{ profile.username }}</h1>

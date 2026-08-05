@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,17 +16,12 @@ import { usePeopleStore } from '@/stores/people';
 import TotpCard from '@/components/profile/TotpCard.vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
-import { fileUrl } from '@/lib/files';
 
 const userStore = useUserStore();
 
 const { state: profile } = storeToRefs(userStore);
 const genres = useGenresStore();
 const people = usePeopleStore();
-
-const initials = computed(() =>
-  profile.value ? profile.value.username.slice(0, 2).toUpperCase() : '??',
-);
 
 const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español' };
 
@@ -82,14 +77,11 @@ watch(
       <Card>
         <CardHeader>
           <div class="flex min-w-0 items-center gap-4">
-            <Avatar class="size-20 shrink-0">
-              <AvatarImage
-                v-if="profile.avatarFileId"
-                :src="fileUrl(profile.avatarFileId)"
-                :alt="profile.username"
-              />
-              <AvatarFallback class="text-xl font-semibold">{{ initials }}</AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              :avatar-file-id="profile.avatarFileId"
+              :username="profile.username"
+              class="size-20 shrink-0 text-xl font-semibold"
+            />
             <div class="min-w-0 flex flex-col gap-1">
               <CardTitle class="break-words text-2xl">{{ profile.username }}</CardTitle>
               <CardDescription>{{ profile.email }}</CardDescription>
