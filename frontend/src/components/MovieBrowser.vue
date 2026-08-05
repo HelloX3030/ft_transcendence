@@ -14,11 +14,18 @@ const props = withDefaults(
 );
 
 // Complete literals, never assembled from fragments — Tailwind only emits CSS for
-// classes that appear whole in the source. `comfortable` is verbatim what the grid
-// carried before this prop existed, which is what keeps the full-page browses
-// (Discover, Onboarding) unchanged.
+// classes that appear whole in the source.
+//
+// `comfortable` is intrinsic rather than a breakpoint ladder. A fixed column
+// count stops changing past `xl` while the container keeps growing, so the cells
+// grow without limit and MovieCard's 2:3 aspect ratio turns that straight into
+// height — 400 px wide, 600 px tall posters on a 3840 px screen. auto-fill caps
+// the card width at every viewport and adds columns instead.
+//
+// `compact` keeps its ladder: it lives in a width-bounded dialog, so the runaway
+// case cannot arise there.
 const GRIDS = {
-  comfortable: 'grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8',
+  comfortable: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2',
   compact: 'grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8',
 } as const;
 
