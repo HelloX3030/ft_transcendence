@@ -15,7 +15,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-var(--header-height))]">
+  <div class="flex min-w-0 h-[calc(100vh-var(--header-height))]">
     <ChatListBox />
     <ChatWindow />
   </div>
