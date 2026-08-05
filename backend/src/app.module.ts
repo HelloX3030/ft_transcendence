@@ -20,6 +20,7 @@ import { ChatModule } from './chat/chat.module';
 import { FilesModule } from './files/files.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { THROTTLERS } from './throttle.config';
+import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
 
 @Module({
   imports: [
@@ -49,6 +50,19 @@ import { THROTTLERS } from './throttle.config';
         SMTP_PORT: Joi.number().required(),
         MAIL_FROM: Joi.string().required(),
         PORT: Joi.number().default(3000),
+        // Session timeouts. Optional, and defaulted to the production values, so
+        // an existing checkout behaves identically — they exist so a tester can
+        // shrink a 15-day idle timeout to a minute and actually watch it expire.
+        // auth.service.ts carries the same defaults because it reads them at
+        // module scope, which runs before this schema is applied.
+        ACCESS_TTL_SECONDS: Joi.number().default(SESSION_TTL_DEFAULT_SECONDS.ACCESS_TTL_SECONDS),
+        REFRESH_TTL_SECONDS: Joi.number().default(SESSION_TTL_DEFAULT_SECONDS.REFRESH_TTL_SECONDS),
+        SESSION_ABSOLUTE_TTL_SECONDS: Joi.number().default(
+          SESSION_TTL_DEFAULT_SECONDS.SESSION_ABSOLUTE_TTL_SECONDS,
+        ),
+        REFRESH_GRACE_SECONDS: Joi.number().default(
+          SESSION_TTL_DEFAULT_SECONDS.REFRESH_GRACE_SECONDS,
+        ),
       }),
       validationOptions: { allowUnknown: true, abortEarly: false },
     }),
