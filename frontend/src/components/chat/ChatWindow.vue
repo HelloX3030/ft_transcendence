@@ -162,6 +162,9 @@ watch(
         </div>
       </div>
 
+      <!-- overflow-x-hidden is insurance, not the fix: the bubble's
+           wrap-anywhere is what leaves nothing to overflow. It stays so a
+           future unwrappable element cannot push the column wide. -->
       <div
         ref="viewport"
         class="p-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden"

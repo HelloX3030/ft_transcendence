@@ -67,7 +67,11 @@ function isMine(senderId: number) {
             'opacity-60 ring-1 ring-destructive': message.status === 'failed',
           }"
         >
-          <BubbleContent>{{ message.body }}</BubbleContent>
+          <!-- wrap-anywhere, not the primitive's wrap-break-word: only
+               overflow-wrap: anywhere reduces min-content width, so an
+               unbreakable token actually wraps instead of keeping its full
+               width in layout and being clipped by the bubble's overflow. -->
+          <BubbleContent class="wrap-anywhere">{{ message.body }}</BubbleContent>
         </Bubble>
 
         <MessageFooter>
