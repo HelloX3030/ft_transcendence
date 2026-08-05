@@ -4,12 +4,14 @@ import { Spinner } from '@/components/ui/spinner/index.ts';
 import WatchlistOverview from '@/components/watchlist/WatchlistOverview.vue';
 import CreateListDialog from '@/components/watchlist/CreateListDialog.vue';
 import { watchlistApi } from '@/api/index.ts';
+import { useWatchlistsStore } from '@/stores/watchlists';
 
-const { state: watchlists, isLoading, isReady, error, refetchWatchlists } = useWatchlists();
+const { state: watchlists, isLoading, isReady, error } = useWatchlists();
+const watchlistsStore = useWatchlistsStore();
 
 async function deleteWatchlist(watchlistId: number) {
   await watchlistApi.delete(watchlistId);
-  refetchWatchlists();
+  watchlistsStore.invalidate();
 }
 </script>
 
@@ -18,7 +20,7 @@ async function deleteWatchlist(watchlistId: number) {
     <div class="max-w-5/6 mx-auto h-full flex flex-col">
       <div class="flex justify-between items-center">
         <h1 class="text-3xl mb-6 font-bold">Your lists</h1>
-        <CreateListDialog @success="refetchWatchlists()" />
+        <CreateListDialog />
       </div>
 
       <div v-if="isLoading" class="flex items-center justify-center h-full">
@@ -40,7 +42,6 @@ async function deleteWatchlist(watchlistId: number) {
           :key="watchlist.id"
           v-bind="watchlist"
           @delete="(id) => deleteWatchlist(id)"
-          @success="refetchWatchlists"
         />
       </div>
     </div>

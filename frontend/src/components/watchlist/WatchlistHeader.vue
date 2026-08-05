@@ -17,8 +17,6 @@ interface PropsType {
 
 const props = defineProps<PropsType>();
 
-const emit = defineEmits(['success']);
-
 const { state: userDetails, isLoading: usersLoading } = useUserDetails(props.watchlist.editorIds);
 
 const formattedDate = computed(() => {
@@ -48,7 +46,6 @@ const open = ref(false);
         :movies="movies"
         :editors="watchlist.editorIds"
         v-model:open="open"
-        @success="emit('success')"
       />
     </div>
 

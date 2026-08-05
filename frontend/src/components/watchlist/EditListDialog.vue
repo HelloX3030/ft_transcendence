@@ -37,8 +37,6 @@ const props = defineProps<{
   editors?: number[];
 }>();
 
-const emit = defineEmits<{ success: [] }>();
-
 const isOpen = defineModel<boolean>('open');
 
 const {
@@ -67,7 +65,6 @@ async function handleSubmit() {
     } else {
       toast.success('Edit Successfully');
     }
-    emit('success');
   } catch (error) {
     logger.error(error);
     toast.error('Something went wrong');
