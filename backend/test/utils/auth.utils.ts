@@ -36,7 +36,7 @@ export async function login(agent: TestAgent, user: LoginDto) {
 }
 
 export async function logout(agent: TestAgent) {
-  const responsLogout = await agent.get('/auth/logout').expect(200);
+  const responsLogout = await agent.post('/auth/logout').expect(200);
   const cookies = responsLogout.headers['set-cookie'];
   // The clearing cookies carry the same attributes as the ones that set them —
   // Express only clears a cookie when the options match.
