@@ -99,7 +99,10 @@ watch(isOpen, (open) => {
     <DialogTrigger as-child>
       <Button variant="outline" class="md:text-xl">+ New</Button>
     </DialogTrigger>
-    <DialogContent class="sm:max-w-5/6">
+    <!-- A percentage is not a cap: at 3840px the dialog was 3200px wide and
+         the picker's posters grew with it. The min() keeps the roomy feel on
+         ordinary screens and stops it dead on an ultrawide. -->
+    <DialogContent class="sm:max-w-[min(83.333%,1400px)]">
       <DialogHeader>
         <DialogTitle>Create New List</DialogTitle>
         <DialogDescription> Create a new movie list. To share with your friends.</DialogDescription>

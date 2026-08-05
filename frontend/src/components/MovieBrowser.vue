@@ -22,11 +22,19 @@ const props = withDefaults(
 // height — 400 px wide, 600 px tall posters on a 3840 px screen. auto-fill caps
 // the card width at every viewport and adds columns instead.
 //
-// `compact` keeps its ladder: it lives in a width-bounded dialog, so the runaway
-// case cannot arise there.
+// `compact` is intrinsic for the same reason. Its dialog is capped now, but the
+// cap is the only thing that was holding it — a fixed column count inside any
+// container that can grow is the same bug waiting to come back.
+//
+// The track has a real maximum rather than 1fr. With 1fr the track absorbs the
+// leftover width until there is room for one more column and then snaps back,
+// so a card grows as you drag the window: 144→210px below 900px wide, 144→166px
+// above it. A bounded track is the same size at every viewport, and
+// justify-center splits the remainder into equal margins instead of leaving it
+// all on the right.
 const GRIDS = {
-  comfortable: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2',
-  compact: 'grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8',
+  comfortable: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,10rem))] gap-2 justify-center',
+  compact: 'grid grid-cols-[repeat(auto-fill,minmax(7rem,8rem))] gap-2 justify-center',
 } as const;
 
 const gridClass = computed(() => GRIDS[props.density]);
@@ -88,9 +96,10 @@ const noResults = computed(
 );
 const reachedEnd = computed(() => !activeHasMore.value && displayMovies.value.length > 0);
 
-// Follows the density so the placeholder block is whole rows rather than a ragged
-// last one: 12 fills the comfortable grid's 2- and 4-column steps, 18 fills the
-// compact grid's 3- and 6-column steps — the widths each density is actually used at.
+// Follows the density only to keep the placeholder block roughly a screenful:
+// the compact cards are smaller, so more of them fit. Both grids are intrinsic
+// now, so the column count depends on the container and the block can no longer
+// be tuned to land on whole rows.
 const SKELETON_COUNT = computed(() => (props.density === 'compact' ? 18 : 12));
 
 // Infinite scroll. The observer only tracks whether the sentinel is in view;

@@ -35,7 +35,7 @@ const router = useRouter();
 
       <!-- Matches MovieBrowser's comfortable grid; see the note there for why
            this is intrinsic rather than a breakpoint ladder. -->
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,10rem))] gap-2 justify-center">
         <MovieCard
           v-for="movie in movies"
           :key="movie.tmdbId"
