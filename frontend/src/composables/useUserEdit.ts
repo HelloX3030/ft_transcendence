@@ -15,9 +15,6 @@ export function useUserEdit() {
   const avatarSrc = computed(
     () => previewUrl.value ?? fileUrl(userStore.state?.avatarFileId) ?? null,
   );
-  const initials = computed(() =>
-    userStore.state ? userStore.state.username.slice(0, 2).toUpperCase() : '??',
-  );
   const hasAvatar = computed(() => userStore.state?.avatarFileId != null);
 
   const isLoading = ref(false);
@@ -144,7 +141,6 @@ export function useUserEdit() {
     fileInput,
     fileError,
     avatarSrc,
-    initials,
     hasAvatar,
     isLoading,
     isUploading,

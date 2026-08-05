@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { Camera } from '@lucide/vue';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,6 @@ import AvatarDeleteDialog from '@/components/profile/AvatarDeleteDialog.vue';
 const {
   fileInput,
   avatarSrc,
-  initials,
   hasAvatar,
   onFileChange,
   fileError,
@@ -75,10 +74,11 @@ const onSubmit = form.handleSubmit(({ username, email, language }) => {
               class="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               @click="fileInput?.click()"
             >
-              <Avatar class="size-20">
-                <AvatarImage v-if="avatarSrc" :src="avatarSrc" alt="Avatar preview" />
-                <AvatarFallback class="text-xl font-semibold">{{ initials }}</AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                :src="avatarSrc"
+                :username="profile?.username"
+                class="size-20 text-xl font-semibold"
+              />
               <div
                 class="absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-full bg-black/50 opacity-0 transition-opacity hover:opacity-100"
               >
