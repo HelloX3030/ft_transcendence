@@ -17,5 +17,9 @@ export const useWatchlistsStore = defineStore('watchlists', () => {
     version.value++;
   }
 
-  return { version, invalidate };
+  function $reset() {
+    version.value = 0;
+  }
+
+  return { version, invalidate, $reset };
 });
