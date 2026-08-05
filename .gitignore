@@ -3,7 +3,8 @@ secrets/*.txt
 notes.md
 .env
 
-# Working docs
-_meta/spec/*.md
-_meta/spec/done/*.md
+# Working docs: keep the directory structure on GitHub, ignore the contents
+_meta/work/**
+!_meta/work/**/
+!_meta/work/**/.gitkeep
 en.subject.pdf
