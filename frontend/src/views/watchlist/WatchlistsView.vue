@@ -17,7 +17,8 @@ async function deleteWatchlist(watchlistId: number) {
 
 <template>
   <section class="flex-1 p-8 h-[calc(100vh-var(--header-height))]">
-    <div class="max-w-5/6 mx-auto h-full flex flex-col">
+    <!-- A percentage cap alone still grows without limit on an ultrawide. -->
+    <div class="w-5/6 max-w-[1600px] mx-auto h-full flex flex-col">
       <div class="flex justify-between items-center">
         <h1 class="text-3xl mb-6 font-bold">Your lists</h1>
         <CreateListDialog />

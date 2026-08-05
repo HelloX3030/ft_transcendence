@@ -15,7 +15,9 @@ const router = useRouter();
 </script>
 
 <template>
-  <section class="flex-1 w-5/6 mx-auto py-8">
+  <!-- max-w: a percentage width alone leaves the page an unbounded wall of
+       cards on an ultrawide. -->
+  <section class="flex-1 w-5/6 max-w-[1600px] mx-auto py-8">
     <div v-if="isLoading || moviesLoading" class="flex items-center justify-center min-h-screen">
       <Spinner class="size-16" />
     </div>
@@ -31,7 +33,9 @@ const router = useRouter();
         <p class="text-zinc-500">No Movies in Watchlist.</p>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+      <!-- Matches MovieBrowser's comfortable grid; see the note there for why
+           this is intrinsic rather than a breakpoint ladder. -->
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
         <MovieCard
           v-for="movie in movies"
           :key="movie.tmdbId"
