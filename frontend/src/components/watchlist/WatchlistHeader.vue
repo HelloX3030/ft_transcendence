@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Pen, UserIcon } from '@lucide/vue';
+import UserAvatar from '@/components/UserAvatar.vue';
+import { Pen } from '@lucide/vue';
 import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared';
 import { computed, ref } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
 import { useUserDetails } from '@/composables/useUserDetails.ts';
 import { Button } from '../ui/button/index.ts';
-import { fileUrl } from '@/lib/files';
 
 interface PropsType {
   watchlist: WatchlistResponse;
@@ -70,17 +69,9 @@ const open = ref(false);
               :style="{ zIndex: userDetails.length - idx }"
             >
               <Tooltip>
-                <TooltipTrigger
-                  ><Avatar>
-                    <AvatarImage
-                      v-if="user.avatarFileId"
-                      :src="fileUrl(user.avatarFileId)"
-                      :alt="user.username"
-                    />
-                    <AvatarFallback>
-                      <UserIcon class="size-4 text-muted-foreground" />
-                    </AvatarFallback> </Avatar
-                ></TooltipTrigger>
+                <TooltipTrigger>
+                  <UserAvatar :avatar-file-id="user.avatarFileId" :username="user.username" />
+                </TooltipTrigger>
                 <TooltipContent> {{ user.username }}</TooltipContent>
               </Tooltip>
             </RouterLink>

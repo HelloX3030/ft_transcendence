@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckIcon, ChevronDown, UserIcon } from '@lucide/vue';
+import { CheckIcon, ChevronDown } from '@lucide/vue';
 import {
   ListboxContent,
   ListboxFilter,
@@ -20,10 +20,9 @@ import {
 } from '@/components/ui/tags-input';
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import UserAvatar from '../UserAvatar.vue';
 import type { GetUserResponse } from '@trailertinder/shared';
 import { useUserStore } from '@/stores/user';
-import { fileUrl } from '@/lib/files';
 
 const selectedEditors = defineModel<number[]>();
 const user = useUserStore();
@@ -106,14 +105,11 @@ watch(searchTerm, (f) => {
               }
             "
           >
-            <Avatar class="size-8">
-              <AvatarImage
-                v-if="item.avatarFileId"
-                :src="fileUrl(item.avatarFileId)"
-                :alt="item.username"
-              />
-              <AvatarFallback><UserIcon /></AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              :avatar-file-id="item.avatarFileId"
+              :username="item.username"
+              class="size-8"
+            />
             <span>{{ item.username }}</span>
 
             <ListboxItemIndicator class="ml-auto inline-flex items-center justify-center">
