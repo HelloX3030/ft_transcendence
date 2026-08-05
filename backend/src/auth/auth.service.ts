@@ -28,11 +28,39 @@ const MFA_TOKEN_TTL = '5m';
 const MFA_TOKEN_TTL_MS = 1000 * 60 * 5;
 
 /**
+ * Production values for the four session timeouts. Exported so app.module.ts can
+ * state the same numbers in its Joi schema without restating them: these are
+ * read at module scope, which runs before ConfigModule applies its own defaults,
+ * so the fallback has to live here.
+ */
+export const SESSION_TTL_DEFAULT_SECONDS = {
+  ACCESS_TTL_SECONDS: 15 * 60,
+  REFRESH_TTL_SECONDS: (15 * DAY_MS) / 1000,
+  SESSION_ABSOLUTE_TTL_SECONDS: (30 * DAY_MS) / 1000,
+  REFRESH_GRACE_SECONDS: 30,
+} as const;
+
+/**
+ * The four timeouts are env-driven, but read **once**, here at module scope
+ * rather than per request — each stays the single constant its consumers share,
+ * so the cookie, the JWT and the database row cannot drift apart.
+ *
+ * The env vars exist because none of the four can be exercised by hand at the
+ * production values, which is exactly why they went unverified. A tester opts
+ * into short ones; an untouched checkout behaves as it always did.
+ */
+function ttlMs(name: keyof typeof SESSION_TTL_DEFAULT_SECONDS): number {
+  const raw = process.env[name];
+  const seconds = raw === undefined || raw === '' ? SESSION_TTL_DEFAULT_SECONDS[name] : Number(raw);
+  return seconds * 1000;
+}
+
+/**
  * The idle timeout: how far `expiresAt`, the refresh JWT and the refresh cookie
  * are pushed out on each use. One constant so the three cannot disagree — they
  * used to be four separate "15 day" literals.
  */
-const REFRESH_TTL_MS = 15 * DAY_MS;
+const REFRESH_TTL_MS = ttlMs('REFRESH_TTL_SECONDS');
 
 /**
  * The hard stop, measured from `sessions.createdAt`. Without it the sliding
@@ -41,7 +69,7 @@ const REFRESH_TTL_MS = 15 * DAY_MS;
  * tab is open. "Sessions last 15 days" would describe only an *idle* timeout,
  * and a token stolen from a machine that stays in use would be valid forever.
  */
-const ABSOLUTE_SESSION_LIFETIME_MS = 30 * DAY_MS;
+const ABSOLUTE_SESSION_LIFETIME_MS = ttlMs('SESSION_ABSOLUTE_TTL_SECONDS');
 
 /**
  * How long the pre-rotation key stays acceptable.
@@ -56,10 +84,10 @@ const ABSOLUTE_SESSION_LIFETIME_MS = 30 * DAY_MS;
  * Generous next to a request that takes milliseconds, far short of anything
  * useful to an attacker who must also have stolen the cookie.
  */
-const REFRESH_GRACE_MS = 30_000;
+const REFRESH_GRACE_MS = ttlMs('REFRESH_GRACE_SECONDS');
 
 /** Matches the access JWT's own `expiresIn`, so the cookie and the token agree. */
-const ACCESS_TTL_MS = 15 * 60 * 1000;
+const ACCESS_TTL_MS = ttlMs('ACCESS_TTL_SECONDS');
 
 /**
  * The cookie attributes that decide whether a `clearCookie` matches the
