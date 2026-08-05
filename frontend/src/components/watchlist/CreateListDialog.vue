@@ -36,14 +36,15 @@ import { createListSchema } from '@/lib/schemas';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
+import { useWatchlistsStore } from '@/stores/watchlists';
 import { watchlistApi } from '@/api';
 import type { TmdbMovie } from '@trailertinder/shared';
 import { useEditorSelection } from '@/composables/watchlist/useEditorSelection';
 import EditorListBox from './EditorListBox.vue';
 import { logger } from '@/lib/logger';
 
-const emit = defineEmits(['success']);
 const store = useMoviesStore();
+const watchlists = useWatchlistsStore();
 const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection();
 const { selectedEditors } = useEditorSelection();
 const isOpen = ref(false);
@@ -72,7 +73,9 @@ const onSubmit = handleSubmit(async (values) => {
     } else {
       toast.success('New List Created Successfully');
     }
-    emit('success');
+    // The overview will not hear about this from the socket — the backend
+    // excludes the actor from their own events.
+    watchlists.invalidate();
   } catch (error) {
     logger.error(error);
     toast.error('Something went wrong');

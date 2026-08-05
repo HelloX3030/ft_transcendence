@@ -7,6 +7,7 @@ import { watchlistApi } from '@/api';
 import { updateListSchema } from '@/lib/schemas';
 import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 import { useWatchlist } from '@/composables/watchlist/useWatchlist';
+import { useWatchlistsStore } from '@/stores/watchlists';
 import type { WatchlistMovieResponse } from '@trailertinder/shared';
 
 export interface UseEditWatchlistDialogOptions {
@@ -26,6 +27,7 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
     immediate: false,
   });
   const { state: watchlist, refetchWatchlist } = useWatchlist(watchlistId, { immediate: false });
+  const watchlists = useWatchlistsStore();
 
   const currentMovies = computed(() => moviesProp?.value ?? fetchedMovies.value);
   const currentEditors = computed(() => editorsProp?.value ?? watchlist.value?.editorIds ?? []);
@@ -100,6 +102,12 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
     if (values.name && values.name !== name.value) {
       await watchlistApi.update(watchlistId, { name: values.name });
     }
+
+    // The backend excludes the actor from their own events, so nothing else
+    // will. Invalidating here covers the overview, the detail page and the
+    // movie grid at once — all three watch `version`. Also on a partial
+    // failure: whatever did land still has to be shown.
+    watchlists.invalidate();
 
     return { failedCount };
   });

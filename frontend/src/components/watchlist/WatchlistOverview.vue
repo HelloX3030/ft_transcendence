@@ -14,7 +14,7 @@ import {
 import { Button } from '../ui/button';
 import EditListDialog from './EditListDialog.vue';
 
-const emit = defineEmits<{ success: []; delete: [id: number] }>();
+const emit = defineEmits<{ delete: [id: number] }>();
 const props = defineProps<WatchlistResponse>();
 
 const posters = computed(() => {
@@ -91,5 +91,5 @@ function deleteWatchlist() {
     <ChevronRight class="size-4 text-muted-foreground shrink-0" />
   </div>
 
-  <EditListDialog :name="name" :watchlist-id="id" v-model:open="open" @success="emit('success')" />
+  <EditListDialog :name="name" :watchlist-id="id" v-model:open="open" />
 </template>

@@ -8,12 +8,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 
 const route = useRoute();
-const {
-  state: watchlist,
-  isLoading,
-  error,
-  refetchWatchlist,
-} = useWatchlist(Number(route.params.id));
+const { state: watchlist, isLoading, error } = useWatchlist(Number(route.params.id));
 
 const { movies, moviesLoading } = useWatchlistMovies(Number(route.params.id));
 const router = useRouter();
@@ -30,7 +25,7 @@ const router = useRouter();
     </div>
 
     <div class="h-full flex flex-col" v-else-if="watchlist && movies">
-      <WatchlistHeader :watchlist="watchlist" :movies="movies" @success="refetchWatchlist" />
+      <WatchlistHeader :watchlist="watchlist" :movies="movies" />
 
       <div v-if="movies?.length == 0" class="flex-1 flex items-center justify-center">
         <p class="text-zinc-500">No Movies in Watchlist.</p>
