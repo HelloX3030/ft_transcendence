@@ -62,6 +62,18 @@ export const useAuthStore = defineStore('auth', () => {
     return true;
   }
 
+  /**
+   * Tears down everything the session left behind locally. Split out because a
+   * password reset ends the session server-side too, and has nothing to log out
+   * of by the time it gets here.
+   */
+  function clearSession() {
+    notify.stop();
+    // Drops isLoggedIn along with every other store's state, so nothing from
+    // the old session survives into the next one.
+    resetAllStores();
+  }
+
   async function logout() {
     try {
       await authApi.logout();
@@ -70,10 +82,7 @@ export const useAuthStore = defineStore('auth', () => {
       // another tab. Local state must go either way, or the UI keeps rendering
       // a session that no longer exists.
     } finally {
-      notify.stop();
-      // Drops isLoggedIn along with every other store's state, so nothing from
-      // the old session survives into the next one.
-      resetAllStores();
+      clearSession();
     }
   }
 
@@ -93,6 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     verifyMfa,
     completeOAuthLogin,
+    clearSession,
     logout,
     register,
     $reset,

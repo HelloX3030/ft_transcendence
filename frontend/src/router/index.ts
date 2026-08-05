@@ -82,14 +82,18 @@ const router = createRouter({
       meta: { guestOnly: true, hideLayout: true, title: 'Sign Up' },
     },
     {
+      // Both reset routes are deliberately not guestOnly: a reset link is
+      // opened in whatever browser reads the mail, which is usually one the
+      // user is already signed into, and guestOnly would drop them on / with
+      // no explanation.
       path: '/forgot-password',
       component: ForgotPasswordView,
-      meta: { guestOnly: true, hideLayout: true, title: 'Forgot Password' },
+      meta: { hideLayout: true, title: 'Forgot Password' },
     },
     {
       path: '/reset-password',
       component: ResetPasswordView,
-      meta: { guestOnly: true, hideLayout: true, title: 'Reset Password' },
+      meta: { hideLayout: true, title: 'Reset Password' },
     },
     {
       // Where the Google callback lands. Deliberately neither requiresAuth nor

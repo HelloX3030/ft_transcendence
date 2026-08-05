@@ -18,9 +18,11 @@ import {
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : null));
 
@@ -53,6 +55,11 @@ const onSubmit = form.handleSubmit(async ({ password }) => {
     });
     // Deliberately not logged in: the user proves the new password works by
     // using it. Only the session cookies would say otherwise.
+    //
+    // The backend has just revoked every session, so a signed-in visitor's
+    // isLoggedIn is now stale — left alone, guestOnly on /login would bounce
+    // them straight back into a session that no longer exists.
+    auth.clearSession();
     await router.replace('/login');
   } catch (err: unknown) {
     if (!(err instanceof ApiError)) {
