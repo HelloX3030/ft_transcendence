@@ -25,7 +25,7 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 
-  logout: () => backendClient('/auth/logout'),
+  logout: () => backendClient('/auth/logout', { method: 'POST' }),
 
   register: (payload: RegisterRequest) =>
     backendClient('/auth/register', {

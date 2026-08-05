@@ -65,12 +65,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       await authApi.logout();
+    } catch {
+      // The server-side session may already be gone — swept, or ended from
+      // another tab. Local state must go either way, or the UI keeps rendering
+      // a session that no longer exists.
+    } finally {
       notify.stop();
       // Drops isLoggedIn along with every other store's state, so nothing from
       // the old session survives into the next one.
       resetAllStores();
-    } catch {
-      // best-effort — clear local state regardless
     }
   }
 

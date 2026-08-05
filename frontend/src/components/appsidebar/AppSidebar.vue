@@ -31,7 +31,8 @@ const router = useRouter();
 
 async function handleLogout() {
   await auth.logout();
-  router.push('/login');
+  // replace, not push: the route we came from is dead once the session is gone.
+  router.replace('/login');
 }
 </script>
 

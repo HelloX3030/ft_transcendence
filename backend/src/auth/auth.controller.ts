@@ -166,7 +166,10 @@ export class AuthController {
   @Public()
   @SkipThrottle(SKIP_AUTH_THROTTLE)
   @UseGuards(JwtRefreshGuard)
-  @Get('logout')
+  // POST, not GET: ending a session is a state change, so it must not be
+  // reachable by prefetch or a cross-site navigation.
+  @Post('logout')
+  @HttpCode(200)
   @ApiOperation({ summary: 'User logout' })
   @ApiResponse({ status: 200, description: 'User logout successful' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token signature' })

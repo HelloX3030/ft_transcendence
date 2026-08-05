@@ -144,8 +144,8 @@ describe('Auth (e2e)', () => {
       // reaching the delete this is about.
       const cookie = refreshCookie(registration);
 
-      await request(app.getHttpServer()).get('/auth/logout').set('Cookie', cookie).expect(200);
-      await request(app.getHttpServer()).get('/auth/logout').set('Cookie', cookie).expect(200);
+      await request(app.getHttpServer()).post('/auth/logout').set('Cookie', cookie).expect(200);
+      await request(app.getHttpServer()).post('/auth/logout').set('Cookie', cookie).expect(200);
     });
   });
 
