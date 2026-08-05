@@ -24,17 +24,20 @@ async function deleteWatchlist(watchlistId: number) {
         <CreateListDialog />
       </div>
 
+      <!-- One chain, not two: the loading branch used to be its own v-if, so
+           while loading — isReady false, error null — the v-else below matched
+           as well and the spinner rendered on top of an empty list. -->
       <div v-if="isLoading" class="flex items-center justify-center h-full">
         <Spinner class="size-16" />
       </div>
+      <div v-else-if="error" class="flex items-center justify-center h-full">
+        <p class="text-zinc-500">Couldn't load watchlists: {{ (error as Error).message }}</p>
+      </div>
       <div
-        v-if="isReady && watchlists?.length == 0"
+        v-else-if="isReady && watchlists?.length == 0"
         class="flex items-center justify-center h-full"
       >
         <p class="text-zinc-500">No Watchlist</p>
-      </div>
-      <div v-else-if="error" class="flex items-center justify-center h-full">
-        <p class="text-zinc-500">Couldn't load watchlists: {{ (error as Error).message }}</p>
       </div>
 
       <div v-else class="flex flex-col">

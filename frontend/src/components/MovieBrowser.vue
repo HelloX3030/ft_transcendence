@@ -165,6 +165,7 @@ function onRetry() {
             title=""
             :img="null"
             :loading="true"
+            :size="skeletonSize"
           />
         </template>
       </template>
