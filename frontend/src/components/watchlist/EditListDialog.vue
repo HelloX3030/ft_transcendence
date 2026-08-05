@@ -84,7 +84,10 @@ watch(isOpen, async (open) => {
 
 <template>
   <Dialog v-model:open="isOpen">
-    <DialogContent class="sm:max-w-5/6">
+    <!-- A percentage is not a cap: at 3840px the dialog was 3200px wide and
+         the picker's posters grew with it. The min() keeps the roomy feel on
+         ordinary screens and stops it dead on an ultrawide. -->
+    <DialogContent class="sm:max-w-[min(83.333%,1400px)]">
       <DialogHeader>
         <DialogTitle>Edit: {{ name }}</DialogTitle>
         <DialogDescription>
