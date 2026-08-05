@@ -3,13 +3,12 @@ import type { Friend, GetUserResponse } from '@trailertinder/shared';
 import { computed, onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
 import { toast } from 'vue-sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import UserAvatar from '../UserAvatar.vue';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle, ItemDescription } from '../ui/item';
 import { Button } from '../ui/button';
-import { UserIcon, Check, X } from '@lucide/vue';
+import { Check, X } from '@lucide/vue';
 import { useFriendsStore } from '@/stores/friends';
 import { useUserStore } from '@/stores/user';
-import { fileUrl } from '@/lib/files';
 
 const props = defineProps<Friend>();
 const friendsStore = useFriendsStore();
@@ -57,14 +56,11 @@ async function handleDecline() {
 <template>
   <Item variant="outline">
     <ItemMedia>
-      <Avatar class="size-10">
-        <AvatarImage
-          v-if="userDetail?.avatarFileId"
-          :src="fileUrl(userDetail.avatarFileId)"
-          :alt="userDetail.username"
-        />
-        <AvatarFallback><UserIcon /></AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        :avatar-file-id="userDetail?.avatarFileId"
+        :username="userDetail?.username"
+        class="size-10"
+      />
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ userDetail?.username }}</ItemTitle>

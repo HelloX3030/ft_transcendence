@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Plus, Search, UserIcon, X } from '@lucide/vue';
+import { Plus, Search, X } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useUserSearch } from '@/composables/useUserSearch';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import { Button } from '../ui/button';
 import { Spinner } from '../ui/spinner';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import UserAvatar from '../UserAvatar.vue';
 import { toast } from 'vue-sonner';
 import ItemGroup from '../ui/item/ItemGroup.vue';
 import ItemSeparator from '../ui/item/ItemSeparator.vue';
 import { useFriendsStore } from '@/stores/friends.ts';
-import { fileUrl } from '@/lib/files';
 
 const friendStore = useFriendsStore();
 
@@ -84,10 +83,11 @@ watch(inputQuery, (value) => value.length <= 0 && handleClear());
           <template v-for="(user, idx) in searchData!.results" :key="user.id">
             <Item>
               <ItemMedia>
-                <Avatar class="size-10">
-                  <AvatarImage v-if="user.avatarFileId" :src="fileUrl(user.avatarFileId)" />
-                  <AvatarFallback><UserIcon /></AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  :avatar-file-id="user.avatarFileId"
+                  :username="user.username"
+                  class="size-10"
+                />
               </ItemMedia>
               <ItemContent>
                 <ItemTitle>{{ user.username }}</ItemTitle>

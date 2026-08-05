@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { GetUserResponse } from '@trailertinder/shared';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { ArrowUpRight, Ellipsis, Trash, UserIcon } from '@lucide/vue';
+import UserAvatar from '../UserAvatar.vue';
+import { ArrowUpRight, Ellipsis, Trash } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item';
 import {
   DropdownMenu,
@@ -15,7 +15,6 @@ import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
 import { useNotifyStore } from '@/stores/notify';
 import PresenceDot from '../PresenceDot.vue';
-import { fileUrl } from '@/lib/files';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -41,10 +40,7 @@ async function handleDelete() {
   <Item variant="outline">
     <ItemMedia>
       <span class="relative inline-flex">
-        <Avatar class="size-10">
-          <AvatarImage v-if="avatarFileId" :src="fileUrl(avatarFileId)" :alt="username" />
-          <AvatarFallback><UserIcon /></AvatarFallback>
-        </Avatar>
+        <UserAvatar :avatar-file-id="avatarFileId" :username="username" class="size-10" />
         <PresenceDot overlay :online="notify.isUserOnline(id)" />
       </span>
     </ItemMedia>
