@@ -1,6 +1,6 @@
 # Formatting & Linting Pipeline
 
-How the code quality tooling works in TrailerTinder, what runs when, and what every developer needs to do once after cloning.
+How the code quality tooling works in CineMates, what runs when, and what every developer needs to do once after cloning.
 
 ---
 

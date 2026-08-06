@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ResetPasswordRequest } from '@trailertinder/shared';
+import { ResetPasswordRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import {
   IsNotEmpty,

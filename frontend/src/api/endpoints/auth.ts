@@ -5,7 +5,7 @@ import type {
   MfaVerifyRequest,
   RegisterRequest,
   ResetPasswordRequest,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const authApi = {

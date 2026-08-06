@@ -5,7 +5,7 @@ import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp } from './utils/create-test-app.utils';
 import { checkCookies } from './utils';
-import { WatchlistResponse } from '@trailertinder/shared';
+import { WatchlistResponse } from '@cinemates/shared';
 
 interface ApiResponse<T = unknown> {
   success: boolean;

@@ -1,4 +1,4 @@
-# TrailerTinder — Architecture & Tech Decisions
+# CineMates — Architecture & Tech Decisions
 
 This document records all tech stack decisions: what was chosen, why, and what remains open. Update it whenever a decision is made or reversed.
 

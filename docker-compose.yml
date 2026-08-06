@@ -28,7 +28,6 @@ services:
       - frontend_node_modules:/app/node_modules
     environment:
       - VITE_BACKEND_URL=${BACKEND_URL}
-      - VITE_APP_NAME=${APP_NAME}
       - VITE_GOOGLE_ENABLED=${GOOGLE_ENABLED}
     depends_on:
       - backend
@@ -54,7 +53,6 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
-      APP_NAME: ${APP_NAME}
       MFA_KEY: ${MFA_KEY}
       TMDB_API_KEY: ${TMDB_API_KEY}
       REDIS_URL: ${REDIS_URL}

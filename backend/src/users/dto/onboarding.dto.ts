@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OnboardingRequest } from '@trailertinder/shared';
+import { OnboardingRequest } from '@cinemates/shared';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsInt, Min } from 'class-validator';
 

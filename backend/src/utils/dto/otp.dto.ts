@@ -1,5 +1,5 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { otp } from '@trailertinder/shared';
+import { otp } from '@cinemates/shared';
 import { IsString, Matches } from 'class-validator';
 
 export class otpDto implements otp {

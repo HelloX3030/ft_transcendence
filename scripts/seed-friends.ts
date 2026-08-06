@@ -1,4 +1,4 @@
-import type { apiResponse, UserMeResponse } from "@trailertinder/shared";
+import type { apiResponse, UserMeResponse } from "@cinemates/shared";
 
 const BASE_URL = "http://localhost:3000/v1";
 const PASSWORD = "B8skxi!dk&";

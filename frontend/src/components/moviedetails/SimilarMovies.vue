@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TmdbMovie } from '@trailertinder/shared';
+import type { TmdbMovie } from '@cinemates/shared';
 import { useRouter } from 'vue-router';
 
 defineProps<{

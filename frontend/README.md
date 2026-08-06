@@ -1,4 +1,4 @@
-# TrailerTinder — Frontend
+# CineMates — Frontend
 
 Vue 3 + Vite SPA. Runs on port 5173 inside Docker.
 

@@ -38,7 +38,7 @@ import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { useWatchlistsStore } from '@/stores/watchlists';
 import { watchlistApi } from '@/api';
-import type { TmdbMovie } from '@trailertinder/shared';
+import type { TmdbMovie } from '@cinemates/shared';
 import { useEditorSelection } from '@/composables/watchlist/useEditorSelection';
 import EditorListBox from './EditorListBox.vue';
 import { logger } from '@/lib/logger';

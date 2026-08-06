@@ -1,6 +1,6 @@
 import { userApi } from '@/api/endpoints/user';
 import type { UploadOptions } from '@/api/upload';
-import type { UpdateUserRequest, UserMeResponse } from '@trailertinder/shared';
+import type { UpdateUserRequest, UserMeResponse } from '@cinemates/shared';
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { computed } from 'vue';

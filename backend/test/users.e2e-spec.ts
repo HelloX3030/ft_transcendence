@@ -9,7 +9,7 @@ import {
   GetUserResponse,
   UserMeResponse,
   UserSearchResponse,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { checkCookies, createTestApp } from './utils';
 
 // A real 1x1 PNG and a real 1x1 JPEG — the upload path sniffs magic bytes, so the

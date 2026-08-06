@@ -33,7 +33,7 @@ const COVER_INCLUDE = {
     select: { userId: true },
   },
 } as const;
-import { WatchlistResponse } from '@trailertinder/shared';
+import { WatchlistResponse } from '@cinemates/shared';
 
 export const WATCHLIST_SELECT = {
   role: true,

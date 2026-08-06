@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue';
-import type { TmdbMovieDetail } from '@trailertinder/shared';
+import type { TmdbMovieDetail } from '@cinemates/shared';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';
 

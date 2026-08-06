@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { MfaVerifyRequest } from '@trailertinder/shared';
+import { MfaVerifyRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import { IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 

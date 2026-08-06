@@ -3,7 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
-import { apiResponse, UserMeResponse } from '@trailertinder/shared';
+import { apiResponse, UserMeResponse } from '@cinemates/shared';
 import { checkCookies, createTestApp } from './utils';
 
 // A real 1x1 PNG — the upload path sniffs magic bytes, so the fixture must

@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessagePage } from '@trailertinder/shared';
+import type { ChatConversation, ChatMessagePage } from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const chatApi = {

@@ -2,7 +2,7 @@ import { expect } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { Response } from 'supertest';
-import { apiResponse } from '@trailertinder/shared';
+import { apiResponse } from '@cinemates/shared';
 
 export async function register(agent: TestAgent, user: RegisterDto) {
   const response = await agent

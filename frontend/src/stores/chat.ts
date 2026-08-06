@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import type { ChatMessage, GetUserResponse } from '@trailertinder/shared';
+import type { ChatMessage, GetUserResponse } from '@cinemates/shared';
 import { chatApi } from '@/api/endpoints/chat';
 import { logger } from '@/lib/logger';
 import { useFriendsStore } from './friends';

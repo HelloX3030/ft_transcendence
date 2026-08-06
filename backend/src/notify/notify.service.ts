@@ -1,6 +1,6 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { NotifyGateway } from './notify.gateway';
-import { ChatMessage, ChatReadEvent, DomainEvent } from '@trailertinder/shared';
+import { ChatMessage, ChatReadEvent, DomainEvent } from '@cinemates/shared';
 import type { NotifySocket as Socket } from 'src/types';
 
 @Injectable()

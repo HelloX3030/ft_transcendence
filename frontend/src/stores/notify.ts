@@ -8,7 +8,7 @@ import type {
   DomainEvent,
   NotifyError,
   FriendsStatus,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { FRONTEND_ORIGIN } from '@/lib/constants';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';

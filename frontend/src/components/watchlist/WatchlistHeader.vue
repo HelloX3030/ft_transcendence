@@ -2,7 +2,7 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { Pen } from '@lucide/vue';
-import type { WatchlistMovieResponse, WatchlistResponse } from '@trailertinder/shared';
+import type { WatchlistMovieResponse, WatchlistResponse } from '@cinemates/shared';
 import { computed, ref } from 'vue';
 import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';

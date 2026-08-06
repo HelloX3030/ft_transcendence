@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { ChatMessage, DomainEvent } from '@trailertinder/shared';
+import type { ChatMessage, DomainEvent } from '@cinemates/shared';
 import type { Namespace } from 'socket.io';
 import type { NotifySocket } from 'src/types';
 import { ChatService } from 'src/chat/chat.service';

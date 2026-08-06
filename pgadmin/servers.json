@@ -1,12 +1,12 @@
 {
   "Servers": {
     "1": {
-      "Name": "TrailerTinder",
+      "Name": "CineMates",
       "Group": "Servers",
       "Host": "db",
       "Port": 5432,
-      "MaintenanceDB": "trailertinder",
-      "Username": "trailertinder",
+      "MaintenanceDB": "cinemates",
+      "Username": "cinemates",
       "SSLMode": "prefer"
     }
   }

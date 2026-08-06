@@ -5,7 +5,7 @@ import type {
   LoginResponse,
   MfaVerifyRequest,
   RegisterRequest,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { useNotifyStore } from './notify';

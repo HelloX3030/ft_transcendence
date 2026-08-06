@@ -2,7 +2,7 @@
 import { ArrowUpRight, ChevronRight, Ellipsis, Pen, Trash } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { WatchlistResponse } from '@trailertinder/shared';
+import type { WatchlistResponse } from '@cinemates/shared';
 import {
   DropdownMenu,
   DropdownMenuContent,

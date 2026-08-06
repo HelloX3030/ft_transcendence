@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { messages, Prisma } from '@prisma/client';
-import { ChatConversation, ChatMessage, ChatMessagePage } from '@trailertinder/shared';
+import { ChatConversation, ChatMessage, ChatMessagePage } from '@cinemates/shared';
 import { NotifyService } from 'src/notify/notify.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { daysAgo, MESSAGE_RETENTION_DAYS } from 'src/retention.config';

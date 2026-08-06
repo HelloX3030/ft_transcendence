@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Friend, GetUserResponse } from '@trailertinder/shared';
+import type { Friend, GetUserResponse } from '@cinemates/shared';
 import { computed, onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
 import { toast } from 'vue-sonner';

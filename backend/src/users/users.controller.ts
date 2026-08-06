@@ -21,7 +21,7 @@ import { JwtAccessPayload } from 'src/types';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
 import { disableTotpDto, otpDto } from 'src/utils';
-import { FILE_RULES } from '@trailertinder/shared';
+import { FILE_RULES } from '@cinemates/shared';
 
 @Controller('users')
 export class UsersController {

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { WatchlistCreateRequest, WatchlistUpdateRequest } from '@trailertinder/shared';
+import { WatchlistCreateRequest, WatchlistUpdateRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 

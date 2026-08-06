@@ -1,5 +1,5 @@
 import { notification_type } from '@prisma/client';
-import { DomainEventType } from '@trailertinder/shared';
+import { DomainEventType } from '@cinemates/shared';
 
 /**
  * Database enum → wire discriminator.

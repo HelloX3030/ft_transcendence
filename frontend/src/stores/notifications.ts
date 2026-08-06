@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import type { DomainEvent, NotificationItem } from '@trailertinder/shared';
+import type { DomainEvent, NotificationItem } from '@cinemates/shared';
 import { notificationsApi } from '@/api/endpoints/notifications';
 import { logger } from '@/lib/logger';
 

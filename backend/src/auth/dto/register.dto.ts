@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { language_code } from '@prisma/client';
-import { RegisterRequest } from '@trailertinder/shared';
+import { RegisterRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
 
 import {

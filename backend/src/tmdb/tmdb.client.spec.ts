@@ -1,6 +1,6 @@
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { TmdbMovie } from '@trailertinder/shared';
+import { TmdbMovie } from '@cinemates/shared';
 import { makeMovie } from './tmdb.fixtures';
 import { TmdbClient } from './tmdb.client';
 

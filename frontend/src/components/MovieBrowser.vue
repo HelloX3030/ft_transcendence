@@ -6,7 +6,7 @@ import ErrorState from './ErrorState.vue';
 import EmptyState from './EmptyState.vue';
 import { useMoviesStore } from '@/stores/movies';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
-import type { TmdbMovie } from '@trailertinder/shared';
+import type { TmdbMovie } from '@cinemates/shared';
 
 const props = withDefaults(
   defineProps<{ showLabel?: boolean; density?: 'comfortable' | 'compact' }>(),

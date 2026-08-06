@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { watchlist_role } from '@prisma/client';
-import { WatchlistRoleRequest, WatchlistUserCreateRequest } from '@trailertinder/shared';
+import { WatchlistRoleRequest, WatchlistUserCreateRequest } from '@cinemates/shared';
 import { IsEnum, IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 
 export class watchlistUserDto implements WatchlistUserCreateRequest {

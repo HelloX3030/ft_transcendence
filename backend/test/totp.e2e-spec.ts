@@ -6,7 +6,7 @@ import { createTestApp } from './utils/create-test-app.utils';
 import { checkCookies } from './utils';
 import { RegisterDto } from 'src/auth/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { apiResponse, LoginResponse } from '@trailertinder/shared';
+import { apiResponse, LoginResponse } from '@cinemates/shared';
 import * as OTPAuth from 'otpauth';
 import { decryptSecret } from 'src/utils/crypto.utils';
 

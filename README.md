@@ -1,8 +1,8 @@
-# TrailerTinder
+# CineMates
 
 > Discover movies through short trailers — swipe, like, and watch together.
 
-TrailerTinder is a mobile-first web app where users swipe through film trailers TikTok-style to find movies they want to watch. A recommendation engine learns from your behavior, and the Movie Night Mode lets you and friends swipe simultaneously to find a film everyone agrees on.
+CineMates is a mobile-first web app where users swipe through film trailers TikTok-style to find movies they want to watch. A recommendation engine learns from your behavior, and the Movie Night Mode lets you and friends swipe simultaneously to find a film everyone agrees on.
 
 ---
 

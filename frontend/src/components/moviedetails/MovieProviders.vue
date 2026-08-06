@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WatchProvider } from '@trailertinder/shared';
+import type { WatchProvider } from '@cinemates/shared';
 
 defineProps<{
   providers: WatchProvider[];

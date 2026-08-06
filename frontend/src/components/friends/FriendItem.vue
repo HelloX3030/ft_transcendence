@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GetUserResponse } from '@trailertinder/shared';
+import type { GetUserResponse } from '@cinemates/shared';
 import UserAvatar from '../UserAvatar.vue';
 import { ArrowUpRight, Ellipsis, Trash } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item';

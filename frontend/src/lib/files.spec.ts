@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FILE_RULES } from '@trailertinder/shared';
+import { FILE_RULES } from '@cinemates/shared';
 import { fileUrl, validateFile } from './files';
 
 function makeFile(size: number, type: string): File {

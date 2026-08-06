@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useNotificationsStore } from '@/stores/notifications';
 import { notificationText, notificationTitle } from '@/lib/notification-text';
-import type { NotificationItem } from '@trailertinder/shared';
+import type { NotificationItem } from '@cinemates/shared';
 
 const notifications = useNotificationsStore();
 const { items, unreadCount, hasMore, isLoading, isLoadingMore, error } = storeToRefs(notifications);

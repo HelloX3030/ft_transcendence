@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { LoginRequest } from '@trailertinder/shared';
+import { LoginRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 

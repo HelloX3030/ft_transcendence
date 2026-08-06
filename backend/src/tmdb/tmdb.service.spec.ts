@@ -2,7 +2,7 @@ import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisService } from '../redis/redis.service';
 import { TmdbClient } from './tmdb.client';
-import { PaginatedMovies, TmdbGenre, TmdbMovie, TmdbPerson } from '@trailertinder/shared';
+import { PaginatedMovies, TmdbGenre, TmdbMovie, TmdbPerson } from '@cinemates/shared';
 import { successResponse } from 'src/utils';
 import {
   makeGenre,

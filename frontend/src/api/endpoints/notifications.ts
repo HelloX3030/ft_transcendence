@@ -1,4 +1,4 @@
-import type { NotificationPage, UnreadCount } from '@trailertinder/shared';
+import type { NotificationPage, UnreadCount } from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const notificationsApi = {

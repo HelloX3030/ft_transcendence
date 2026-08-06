@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { DomainEvent } from '@trailertinder/shared';
+import { DomainEvent } from '@cinemates/shared';
 import type { NotifySocket } from 'src/types';
 import { NotifyGateway } from './notify.gateway';
 import { NotifyService } from './notify.service';

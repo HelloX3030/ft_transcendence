@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { TmdbGenre } from '@trailertinder/shared';
+import type { TmdbGenre } from '@cinemates/shared';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';
 

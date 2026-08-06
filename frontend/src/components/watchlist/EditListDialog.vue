@@ -24,7 +24,7 @@ import MovieCard from '@/components/MovieCard.vue';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import MovieBrowser from '@/components/MovieBrowser.vue';
 import MovieFilterToggle from '@/components/MovieFilterToggle.vue';
-import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
+import type { TmdbMovie, WatchlistMovieResponse } from '@cinemates/shared';
 import { useEditWatchlist } from '@/composables/watchlist/useEditWatchlist.ts';
 import EditorListBox from './EditorListBox.vue';
 import { toast } from 'vue-sonner';

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ChatMsgSend } from '@trailertinder/shared';
+import { ChatMsgSend } from '@cinemates/shared';
 import { Transform, Type } from 'class-transformer';
 import {
   IsInt,

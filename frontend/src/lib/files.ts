@@ -1,4 +1,4 @@
-import { FILE_RULES, type FileKind } from '@trailertinder/shared';
+import { FILE_RULES, type FileKind } from '@cinemates/shared';
 import { API_BASE } from '@/api/http';
 
 /**

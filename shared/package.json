@@ -1,5 +1,5 @@
 {
-  "name": "@trailertinder/shared",
+  "name": "@cinemates/shared",
   "version": "1.0.0",
   "main": "./index.ts",
   "types": "./index.ts",

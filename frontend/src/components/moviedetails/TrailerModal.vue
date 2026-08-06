@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { ArrowLeft } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
-import type { TmdbMovieDetail } from '@trailertinder/shared';
+import type { TmdbMovieDetail } from '@cinemates/shared';
 import type { Provider } from '@/lib/test';
 
 defineProps<{

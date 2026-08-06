@@ -16,6 +16,7 @@ import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
+import { APP_NAME } from '@cinemates/shared';
 
 /** `files.original_name` is VarChar(255) and the value is client-supplied. */
 const MAX_ORIGINAL_NAME_LENGTH = 255;
@@ -263,14 +264,8 @@ export class UsersService {
     });
     if (user === null) throw new NotFoundException('User not found.');
 
-    const appName = process.env.APP_NAME;
-    if (appName === undefined) {
-      this.logger.error('The env "APP_NAME" is not set.');
-      throw new InternalServerErrorException();
-    }
-
     const totp = new OTPAuth.TOTP({
-      issuer: appName,
+      issuer: APP_NAME,
       label: user.username,
       algorithm: 'SHA1',
       digits: 6,

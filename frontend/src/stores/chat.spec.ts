@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { ChatMessage } from '@trailertinder/shared';
+import type { ChatMessage } from '@cinemates/shared';
 
 const chatApi = {
   conversations: vi.fn(),
