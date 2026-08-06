@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bookmark, Heart, Maximize, Minimize, Volume2, VolumeOff, X } from '@lucide/vue';
+import { Heart, Maximize, Minimize, Volume2, VolumeOff, X } from '@lucide/vue';
 
 import { Button } from '../ui/button';
 import { ref } from 'vue';
@@ -10,7 +10,6 @@ defineEmits(['fullscreen-event']);
 const { isMuted, isFullscreen, toggleVolume } = useGlobalVideoPlayer();
 const isLiked = ref(false);
 const isDisliked = ref(false);
-const isSaved = ref(false);
 
 function toggleLike() {
   isLiked.value = !isLiked.value;
@@ -26,10 +25,6 @@ function toggleDislike() {
   if (isDisliked.value) {
     isLiked.value = false;
   }
-}
-
-function toggleSave() {
-  isSaved.value = !isSaved.value;
 }
 </script>
 
@@ -65,14 +60,6 @@ function toggleSave() {
         class="rounded-full size-11 md:size-11 flex items-center justify-center"
       >
         <X :class="[isDisliked ? 'text-blue-400 fill-blue-400' : '', 'size-5 md:size-6']" />
-      </Button>
-
-      <Button
-        @click="toggleSave"
-        variant="outline"
-        class="rounded-full size-11 md:size-11 flex items-center justify-center"
-      >
-        <Bookmark :class="[isSaved ? 'text-yellow-400 fill-yellow-400' : '', 'size-5 md:size-6']" />
       </Button>
     </div>
 
