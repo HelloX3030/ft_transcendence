@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import LegalFooter from '@/components/auth/LegalFooter.vue';
 
 const submitted = ref(false);
 const loading = ref(false);
@@ -85,10 +86,11 @@ const onSubmit = form.handleSubmit(async ({ email }) => {
         </form>
       </CardContent>
 
-      <CardFooter class="flex justify-center">
+      <CardFooter class="flex flex-col gap-2">
         <RouterLink to="/login" class="text-primary hover:underline text-sm">
           Back to login
         </RouterLink>
+        <LegalFooter />
       </CardFooter>
     </Card>
   </div>

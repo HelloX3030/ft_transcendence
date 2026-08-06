@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LegalFooter from '@/components/auth/LegalFooter.vue';
 import LoginForm from '@/components/auth/LoginForm.vue';
 import LoginHero from '@/components/auth/LoginHero.vue';
 import OtpForm from '@/components/auth/OtpForm.vue';
@@ -49,6 +50,7 @@ const { mfaRequired, errorMessage, otpVerifyLoading, login, verifyOtp, resetOtp 
             <p class="text-muted-foreground">Don't have an account?</p>
             <RouterLink to="/signup" class="text-primary hover:underline">Sign Up</RouterLink>
           </div>
+          <LegalFooter />
         </CardFooter>
       </Card>
     </section>

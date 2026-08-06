@@ -121,12 +121,12 @@ const router = createRouter({
     {
       path: '/terms',
       component: TermsView,
-      meta: { requiresAuth: false, title: 'Terms of Service' },
+      meta: { requiresAuth: false, hideLayout: true, title: 'Terms of Service' },
     },
     {
       path: '/privacy',
       component: PrivacyView,
-      meta: { requiresAuth: false, title: 'Privacy Policy' },
+      meta: { requiresAuth: false, hideLayout: true, title: 'Privacy Policy' },
     },
     {
       path: '/help',
