@@ -23,6 +23,7 @@ import { watchlistCreateDto, watchlistUpdateDto } from './dto';
 import { watchlistMovieDto } from './dto/movie.dto';
 import { JwtAccessPayload } from 'src/types';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
+import { WATCHLIST_NAME_MAX_LENGTH } from '@cinemates/shared';
 
 @ApiTags('Watchlists')
 @ApiBearerAuth()
@@ -57,7 +58,10 @@ export class WatchlistsController {
   @Post()
   @ApiOperation({ summary: 'Create a new watchlist' })
   @ApiResponse({ status: 201, description: 'Watchlist created successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({
+    status: 400,
+    description: `Name is blank or longer than ${WATCHLIST_NAME_MAX_LENGTH} characters.`,
+  })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiBody({
     schema: {
@@ -74,7 +78,10 @@ export class WatchlistsController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update watchlist' })
   @ApiResponse({ status: 200, description: 'Watchlist updated successfully' })
-  @ApiResponse({ status: 400, description: 'There is no data to update.' })
+  @ApiResponse({
+    status: 400,
+    description: `There is no data to update, or the name is blank or longer than ${WATCHLIST_NAME_MAX_LENGTH} characters.`,
+  })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiResponse({ status: 403, description: 'You have read-only access.' })
   @ApiResponse({ status: 404, description: 'Watchlists not found.' })

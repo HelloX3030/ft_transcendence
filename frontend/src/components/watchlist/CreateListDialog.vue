@@ -42,6 +42,7 @@ import type { TmdbMovie } from '@cinemates/shared';
 import { useEditorSelection } from '@/composables/watchlist/useEditorSelection';
 import EditorListBox from './EditorListBox.vue';
 import { logger } from '@/lib/logger';
+import { ApiError } from '@/api/api-error';
 
 const store = useMoviesStore();
 const watchlists = useWatchlistsStore();
@@ -49,7 +50,7 @@ const { selectedMovies, addMovie, removeMovie, isSelected } = useMovieSelection(
 const { selectedEditors } = useEditorSelection();
 const isOpen = ref(false);
 
-const { handleSubmit, resetForm } = useForm({
+const { handleSubmit, resetForm, isSubmitting } = useForm({
   validationSchema: toTypedSchema(createListSchema),
 });
 
@@ -78,7 +79,7 @@ const onSubmit = handleSubmit(async (values) => {
     watchlists.invalidate();
   } catch (error) {
     logger.error(error);
-    toast.error('Something went wrong');
+    toast.error(error instanceof ApiError ? error.message : 'Something went wrong');
   }
   isOpen.value = false;
 });
@@ -169,7 +170,7 @@ watch(isOpen, (open) => {
           <DialogClose as-child>
             <Button variant="outline" type="button"> Cancel </Button>
           </DialogClose>
-          <Button type="submit"> Create List </Button>
+          <Button type="submit" :disabled="isSubmitting"> Create List </Button>
         </DialogFooter>
       </form>
     </DialogContent>

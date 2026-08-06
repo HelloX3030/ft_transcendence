@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { WATCHLIST_NAME_MAX_LENGTH } from '@cinemates/shared';
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -57,9 +58,13 @@ export const resetPasswordSchema = z
     }
   });
 
-export const createListSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(50),
-});
-export const updateListSchema = z.object({
-  name: z.string().min(1).max(50).optional(),
-});
+// .trim() before .min(1) is what rejects a whitespace-only name, and it also
+// means the trimmed value is what gets submitted.
+const watchlistName = z
+  .string()
+  .trim()
+  .min(1, 'Name is required')
+  .max(WATCHLIST_NAME_MAX_LENGTH, `Name must be at most ${WATCHLIST_NAME_MAX_LENGTH} characters`);
+
+export const createListSchema = z.object({ name: watchlistName });
+export const updateListSchema = z.object({ name: watchlistName.optional() });
