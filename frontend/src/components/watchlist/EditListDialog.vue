@@ -29,6 +29,7 @@ import { useEditWatchlist } from '@/composables/watchlist/useEditWatchlist.ts';
 import EditorListBox from './EditorListBox.vue';
 import { toast } from 'vue-sonner';
 import { logger } from '@/lib/logger';
+import { ApiError } from '@/api/api-error';
 
 const props = defineProps<{
   name: string;
@@ -48,6 +49,7 @@ const {
   isSelected,
   selectedEditors,
   submit,
+  isSubmitting,
 } = useEditWatchlist({
   watchlistId: props.watchlistId,
   name: computed(() => props.name),
@@ -58,16 +60,21 @@ const {
 async function handleSubmit() {
   try {
     const result = await submit();
-    const failedCount = result?.failedCount ?? 0;
 
-    if (failedCount > 0) {
-      toast.error(`${failedCount} action(s) failed`);
+    // vee-validate resolves undefined without running the handler when the form
+    // is invalid. Falling through to the success branch is what made an
+    // over-long name report "Edit Successfully" while sending no request at all,
+    // and closing the dialog destroyed the FormMessage that said otherwise.
+    if (!result) return;
+
+    if (result.failedCount > 0) {
+      toast.error(`${result.failedCount} action(s) failed`);
     } else {
       toast.success('Edit Successfully');
     }
   } catch (error) {
     logger.error(error);
-    toast.error('Something went wrong');
+    toast.error(error instanceof ApiError ? error.message : 'Something went wrong');
   }
 
   isOpen.value = false;
@@ -152,10 +159,11 @@ watch(isOpen, async (open) => {
         </div>
         <EditorListBox v-model="selectedEditors" />
         <DialogFooter>
+          <!-- Cancel stays enabled: a stuck request must not trap the user. -->
           <DialogClose as-child>
             <Button variant="outline" type="button"> Cancel </Button>
           </DialogClose>
-          <Button type="submit"> Edit </Button>
+          <Button type="submit" :disabled="isSubmitting"> Edit </Button>
         </DialogFooter>
       </form>
     </DialogContent>

@@ -34,11 +34,16 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
 
   const selectedEditors = ref<number[]>([]);
 
-  const { handleSubmit, resetForm } = useForm({
+  const { handleSubmit, resetForm, isSubmitting } = useForm({
     validationSchema: toTypedSchema(updateListSchema),
+    // Without this the field is undefined until the user types, so "cleared the
+    // name" and "did not touch the name" are the same value.
+    initialValues: { name: name.value },
   });
 
   async function init() {
+    // The dialog is reused across opens, and reset() clears the form on close.
+    resetForm({ values: { name: name.value } });
     if (!moviesProp?.value) {
       await refetchMovies();
     }
@@ -93,15 +98,24 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
   }
 
   const submit = handleSubmit(async (values) => {
-    const [movieResults, editorResults] = await Promise.all([saveMovies(), saveEditors()]);
+    // Settled like the other two rather than a bare `await`: a rejected rename
+    // used to propagate past invalidate(), so a 403 on a read-only list reported
+    // "Something went wrong" over stale data while the movie changes had landed.
+    const rename =
+      values.name && values.name !== name.value
+        ? [watchlistApi.update(watchlistId, { name: values.name })]
+        : [];
+
+    const [movieResults, editorResults, renameResults] = await Promise.all([
+      saveMovies(),
+      saveEditors(),
+      Promise.allSettled(rename),
+    ]);
 
     const failedCount =
       movieResults.filter((r) => r.status === 'rejected').length +
-      editorResults.filter((r) => r.status === 'rejected').length;
-
-    if (values.name && values.name !== name.value) {
-      await watchlistApi.update(watchlistId, { name: values.name });
-    }
+      editorResults.filter((r) => r.status === 'rejected').length +
+      renameResults.filter((r) => r.status === 'rejected').length;
 
     // The backend excludes the actor from their own events, so nothing else
     // will. Invalidating here covers the overview, the detail page and the
@@ -119,6 +133,7 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
     isSelected,
     selectedEditors,
     submit,
+    isSubmitting,
     init,
     reset,
   };

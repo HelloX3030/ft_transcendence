@@ -5,7 +5,7 @@ import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp } from './utils/create-test-app.utils';
 import { checkCookies } from './utils';
-import { WatchlistResponse } from '@cinemates/shared';
+import { WATCHLIST_NAME_MAX_LENGTH, WatchlistResponse } from '@cinemates/shared';
 
 interface ApiResponse<T = unknown> {
   success: boolean;
@@ -117,6 +117,42 @@ describe('Watchlists (e2e)', () => {
 
     const invalidBody = invalidResponse.body as { error: string };
     expect(invalidBody.error).toBeDefined();
+  });
+
+  // The frontend rejects at the same length, so without these the effective
+  // contract would be decided entirely client-side.
+  describe('name validation', () => {
+    const tooLong = 'x'.repeat(WATCHLIST_NAME_MAX_LENGTH + 1);
+
+    it('rejects a name over the limit on create', async () => {
+      await ownerAgent.post('/watchlists').send({ name: tooLong }).expect(400);
+    });
+
+    it('rejects a whitespace-only name on create', async () => {
+      await ownerAgent.post('/watchlists').send({ name: '   ' }).expect(400);
+    });
+
+    it('stores a name trimmed', async () => {
+      const response = await ownerAgent
+        .post('/watchlists')
+        .send({ name: `  Trimmed ${runId}  ` })
+        .expect(201);
+
+      const body = response.body as ApiResponse<WatchlistResponse>;
+      expect(body.data?.name).toBe(`Trimmed ${runId}`);
+    });
+
+    it('rejects a name over the limit on update', async () => {
+      const created = await createWatchlist(ownerAgent, `Length Target ${runId}`);
+
+      await ownerAgent.patch(`/watchlists/${created.id}`).send({ name: tooLong }).expect(400);
+    });
+
+    it('rejects an empty update payload', async () => {
+      const created = await createWatchlist(ownerAgent, `Empty Target ${runId}`);
+
+      await ownerAgent.patch(`/watchlists/${created.id}`).send({}).expect(400);
+    });
   });
 
   it('adds, lists and removes movies in a watchlist', async () => {
