@@ -1,5 +1,6 @@
 import { ApiError } from './api-error';
 import { API_BASE, errorMessage, parseJson, refreshSession, unwrapEnvelope } from './http';
+import { notifySessionEnded } from '@/lib/session-signals';
 
 export async function backendClient<T>(
   path: string,
@@ -16,6 +17,9 @@ export async function backendClient<T>(
       await refreshSession();
       return backendClient<T>(path, options, true);
     } catch {
+      // The refresh failed too, so this is terminal rather than the routine
+      // access-token expiry the branch above absorbs.
+      notifySessionEnded();
       throw new ApiError(401, 'Not authenticated');
     }
   }
