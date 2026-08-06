@@ -13,6 +13,8 @@ services:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    environment:
+      APP_HOST: ${APP_HOST}
     depends_on:
       - frontend
       - backend
@@ -29,6 +31,9 @@ services:
     environment:
       - VITE_BACKEND_URL=${BACKEND_URL}
       - VITE_GOOGLE_ENABLED=${GOOGLE_ENABLED}
+      # Not VITE_-prefixed: this is read by vite.config.ts at startup for
+      # allowedHosts, never by the browser.
+      - APP_HOST=${APP_HOST}
     depends_on:
       - backend
     networks:
@@ -48,7 +53,7 @@ services:
       DATABASE_TEST_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_TEST_NAME}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      CORS_ORIGIN: ${CORS_ORIGIN}
+      APP_ORIGINS: ${APP_ORIGINS}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}

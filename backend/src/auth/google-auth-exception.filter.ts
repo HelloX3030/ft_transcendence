@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import type { Response as ExpressResponse } from 'express';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { GoogleAuthException } from './auth.service';
+import { requestOrigin } from 'src/config/origins';
 
 /**
  * Turns a failed Google login into a redirect rather than a JSON error.
@@ -15,8 +16,10 @@ import { GoogleAuthException } from './auth.service';
 @Catch(GoogleAuthException)
 export class GoogleAuthExceptionFilter implements ExceptionFilter {
   catch(exception: GoogleAuthException, host: ArgumentsHost) {
-    const res = host.switchToHttp().getResponse<ExpressResponse>();
-    const base = `${process.env.CORS_ORIGIN ?? ''}/auth/callback`;
+    const http = host.switchToHttp();
+    const res = http.getResponse<ExpressResponse>();
+    // Mid-flow, so the user lands back on the host they started from.
+    const base = `${requestOrigin(http.getRequest<ExpressRequest>())}/auth/callback`;
     // Only the mapped code travels: an upstream error string would land in the
     // URL bar, browser history and every proxy log on the way.
     res.redirect(`${base}?error=${exception.code}`);

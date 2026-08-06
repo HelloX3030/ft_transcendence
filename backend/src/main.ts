@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter } from './filter/http-exception.filter';
 import { PrismaExceptionFilter } from './filter/prisma-exception.filter';
+import { APP_ORIGINS } from './config/origins';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,7 +30,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalFilters(new PrismaExceptionFilter());
   app.enableCors({
-    origin: process.env.CORS_ORIGIN,
+    origin: APP_ORIGINS,
     credentials: true,
   });
   app.use(cookieParser());
