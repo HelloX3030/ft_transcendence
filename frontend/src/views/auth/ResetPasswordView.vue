@@ -19,6 +19,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useAuthStore } from '@/stores/auth';
+import LegalFooter from '@/components/auth/LegalFooter.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -149,10 +150,11 @@ const onSubmit = form.handleSubmit(async ({ password }) => {
         </form>
       </CardContent>
 
-      <CardFooter class="flex justify-center">
+      <CardFooter class="flex flex-col gap-2">
         <RouterLink to="/login" class="text-primary hover:underline text-sm">
           Back to login
         </RouterLink>
+        <LegalFooter />
       </CardFooter>
     </Card>
   </div>

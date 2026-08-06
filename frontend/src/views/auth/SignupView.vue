@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import LegalFooter from '@/components/auth/LegalFooter.vue';
 import LoginHero from '@/components/auth/LoginHero.vue';
 import SignupForm from '@/components/auth/SignupForm.vue';
 import { Separator } from '@/components/ui/separator';
@@ -31,9 +32,12 @@ import { RouterLink } from 'vue-router';
         <CardContent>
           <SignupForm />
         </CardContent>
-        <CardFooter class="flex justify-center gap-2">
-          <p class="text-muted-foreground">Already have an account?</p>
-          <RouterLink to="/login" class="text-primary hover:underline">Login</RouterLink>
+        <CardFooter class="flex flex-col gap-2">
+          <div class="flex items-center gap-2">
+            <p class="text-muted-foreground">Already have an account?</p>
+            <RouterLink to="/login" class="text-primary hover:underline">Login</RouterLink>
+          </div>
+          <LegalFooter />
         </CardFooter>
       </Card>
     </section>
