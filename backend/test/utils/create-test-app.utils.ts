@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from 'src/app.module';
 import { HttpExceptionFilter } from 'src/filter/http-exception.filter';
 import { PrismaExceptionFilter } from 'src/filter/prisma-exception.filter';
+import { APP_ORIGINS } from 'src/config/origins';
 
 /**
  * Boots the real app with the same pipes, filters and middleware as main.ts.
@@ -41,7 +42,7 @@ export async function createTestApp(
   app.useGlobalFilters(new PrismaExceptionFilter());
 
   app.enableCors({
-    origin: process.env.CORS_ORIGIN,
+    origin: APP_ORIGINS,
     credentials: true,
   });
 

@@ -22,6 +22,7 @@ import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import { apiResponse, LoginResponse } from '@cinemates/shared';
+import { CANONICAL_ORIGIN, requestOrigin } from 'src/config/origins';
 
 /** Long enough to read a code off a phone, short enough to be worth little if stolen. */
 const MFA_TOKEN_TTL = '5m';
@@ -453,7 +454,7 @@ export class AuthService {
       }),
     ]);
 
-    const link = `${process.env.CORS_ORIGIN ?? ''}/reset-password?token=${token}`;
+    const link = `${CANONICAL_ORIGIN}/reset-password?token=${token}`;
     this.mail.sendInBackground(
       user.email,
       'Reset your CineMates password',
@@ -646,7 +647,7 @@ export class AuthService {
     profile: GoogleProfile,
     res: ExpressResponse,
   ): Promise<void> {
-    const base = `${process.env.CORS_ORIGIN ?? ''}/auth/callback`;
+    const base = `${requestOrigin(req)}/auth/callback`;
 
     try {
       const { mfaRequired } = await this.googleLogin(req, profile, res);

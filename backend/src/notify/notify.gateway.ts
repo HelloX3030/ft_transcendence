@@ -26,6 +26,7 @@ import { ChatMsgDto } from 'src/chat/dto';
 import { ChatService, isMissingParticipant } from 'src/chat/chat.service';
 import { FriendUtils, UserUtils } from 'src/utils';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
+import { APP_ORIGINS } from 'src/config/origins';
 
 /** How often to look for sockets whose access token has run out. */
 const TOKEN_EXPIRY_SWEEP_MS = 60_000;
@@ -33,7 +34,7 @@ const TOKEN_EXPIRY_SWEEP_MS = 60_000;
 @WebSocketGateway({
   namespace: 'notify',
   cors: {
-    origin: process.env.CORS_ORIGIN,
+    origin: APP_ORIGINS,
     credentials: true,
   },
 })

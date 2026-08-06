@@ -26,7 +26,11 @@ export default defineConfig(({ mode }) => {
       host: true,
       port: 5173,
       watch: { usePolling: true },
-      allowedHosts: ['localhost'],
+      // The dev server sits behind Caddy, which is the only thing that can
+      // reach it — but Vite checks the forwarded Host, so every name Caddy
+      // answers to has to be listed here too. Keep the loopback names: APP_HOST
+      // adds a host, it does not replace one.
+      allowedHosts: ['localhost', '127.0.0.1', env.APP_HOST].filter(Boolean),
       // The HMR client connects from the browser, which only ever sees Caddy.
       // Left at its defaults it would try ws://localhost:5173 — a port that no
       // longer exists — and hot reload would silently die behind a mixed-content

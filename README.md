@@ -70,6 +70,22 @@ docker compose up --build
 
 `http://localhost:8080` redirects to HTTPS.
 
+### Opening the app from another device
+
+`localhost` is not a name for this server — it means *the machine currently asking*, so on a phone it resolves to the phone. Two variables in `.env` teach the stack a second name. Both **add** a name rather than replacing one: `https://localhost:8443` keeps working on the host machine at the same time.
+
+1. `APP_HOST` — the host Caddy and Vite also answer to. Find this machine's LAN address with `ip -4 route get 1.1.1.1 | awk '{print $7; exit}'` (macOS: `ipconfig getifaddr en0`) and put it here. Do not leave it blank: an empty value turns the site into a catch-all that serves every `Host`.
+2. `APP_ORIGINS` — the origins the backend accepts. **Add `https://<that address>:8443` here too**, or the notification socket is refused and chat, presence and live notifications go dead on that device while everything else looks healthy.
+
+Then `docker compose down && docker compose up` — all three read these at startup.
+
+Two things stay broken on a LAN address, by design:
+
+- **Google sign-in will not work.** `GOOGLE_CALLBACK_URL` has to be registered character-for-character in the Google console, and Google refuses private IP addresses as authorized redirect URIs. Set `GOOGLE_ENABLED=false` for a LAN demo so the button is hidden rather than broken. Email/password login is unaffected.
+- **The certificate warning still has to be accepted**, once per device. `tls internal` is an untrusted CA by construction.
+
+Password-reset mail links point at the first entry in `APP_ORIGINS`, i.e. `localhost`. Mailpit runs on the host machine anyway, which is where you would read them.
+
 On subsequent runs `--build` can be omitted — node modules live in named Docker volumes and are installed automatically on first container start.
 
 **Adding a package:**
@@ -182,6 +198,7 @@ docker compose up -d --force-recreate frontend backend
 | No "Continue with Google" button | `GOOGLE_ENABLED` is not `true`, or the frontend container was not restarted after the change. |
 | `503` from `/api/v1/auth/google` | The backend has no credentials — one of the three `GOOGLE_*` values is empty, or the backend was not restarted. |
 | Signed in at Google, then bounced back to login | The session cookie did not survive the redirect. Check that you reached the app over `https://localhost:8443` and not some other host or port. |
+| App loads on the phone, but chat and presence are dead | That device's origin is missing from `APP_ORIGINS`, so the socket handshake is rejected. Nothing in the UI says so. |
 
 ---
 

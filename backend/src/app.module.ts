@@ -30,7 +30,7 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         DATABASE_URL: Joi.string().required(),
         JWT_ACCESS_SECRET: Joi.string().min(32).required(),
         JWT_REFRESH_SECRET: Joi.string().min(32).required(),
-        CORS_ORIGIN: Joi.string().required(),
+        APP_ORIGINS: Joi.string().required(),
         MINIO_ENDPOINT: Joi.string().required(),
         MINIO_ACCESS_KEY: Joi.string().required(),
         MINIO_SECRET_KEY: Joi.string().required(),

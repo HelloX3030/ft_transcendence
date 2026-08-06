@@ -1,3 +1,18 @@
+# A browser asking for a bare IP address sends no SNI — an IP literal is not a
+# legal SNI value — so Caddy has nothing to select a certificate on and the
+# handshake fails outright rather than merely warning. This names the
+# certificate to fall back to, which has to be APP_HOST: it is the only name
+# here that can be an IP address.
+#
+# {$VAR:default} substitutes the default only when the variable is *unset*. A
+# .env that predates APP_HOST leaves it set-and-empty instead, and this line is
+# then what makes Caddy refuse to start, naming itself in the error — which is
+# the outcome to want, because the same empty value would otherwise turn the
+# site address below into a bare :8443 catch-all that quietly serves every Host.
+{
+	default_sni {$APP_HOST:127.0.0.1}
+}
+
 # Ports 443 and 80 are deliberately not used: the school machines run rootless
 # Docker, which refuses to publish anything below 1024, so a privileged port
 # makes `docker compose up` fail outright. 8443/8080 need no host configuration
@@ -7,11 +22,18 @@
 # behind this one host:port, so the self-signed certificate is accepted once —
 # under a cert-per-service layout the API calls, being issued by JavaScript
 # rather than navigation, would just be blocked silently.
-localhost:8443 {
+# A site address is a guest list Caddy checks the request's Host header against,
+# not an address it binds — so reaching the stack under a second name means
+# listing that name here. APP_HOST adds one; it does not replace the loopback
+# names, and setting it to a duplicate is harmless (Caddy dedupes). An empty
+# APP_HOST would make this a bare :8443 catch-all; see the global block above
+# for why that cannot get past startup.
+localhost:8443, {$APP_HOST:127.0.0.1}:8443 {
 	# Caddy generates and manages its own CA and leaf certificate. No openssl
 	# init script, no generated files to gitignore, and nothing to install on
 	# the host — mkcert would need admin rights and would not survive a
-	# reimaged school machine anyway.
+	# reimaged school machine anyway. One certificate per name, selected by
+	# SNI; see default_sni in the global options above for the bare-IP case.
 	tls internal
 
 	# Everything backend-side lives under one prefix, which is stripped:
@@ -34,6 +56,8 @@ localhost:8443 {
 # target from the site's hostname and omits the port whenever that port is the
 # configured HTTPS one, so it would send the browser to https://localhost —
 # port 443, where nothing is listening. Spell the redirect out instead.
-http://localhost:8080 {
-	redir https://localhost:8443{uri} permanent
+# {host} rather than a literal: the browser is sent back to whichever name it
+# used, so this needs no second copy of the host list.
+http://localhost:8080, http://{$APP_HOST:127.0.0.1}:8080 {
+	redir https://{host}:8443{uri} permanent
 }
