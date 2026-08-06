@@ -10,6 +10,7 @@ import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { useNotifyStore } from './notify';
 import { resetAllStores } from './plugins/resetPlugin';
+import { broadcastLogout } from '@/lib/session-signals';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
@@ -83,6 +84,11 @@ export const useAuthStore = defineStore('auth', () => {
       // a session that no longer exists.
     } finally {
       clearSession();
+      // Fires even when the request failed: the cookies are cleared client-side
+      // either way, so the other tabs are just as dead and must be told. Not in
+      // clearSession(), which the password-reset path also calls from a context
+      // that never had a session to end.
+      broadcastLogout();
     }
   }
 
