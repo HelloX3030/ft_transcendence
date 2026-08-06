@@ -1,6 +1,6 @@
 import { friendsApi } from '@/api/endpoints/friends';
 import { useUserDetails } from '@/composables/useUserDetails';
-import type { Friend } from '@trailertinder/shared';
+import type { Friend } from '@cinemates/shared';
 
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';

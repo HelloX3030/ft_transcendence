@@ -8,7 +8,7 @@ import { updateListSchema } from '@/lib/schemas';
 import { useWatchlistMovies } from '@/composables/watchlist/useWatchlistMovies';
 import { useWatchlist } from '@/composables/watchlist/useWatchlist';
 import { useWatchlistsStore } from '@/stores/watchlists';
-import type { WatchlistMovieResponse } from '@trailertinder/shared';
+import type { WatchlistMovieResponse } from '@cinemates/shared';
 
 export interface UseEditWatchlistDialogOptions {
   watchlistId: number;

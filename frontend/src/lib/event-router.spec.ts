@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DOMAIN_EVENT_TYPES } from '@trailertinder/shared';
+import { DOMAIN_EVENT_TYPES } from '@cinemates/shared';
 import { invalidationMap } from './event-router';
 
 function stubTargets() {

@@ -8,7 +8,7 @@
  * upload client would mean uploads mysteriously failing on expired sessions
  * while everything else quietly recovered.
  */
-import type { apiResponse } from '@trailertinder/shared';
+import type { apiResponse } from '@cinemates/shared';
 import { BACKEND_URL } from '@/lib/constants';
 
 /** Every backend route is versioned; callers pass the path below that prefix. */

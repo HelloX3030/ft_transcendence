@@ -6,7 +6,7 @@ import TestAgent from 'supertest/lib/agent';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ChatService } from 'src/chat/chat.service';
 import { createTestApp, getUserId, register } from './utils';
-import { apiResponse, ChatConversation, ChatMessage, ChatMessagePage } from '@trailertinder/shared';
+import { apiResponse, ChatConversation, ChatMessage, ChatMessagePage } from '@cinemates/shared';
 
 function user(name: string): RegisterDto {
   return {

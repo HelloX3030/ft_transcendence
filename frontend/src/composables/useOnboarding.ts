@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { TmdbMovie } from '@trailertinder/shared';
+import type { TmdbMovie } from '@cinemates/shared';
 
 export interface SelectedMovie {
   id: number;

@@ -1,4 +1,4 @@
-import type { Friend } from '@trailertinder/shared';
+import type { Friend } from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const friendsApi = {

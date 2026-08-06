@@ -6,7 +6,7 @@ import {
   TmdbGenre,
   TmdbMovieDetail,
   TmdbPerson,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';

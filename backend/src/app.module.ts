@@ -35,7 +35,6 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         MINIO_ACCESS_KEY: Joi.string().required(),
         MINIO_SECRET_KEY: Joi.string().required(),
         MINIO_BUCKET: Joi.string().required(),
-        APP_NAME: Joi.string().required(),
         MFA_KEY: Joi.string().length(64).hex().required(),
         TMDB_API_KEY: Joi.string().required(),
         REDIS_URL: Joi.string().required(),

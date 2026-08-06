@@ -5,7 +5,7 @@ import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp, register } from './utils';
 import { getUserId } from './utils';
-import { apiResponse, Friend } from '@trailertinder/shared';
+import { apiResponse, Friend } from '@cinemates/shared';
 
 const bobRegister: RegisterDto = {
   username: 'bob',

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ForgotPasswordRequest } from '@trailertinder/shared';
+import { ForgotPasswordRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 

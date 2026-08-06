@@ -4,7 +4,7 @@ import {
   TmdbGenre,
   TmdbMovie,
   TmdbPerson,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 
 export interface TmdbListResponse {
   page: number;

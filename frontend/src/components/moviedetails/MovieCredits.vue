@@ -1,6 +1,6 @@
 <!-- MovieCredits.vue -->
 <script setup lang="ts">
-import type { TmdbCastMember } from '@trailertinder/shared';
+import type { TmdbCastMember } from '@cinemates/shared';
 
 defineProps<{
   director: string;

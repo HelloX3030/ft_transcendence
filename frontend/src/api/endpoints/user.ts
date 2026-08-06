@@ -3,7 +3,7 @@ import type {
   UpdateUserRequest,
   UserMeResponse,
   UserSearchResponse,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 import { backendClient } from '../client';
 import { uploadWithProgress, type UploadOptions } from '../upload';
 

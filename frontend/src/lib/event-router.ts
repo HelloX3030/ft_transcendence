@@ -1,4 +1,4 @@
-import type { DomainEventType } from '@trailertinder/shared';
+import type { DomainEventType } from '@cinemates/shared';
 
 /**
  * The stores an event can invalidate. Passed in rather than imported so the

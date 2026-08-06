@@ -21,7 +21,7 @@ import {
 import { useFriendsStore } from '@/stores/friends';
 import { storeToRefs } from 'pinia';
 import UserAvatar from '../UserAvatar.vue';
-import type { GetUserResponse } from '@trailertinder/shared';
+import type { GetUserResponse } from '@cinemates/shared';
 import { useUserStore } from '@/stores/user';
 
 const selectedEditors = defineModel<number[]>();

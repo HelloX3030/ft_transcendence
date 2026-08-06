@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -399,11 +394,9 @@ describe('UsersService', () => {
 
     const TEST_KEY = 'a3f1c9d4b2e8f0c1d3a4b5c6e7f8091a2b3c4d5e6f7081920a1b2c3d4e5f6071';
     const originalKey = process.env.MFA_KEY;
-    const originalAppName = process.env.APP_NAME;
 
     beforeEach(() => {
       process.env.MFA_KEY = TEST_KEY;
-      process.env.APP_NAME = 'TrailerTinder';
       mockPrisma.users.findUnique.mockResolvedValue({
         username: 'testuser',
         totpActive: false,
@@ -414,8 +407,6 @@ describe('UsersService', () => {
     afterAll(() => {
       if (originalKey === undefined) delete process.env.MFA_KEY;
       else process.env.MFA_KEY = originalKey;
-      if (originalAppName === undefined) delete process.env.APP_NAME;
-      else process.env.APP_NAME = originalAppName;
     });
 
     it('returns a QR code', async () => {
@@ -448,11 +439,15 @@ describe('UsersService', () => {
       await expect(service.createTOTP(999)).rejects.toThrow(NotFoundException);
     });
 
-    it('throws when APP_NAME is not configured', async () => {
-      delete process.env.APP_NAME;
+    // The issuer is the name the authenticator app shows next to the code.
+    // Nothing asserted on it before, which is how a stale one survived here.
+    it('issues the TOTP under the app name', async () => {
+      const generateQRCode = jest.spyOn(service, 'generateQRCode');
 
-      await expect(service.createTOTP(1)).rejects.toThrow(InternalServerErrorException);
-      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+      await service.createTOTP(1);
+
+      const uri = new URL(generateQRCode.mock.calls[0][0]);
+      expect(uri.searchParams.get('issuer')).toBe('CineMates');
     });
 
     // The overwrite guard: a re-setup must not clobber an already-active secret.

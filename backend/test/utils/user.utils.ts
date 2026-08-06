@@ -1,6 +1,6 @@
 import { expect } from '@jest/globals';
 import TestAgent from 'supertest/lib/agent';
-import { apiResponse, UserMeResponse } from '@trailertinder/shared';
+import { apiResponse, UserMeResponse } from '@cinemates/shared';
 
 export async function getUserId(agent: TestAgent): Promise<number> {
   const body = (await agent.get('/users/me')).body as apiResponse<UserMeResponse>;

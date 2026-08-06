@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { language_code } from '@prisma/client';
-import { UpdateUserRequest } from '@trailertinder/shared';
+import { UpdateUserRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
 import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 

@@ -4,7 +4,7 @@ import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp, getUserId, register } from './utils';
-import { apiResponse, NotificationItem, NotificationPage } from '@trailertinder/shared';
+import { apiResponse, NotificationItem, NotificationPage } from '@cinemates/shared';
 
 const ninaRegister: RegisterDto = {
   username: 'nina',

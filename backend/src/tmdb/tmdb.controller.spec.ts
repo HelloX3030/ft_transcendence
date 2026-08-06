@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchQueryDto } from './dto/search-query.dto';
-import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@trailertinder/shared';
+import { PaginatedMovies, TmdbGenre, TmdbMovie } from '@cinemates/shared';
 import { successResponse } from 'src/utils';
 import { makeGenre, makeMovie, makeWatchProviders } from './tmdb.fixtures';
 import { TmdbThrottlerGuard } from './tmdb-throttler.guard';

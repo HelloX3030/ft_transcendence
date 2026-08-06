@@ -1,4 +1,4 @@
-# TrailerTinder — CLAUDE.md
+# CineMates — CLAUDE.md
 
 TikTok-style movie discovery app: users swipe through trailers to find films they want to watch, with social features and real-time group sessions.
 

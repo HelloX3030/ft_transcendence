@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { notification_type, notifications, Prisma } from '@prisma/client';
-import { NotificationItem, NotificationPage } from '@trailertinder/shared';
+import { NotificationItem, NotificationPage } from '@cinemates/shared';
 import { NotifyService } from 'src/notify/notify.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { decodeCursor, encodeCursor, olderThanCursor, successResponse } from 'src/utils';

@@ -1,4 +1,4 @@
-import { apiResponse } from '@trailertinder/shared';
+import { apiResponse } from '@cinemates/shared';
 
 export function successResponse<T>(
   data: T | null,

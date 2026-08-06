@@ -1,6 +1,6 @@
-# TrailerTinder — Produktvision
+# CineMates — Produktvision
 
-# Trailer Tinder — Produktvision
+# CineMates — Produktvision
 
 *Version 2.0 · Stand: April 2026 · Autor: Chris (Product Owner)Update zu v1: klare Trennung zwischen MVP-Scope und Post-MVP-Roadmap*
 

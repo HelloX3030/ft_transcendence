@@ -1,4 +1,4 @@
-import type { DomainEventType } from '@trailertinder/shared';
+import type { DomainEventType } from '@cinemates/shared';
 
 /**
  * Rendering lives here, not in the database.

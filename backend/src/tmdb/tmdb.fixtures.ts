@@ -1,4 +1,4 @@
-import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@trailertinder/shared';
+import { MovieWatchProviders, TmdbGenre, TmdbMovie, WatchProvider } from '@cinemates/shared';
 import {
   TmdbGenreListResponse,
   TmdbListResponse,

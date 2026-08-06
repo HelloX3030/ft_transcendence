@@ -21,7 +21,7 @@ import type { Response as ExpressResponse, Request as ExpressRequest } from 'exp
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
 import { verifyTOTP } from 'src/utils/otp.utils';
-import { apiResponse, LoginResponse } from '@trailertinder/shared';
+import { apiResponse, LoginResponse } from '@cinemates/shared';
 
 /** Long enough to read a code off a phone, short enough to be worth little if stolen. */
 const MFA_TOKEN_TTL = '5m';

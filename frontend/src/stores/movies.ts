@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import type { PaginatedMovies, TmdbMovie } from '@trailertinder/shared';
+import type { PaginatedMovies, TmdbMovie } from '@cinemates/shared';
 import { useSearchFilter } from '@/composables/useSearchFilter';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';

@@ -6,7 +6,7 @@ import type {
   WatchlistResponse,
   WatchlistRole,
   WatchlistUpdateRequest,
-} from '@trailertinder/shared';
+} from '@cinemates/shared';
 
 export const watchlistApi = {
   getById: (id: number) => backendClient<WatchlistResponse>(`/watchlists/${id}`),

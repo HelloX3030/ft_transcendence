@@ -1,5 +1,5 @@
 import { ref, watch, type Ref } from 'vue';
-import type { MovieWatchProviders, WatchProvider } from '@trailertinder/shared';
+import type { MovieWatchProviders, WatchProvider } from '@cinemates/shared';
 import { DEFAULT_REGION } from '@/lib/constants';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';

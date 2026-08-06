@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   // No TMDB key here: the backend proxies TMDB, and anything the browser needs
   // has to be VITE_-prefixed, which would publish the key in the bundle.
-  const required = ['VITE_APP_NAME', 'VITE_BACKEND_URL'];
+  const required = ['VITE_BACKEND_URL'];
   for (const key of required) {
     if (!env[key]) throw new Error(`Missing required env var: ${key}`);
   }

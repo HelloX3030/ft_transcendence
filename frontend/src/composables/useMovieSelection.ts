@@ -1,4 +1,4 @@
-import type { TmdbMovie, WatchlistMovieResponse } from '@trailertinder/shared';
+import type { TmdbMovie, WatchlistMovieResponse } from '@cinemates/shared';
 import { ref } from 'vue';
 
 interface SelectedMovie {

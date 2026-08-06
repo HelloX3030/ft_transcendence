@@ -1,6 +1,6 @@
 import { BadGatewayException, INestApplication, NotFoundException } from '@nestjs/common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from '@jest/globals';
-import { apiResponse, TmdbPerson } from '@trailertinder/shared';
+import { apiResponse, TmdbPerson } from '@cinemates/shared';
 import { RegisterDto } from 'src/auth/dto';
 import { RedisService } from 'src/redis/redis.service';
 import { TmdbClient } from 'src/tmdb/tmdb.client';

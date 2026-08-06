@@ -21,13 +21,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import {
-  ChatAck,
-  ChatMessage,
-  ChatReadEvent,
-  DomainEvent,
-  FriendsStatus,
-} from '@trailertinder/shared';
+import { ChatAck, ChatMessage, ChatReadEvent, DomainEvent, FriendsStatus } from '@cinemates/shared';
 import { ChatMsgDto } from 'src/chat/dto';
 import { ChatService, isMissingParticipant } from 'src/chat/chat.service';
 import { FriendUtils, UserUtils } from 'src/utils';

@@ -1,4 +1,4 @@
-export const APP_NAME = import.meta.env.VITE_APP_NAME;
+export { APP_NAME } from '@cinemates/shared';
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 /**

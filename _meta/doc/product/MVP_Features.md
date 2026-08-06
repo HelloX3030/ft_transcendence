@@ -1,6 +1,6 @@
 # MVP-Features
 
-# MVP Feature-Liste — Trailer Tinder
+# MVP Feature-Liste — CineMates
 
 *Stand: April 2026 · Final für MVP-Scope · Modulpunkte: 14 (Pflicht-Minimum)*
 

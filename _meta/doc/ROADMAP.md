@@ -1,4 +1,4 @@
-# TrailerTinder — Implementation Roadmap
+# CineMates — Implementation Roadmap
 
 ```
 Phase 0 — Foundation

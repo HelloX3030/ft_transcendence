@@ -3,7 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
 import { checkCookies, createTestApp, getUserId, login, logout, register } from './utils';
-import { apiResponse } from '@trailertinder/shared';
+import { apiResponse } from '@cinemates/shared';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 const mockUserRegister: RegisterDto = {

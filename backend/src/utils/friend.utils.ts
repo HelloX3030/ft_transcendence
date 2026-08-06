@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Friend } from '@trailertinder/shared';
+import { Friend } from '@cinemates/shared';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FriendKey } from 'src/types';
 

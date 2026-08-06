@@ -1,5 +1,5 @@
 import { userApi } from '@/api/endpoints/user';
-import type { UserSearchResponse } from '@trailertinder/shared';
+import type { UserSearchResponse } from '@cinemates/shared';
 import { ref } from 'vue';
 import { logger } from '@/lib/logger';
 
