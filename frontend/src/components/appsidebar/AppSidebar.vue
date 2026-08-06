@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/sidebar';
 import {
   BookHeart,
-  CircleQuestionMark,
   Clapperboard,
   FileText,
   LogOut,
@@ -60,7 +59,6 @@ async function handleLogout() {
 
     <SidebarFooter>
       <SidebarSeparator />
-      <AppSidebarItem title="Help" path="/help" :icon="CircleQuestionMark" />
       <AppSidebarItem title="Terms of Service" path="/terms" :icon="FileText" />
       <AppSidebarItem title="Privacy Policy" path="/privacy" :icon="Shield" />
       <SidebarMenuItem>
