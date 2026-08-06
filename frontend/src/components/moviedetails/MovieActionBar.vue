@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { Heart, X, Bookmark } from '@lucide/vue';
+import { Heart, X } from '@lucide/vue';
 import { ref } from 'vue';
 
 // Whether the movie has a playable trailer — drives the trailer button's state.
 defineProps<{ hasTrailer: boolean }>();
 
-//TODO: liked, disliked, saved in DB speichern und beim Laden der Seite abrufen
+//TODO: liked/disliked in DB speichern und beim Laden der Seite abrufen
 const isLiked = ref(false);
 const isDisliked = ref(false);
-const isSaved = ref(false);
 
 function toggleLike() {
   isLiked.value = !isLiked.value;
@@ -31,12 +30,6 @@ function toggleDislike() {
       </button>
       <button @click="toggleDislike">
         <X :class="isDisliked ? 'text-blue-400 fill-blue-400' : 'text-zinc-300'" class="size-5" />
-      </button>
-      <button @click="isSaved = !isSaved">
-        <Bookmark
-          :class="isSaved ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-300'"
-          class="size-5"
-        />
       </button>
     </div>
 
