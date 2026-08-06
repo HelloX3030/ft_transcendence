@@ -10,7 +10,6 @@ import HomeView from '@/views/HomeView.vue';
 import MovieDetailView from '@/views/MovieDetailView.vue';
 import TermsView from '@/views/TermsView.vue';
 import PrivacyView from '@/views/PrivacyView.vue';
-import HelpView from '@/views/HelpView.vue';
 
 import ChatView from '@/views/ChatView.vue';
 import FriendsView from '@/views/FriendsView.vue';
@@ -128,12 +127,6 @@ const router = createRouter({
       component: PrivacyView,
       meta: { requiresAuth: false, hideLayout: true, title: 'Privacy Policy' },
     },
-    {
-      path: '/help',
-      component: HelpView,
-      meta: { requiresAuth: true, title: 'Help' },
-    },
-
     {
       path: '/:pathMatch(.*)*',
       redirect: '/', //TODO: Or show 404 page
