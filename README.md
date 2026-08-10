@@ -139,46 +139,67 @@ Switching to real delivery is `SMTP_HOST`, `SMTP_PORT` and `MAIL_FROM` in `.env`
 
 **The app runs fine without this.** Leave the Google keys in `.env` empty and everything else works exactly as documented — the stack boots, and the "Continue with Google" button is simply hidden. A missing button is the expected state, not a failure.
 
-Google sign-in needs OAuth credentials that cannot be committed to a repository, so each person who wants to exercise it creates their own. It takes about five minutes.
+Google sign-in needs OAuth credentials that cannot be committed to a repository, so each person who wants to exercise it creates their own. It takes about five minutes, all of it in the Google Cloud Console — **nothing in this repository needs changing.**
 
-**1. Create a Google Cloud project**
+The console has been reorganised into a *Google Auth Platform* section; older guides still say *APIs & Services*. Both names are given below, and each step links straight to the page so there is nothing to hunt for.
 
-Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a project. Any Google account works — a personal one is fine.
+**Sign in with a personal Google account.** A school or work account may have project creation disabled by its administrator, or force every project to be organisation-internal — which surfaces much later as `org_internal` or `admin_policy_enforced` at the consent screen.
 
-**2. Configure the OAuth consent screen**
+**1. Create a project** → **https://console.cloud.google.com/projectcreate**
 
-Under *APIs & Services → OAuth consent screen*:
+Only **Project name** is required; leave location on "No organization". First visit asks for a country and the terms of service. Decline the billing/free-trial prompt if it appears — none of this costs anything.
 
-- User type: **External**
-- Fill in the app name and the required contact emails
-- Leave the publishing status on **Testing** — no verification review is needed
+Creation takes a few seconds and does not always switch the active project for you. The project picker sits in the top bar, right of the "Google Cloud" logo; make sure it shows the new project before continuing, because every page below is scoped to whichever project is selected.
 
-**3. Add yourself as a test user**
+**Do not enable any API.** The profile is read from Google's OIDC `userinfo` endpoint, which is not a gated API — there is no Drive, Calendar or People API to switch on here.
 
-Still on the consent screen, under **Test users**, add every Google account you intend to log in with (up to 100).
+**2. Configure the consent screen** → **https://console.cloud.google.com/auth/overview**
+<br>*(older layout: APIs & Services → OAuth consent screen)*
+
+The first visit is a short wizard:
+
+- **App name** — anything; this is what the consent screen shows the user
+- **User support email** — your own address
+- **Audience**: **External** — "Internal" is Workspace-only and would lock out every outside account
+- **Contact information** — your address again
+
+Leave the publishing status on **Testing**. Do not click *Publish app*: that starts a verification review this does not need.
+
+Ignore the **Data Access** / *Scopes* page entirely. `email` and `profile` are non-sensitive and are requested by the backend at runtime; they are not registered here.
+
+**3. Add yourself as a test user** → **https://console.cloud.google.com/auth/audience**
+
+Under **Test users** → **Add users**, add every Google account you intend to log in with (up to 100), then **Save**.
 
 > **Do not skip this.** An account that is not on the list is refused at Google's own consent screen with *"app has not completed the Google verification process"*. It looks like a bug in this app, but nothing here is involved — the request never reaches us.
 
-**4. Create the OAuth client**
+**4. Create the OAuth client** → **https://console.cloud.google.com/auth/clients**
+<br>*(older layout: APIs & Services → Credentials → Create credentials → OAuth client ID)*
 
-Under *APIs & Services → Credentials → Create credentials → OAuth client ID*:
+**Create client**, then:
 
-- Application type: **Web application**
-- Under **Authorized redirect URIs**, add exactly:
+- **Application type**: **Web application**
+- **Authorized redirect URIs** *(de: „Autorisierte Weiterleitungs-URIs")* → **Add URI**:
 
   ```
   https://localhost:8443/api/v1/auth/google/callback
   ```
 
-Google compares this string character for character against what the backend sends, so it has to match `GOOGLE_CALLBACK_URL` in `.env` precisely — no trailing slash, no `http`, no different port.
+- **Authorized JavaScript origins** *(de: „Autorisierte JavaScript-Quellen")* → leave **empty**
+
+> **The two fields are next to each other and only the second one is right.** JavaScript origins are for the browser-side implicit flow; this app does the code exchange on the server, so no browser origin is ever involved. A URI in the wrong field — or a URI typed but never saved — is what produces `redirect_uri_mismatch`, and the console gives no hint either way.
+
+Click **Save** at the bottom, then **reload the page and confirm the URI is still listed** — that is the only proof it was stored.
+
+Google compares this string character for character against what the backend sends, so it has to match `GOOGLE_CALLBACK_URL` in `.env` precisely: `https` not `http`, port `8443`, the `v1` in the path, no trailing slash.
 
 **5. Fill in `.env`**
 
-Copy the client ID and secret from the console:
+The client ID and secret appear once, on creation. **Copy the secret now** — it cannot be retrieved later, only regenerated.
 
 ```bash
-GOOGLE_CLIENT_ID=<from the console>
-GOOGLE_CLIENT_SECRET=<from the console>
+GOOGLE_CLIENT_ID=<from the console, ends in .apps.googleusercontent.com>
+GOOGLE_CLIENT_SECRET=<from the console, starts with GOCSPX->
 GOOGLE_CALLBACK_URL=https://localhost:8443/api/v1/auth/google/callback
 GOOGLE_ENABLED=true
 ```
@@ -189,14 +210,33 @@ GOOGLE_ENABLED=true
 docker compose up -d --force-recreate frontend backend
 ```
 
+**6. Verify before opening the browser**
+
+```bash
+curl -k -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://localhost:8443/api/v1/auth/google
+```
+
+A `302` to `accounts.google.com` means the backend is configured; `503` means it is not. This separates a backend problem from a console problem, which the error page in the browser does not.
+
+To see the exact string being sent — the one Google is comparing against your console entry:
+
+```bash
+curl -k -s -o /dev/null -D - https://localhost:8443/api/v1/auth/google \
+  | grep -i '^location:' | tr '&' '\n' | grep redirect_uri
+```
+
+Then open `https://localhost:8443` — reaching the app on that exact origin matters, since the session cookies are `sameSite: strict`.
+
 **Troubleshooting**
 
 | What you see | Cause |
 |---|---|
-| `redirect_uri_mismatch` at Google | The Authorized redirect URI in the console and `GOOGLE_CALLBACK_URL` differ. Compare them character by character. |
+| `redirect_uri_mismatch` at Google | Almost always the console side, not `.env`. In order: the URI went into *JavaScript origins* instead of *redirect URIs*; **Save** was never clicked; or it is on a different OAuth client than the one whose ID is in `.env` — the leading number of the client ID is the project number, so it must be edited in that project. Google's error page has a developer-details expander showing the `redirect_uri` it actually received; diff that against the console. |
+| `redirect_uri_mismatch` although the URI is definitely saved and correct | Propagation. Google's changes to redirect URIs are not always instant — wait a few minutes and retry in a fresh tab. |
 | "Access blocked" / "has not completed verification" | The Google account you are signing in with is not on the **Test users** list (step 3). |
 | No "Continue with Google" button | `GOOGLE_ENABLED` is not `true`, or the frontend container was not restarted after the change. |
 | `503` from `/api/v1/auth/google` | The backend has no credentials — one of the three `GOOGLE_*` values is empty, or the backend was not restarted. |
+| `invalid_client` at Google | The client secret is wrong, or was regenerated in the console without updating `.env`. |
 | Signed in at Google, then bounced back to login | The session cookie did not survive the redirect. Check that you reached the app over `https://localhost:8443` and not some other host or port. |
 | App loads on the phone, but chat and presence are dead | That device's origin is missing from `APP_ORIGINS`, so the socket handshake is rejected. Nothing in the UI says so. |
 
