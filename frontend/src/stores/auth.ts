@@ -10,7 +10,7 @@ import { authApi } from '@/api/endpoints/auth';
 import { useUserStore } from './user';
 import { useNotifyStore } from './notify';
 import { resetAllStores } from './plugins/resetPlugin';
-import { broadcastLogout } from '@/lib/session-signals';
+import { broadcastLogin, broadcastLogout } from '@/lib/session-signals';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
@@ -38,6 +38,15 @@ export const useAuthStore = defineStore('auth', () => {
     const userStore = useUserStore();
     await userStore.refetchUser();
     notify.init();
+    // Only the paths that *establish* a session run through here — a reload
+    // rebuilds its state in main.ts without it — so the other tabs are told
+    // exactly once, by the tab that changed what the browser holds. Announcing
+    // it on boot instead would have every corrected tab correct the others.
+    //
+    // Nothing to announce without an id: the refetch is what failed, and a tab
+    // that cannot say who it is has no business telling other tabs who they are.
+    const userId = userStore.state?.id;
+    if (userId !== undefined) broadcastLogin(userId);
   }
 
   // Second step of an MFA login. Takes the challenge token from login(), not the

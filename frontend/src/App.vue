@@ -6,10 +6,10 @@ import { Toaster } from '@/components/ui/sonner';
 
 import Header from './components/Header.vue';
 import AppSidebar from './components/appsidebar/AppSidebar.vue';
-import { useCrossTabLogout } from '@/composables/useCrossTabLogout';
+import { useCrossTabSession } from '@/composables/useCrossTabSession';
 
 const route = useRoute();
-useCrossTabLogout();
+useCrossTabSession();
 </script>
 
 <template>
