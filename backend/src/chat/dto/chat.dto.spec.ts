@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { ChatMsgDto, MESSAGE_MAX_LENGTH } from './chat.dto';
+import { MESSAGE_MAX_LENGTH } from '@cinemates/shared';
+import { ChatMsgDto } from './chat.dto';
 
 function validate(payload: Record<string, unknown>) {
   const dto = plainToInstance(ChatMsgDto, payload);

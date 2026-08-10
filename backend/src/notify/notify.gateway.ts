@@ -17,6 +17,7 @@ import {
   HttpException,
   Inject,
   Logger,
+  UseFilters,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -27,6 +28,7 @@ import { ChatService, isMissingParticipant } from 'src/chat/chat.service';
 import { FriendUtils, UserUtils } from 'src/utils';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
 import { APP_ORIGINS } from 'src/config/origins';
+import { WsAckExceptionFilter } from 'src/filter/ws-ack-exception.filter';
 
 /** How often to look for sockets whose access token has run out. */
 const TOKEN_EXPIRY_SWEEP_MS = 60_000;
@@ -45,6 +47,11 @@ const TOKEN_EXPIRY_SWEEP_MS = 60_000;
     transform: true,
   }),
 )
+// The pipe above rejects before the handler body, where the try/catch that turns
+// an error into an acknowledgement lives. Global filters do not reach a gateway,
+// so this one has to be declared here or a rejected payload is answered by
+// nothing at all.
+@UseFilters(new WsAckExceptionFilter())
 export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisconnect<Socket> {
   private readonly logger = new Logger(NotifyGateway.name);
 

@@ -13,6 +13,9 @@ const socket = {
   }),
   off: vi.fn((event: string) => handlers.delete(event)),
   emit: vi.fn(),
+  // socket.io returns the socket itself, so `.timeout(n).emit(...)` chains. The
+  // real one also changes the callback's shape, which the tests below rely on.
+  timeout: vi.fn(() => socket),
   connect: vi.fn(),
   disconnect: vi.fn(),
   removeAllListeners: vi.fn(() => handlers.clear()),
@@ -104,5 +107,59 @@ describe('notify store — connection status', () => {
     store.$reset();
 
     expect(store.connectionStatus).toBe('idle');
+  });
+});
+
+describe('notify store — sending a chat message', () => {
+  /** The acknowledgement callback the store handed to `emit`. */
+  function ackCallback(): (timeout: Error | null, ack?: unknown) => void {
+    const [, , callback] = socket.emit.mock.calls[0] as [string, unknown, Handler];
+    return callback;
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    handlers.clear();
+    vi.clearAllMocks();
+  });
+
+  it('resolves with the acknowledgement the server sent', async () => {
+    const message = {
+      id: 1,
+      peerUserId: 2,
+      senderUserId: 1,
+      body: 'hello',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const pending = useNotifyStore().sendChatMsg(2, 'hello', 'c-1');
+
+    ackCallback()(null, { ok: true, message });
+
+    await expect(pending).resolves.toEqual({ ok: true, message });
+  });
+
+  it('resolves with a failure rather than hanging when no acknowledgement arrives', async () => {
+    const pending = useNotifyStore().sendChatMsg(2, 'hello', 'c-1');
+
+    // What socket.io passes on a timeout, and on a disconnect with the send
+    // still in flight. Before the timeout was in place this promise simply never
+    // settled, and the message stayed optimistically rendered for good.
+    ackCallback()(new Error('operation has timed out'));
+
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: 'The message could not be sent. Please try again.',
+    });
+  });
+
+  it('treats an unrecognisable acknowledgement as a failure', async () => {
+    const pending = useNotifyStore().sendChatMsg(2, 'hello', 'c-1');
+
+    ackCallback()(null, { ok: true });
+
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: 'The server did not acknowledge the message.',
+    });
   });
 });

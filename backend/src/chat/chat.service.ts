@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { messages, Prisma } from '@prisma/client';
-import { ChatConversation, ChatMessage, ChatMessagePage } from '@cinemates/shared';
+import {
+  ChatConversation,
+  ChatMessage,
+  ChatMessagePage,
+  MESSAGE_MAX_LENGTH,
+} from '@cinemates/shared';
 import { NotifyService } from 'src/notify/notify.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { daysAgo, MESSAGE_RETENTION_DAYS } from 'src/retention.config';
@@ -19,7 +24,7 @@ import {
   olderThanCursor,
   successResponse,
 } from 'src/utils';
-import { ChatMsgDto, ListMessagesDto, MESSAGE_MAX_LENGTH } from './dto';
+import { ChatMsgDto, ListMessagesDto } from './dto';
 
 /** Newest message per conversation, as returned by the DISTINCT ON query. */
 type LastMessageRow = messages;
