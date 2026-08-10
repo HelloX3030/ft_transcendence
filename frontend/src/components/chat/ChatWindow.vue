@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { MESSAGE_MAX_LENGTH } from '@cinemates/shared';
 import { Send, ArrowLeft, ArrowDown, Dot } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,14 @@ const peerOnline = computed(() =>
 );
 
 const { inputMsg, sendMessage } = useSendMessage();
+
+/**
+ * Shown only once the limit is within reach. `maxlength` alone stops the typing
+ * and silently drops the tail of a paste, which is its own small mystery — this
+ * says what happened while there is still something to do about it.
+ */
+const HINT_REMAINING = 100;
+const remaining = computed(() => MESSAGE_MAX_LENGTH - inputMsg.value.length);
 
 const viewport = ref<HTMLElement | null>(null);
 const topSentinel = ref<HTMLElement | null>(null);
@@ -198,9 +207,21 @@ watch(
 
       <form
         @submit.prevent="sendMessage(activeChat)"
-        class="p-4 border-t sticky bottom-0 bg-background border-white/10 flex gap-2"
+        class="p-4 border-t sticky bottom-0 bg-background border-white/10 flex items-center gap-2"
       >
-        <Input v-model="inputMsg" placeholder="Type a message..." class="flex-1" />
+        <Input
+          v-model="inputMsg"
+          :maxlength="MESSAGE_MAX_LENGTH"
+          placeholder="Type a message..."
+          class="flex-1"
+        />
+        <span
+          v-if="remaining <= HINT_REMAINING"
+          class="text-xs tabular-nums"
+          :class="remaining === 0 ? 'text-destructive' : 'text-muted-foreground'"
+        >
+          {{ remaining }}
+        </span>
         <Button type="submit" size="icon">
           <Send />
         </Button>

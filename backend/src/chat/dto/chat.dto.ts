@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ChatMsgSend } from '@cinemates/shared';
+import { ChatMsgSend, MESSAGE_MAX_LENGTH } from '@cinemates/shared';
 import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
@@ -12,7 +12,6 @@ import {
   Min,
 } from 'class-validator';
 
-export const MESSAGE_MAX_LENGTH = 2000;
 export const MESSAGES_DEFAULT_LIMIT = 30;
 export const MESSAGES_MAX_LIMIT = 100;
 export const CLIENT_MSG_ID_MAX_LENGTH = 64;
@@ -29,8 +28,13 @@ export class ChatMsgDto implements ChatMsgSend {
   // is VarChar(2000), so an over-long body must fail here rather than at the DB.
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(MESSAGE_MAX_LENGTH)
+  // Both carry the same sentence the service throws, so the sender reads one
+  // wording whichever layer stopped the message — and never the field name,
+  // which is what class-validator's defaults would put in front of them.
+  @IsNotEmpty({ message: 'A message cannot be empty.' })
+  @MaxLength(MESSAGE_MAX_LENGTH, {
+    message: `A message cannot exceed ${MESSAGE_MAX_LENGTH} characters.`,
+  })
   msg!: string;
 
   @ApiProperty({ description: 'Client-generated id, echoed back so tabs can dedup.' })

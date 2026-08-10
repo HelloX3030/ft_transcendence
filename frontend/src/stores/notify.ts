@@ -30,6 +30,9 @@ export type ConnectionStatus = 'idle' | 'connecting' | 'online' | 'offline';
 /** Consecutive failed handshakes before `connecting` becomes `offline`. */
 const OFFLINE_AFTER_FAILED_ATTEMPTS = 5;
 
+/** How long a send waits for its acknowledgement before it counts as failed. */
+const ACK_TIMEOUT_MS = 10_000;
+
 export const useNotifyStore = defineStore('notify', () => {
   let isInit: boolean = false;
   // Presence of the signed-in user's accepted friends, keyed by user id. Seeded
@@ -247,16 +250,30 @@ export const useNotifyStore = defineStore('notify', () => {
    *
    * The ack is what lets a rejected send surface as a real error state instead
    * of a fabricated system message inside the transcript.
+   *
+   * Always resolves, never rejects, and always within the timeout. An emit
+   * without one hands socket.io a callback it may never call — a handler that
+   * throws before its body runs answers nothing, and a socket that drops mid-
+   * flight discards pending callbacks silently unless they were registered with
+   * a timeout, which is what `socket.timeout()` does. Either way the message
+   * would otherwise stay optimistically rendered forever, with no error and no
+   * way back.
    */
   function sendChatMsg(peerUserId: number, msg: string, clientMsgId: string): Promise<ChatAck> {
     return new Promise((resolve) => {
-      socket.emit('chat', { peerUserId, msg, clientMsgId }, (ack: unknown) => {
-        resolve(
-          isChatAck(ack)
-            ? ack
-            : { ok: false, error: 'The server did not acknowledge the message.' },
-        );
-      });
+      socket
+        .timeout(ACK_TIMEOUT_MS)
+        .emit('chat', { peerUserId, msg, clientMsgId }, (timeout: Error | null, ack: unknown) => {
+          if (timeout) {
+            resolve({ ok: false, error: 'The message could not be sent. Please try again.' });
+            return;
+          }
+          resolve(
+            isChatAck(ack)
+              ? ack
+              : { ok: false, error: 'The server did not acknowledge the message.' },
+          );
+        });
     });
   }
 
