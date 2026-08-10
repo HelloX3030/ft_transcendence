@@ -46,7 +46,7 @@ function channel(): FakeBroadcastChannel {
   return only;
 }
 
-describe('session signals — cross-tab logout', () => {
+describe('session signals — cross-tab session changes', () => {
   beforeEach(() => {
     FakeBroadcastChannel.instances = [];
     vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
@@ -62,36 +62,65 @@ describe('session signals — cross-tab logout', () => {
     broadcastLogout();
 
     expect(FakeBroadcastChannel.instances).toHaveLength(1);
-    expect(channel().posted).toEqual(['logout']);
+    expect(channel().posted).toEqual([{ type: 'logout' }]);
+  });
+
+  it('names the account a login belongs to, which is the whole point of it', async () => {
+    const { broadcastLogin } = await loadModule();
+
+    broadcastLogin(7);
+
+    expect(channel().posted).toEqual([{ type: 'login', userId: 7 }]);
   });
 
   it('runs the handler when another tab logs out', async () => {
-    const { onLogoutBroadcast } = await loadModule();
+    const { onAuthBroadcast } = await loadModule();
     const handler = vi.fn();
-    onLogoutBroadcast(handler);
+    onAuthBroadcast(handler);
 
-    channel().deliver('logout');
+    channel().deliver({ type: 'logout' });
 
-    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler).toHaveBeenCalledWith({ type: 'logout' });
+  });
+
+  it('runs the handler when another tab logs in', async () => {
+    const { onAuthBroadcast } = await loadModule();
+    const handler = vi.fn();
+    onAuthBroadcast(handler);
+
+    channel().deliver({ type: 'login', userId: 7 });
+
+    expect(handler).toHaveBeenCalledWith({ type: 'login', userId: 7 });
   });
 
   it('ignores an unrelated message on the channel', async () => {
-    const { onLogoutBroadcast } = await loadModule();
+    const { onAuthBroadcast } = await loadModule();
     const handler = vi.fn();
-    onLogoutBroadcast(handler);
+    onAuthBroadcast(handler);
 
     channel().deliver('something-else');
 
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('stops delivering after the returned cleanup runs', async () => {
-    const { onLogoutBroadcast } = await loadModule();
+  // A tab left over from an older deploy still posts to the same channel.
+  it('ignores a login that names no account', async () => {
+    const { onAuthBroadcast } = await loadModule();
     const handler = vi.fn();
-    const stop = onLogoutBroadcast(handler);
+    onAuthBroadcast(handler);
+
+    channel().deliver({ type: 'login' });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('stops delivering after the returned cleanup runs', async () => {
+    const { onAuthBroadcast } = await loadModule();
+    const handler = vi.fn();
+    const stop = onAuthBroadcast(handler);
 
     stop();
-    channel().deliver('logout');
+    channel().deliver({ type: 'logout' });
 
     expect(handler).not.toHaveBeenCalled();
   });
@@ -99,11 +128,12 @@ describe('session signals — cross-tab logout', () => {
   // Safari below 15.4, and the node environment these tests run in.
   it('degrades quietly when BroadcastChannel is unavailable', async () => {
     vi.stubGlobal('BroadcastChannel', undefined);
-    const { broadcastLogout, onLogoutBroadcast } = await loadModule();
+    const { broadcastLogin, broadcastLogout, onAuthBroadcast } = await loadModule();
     const handler = vi.fn();
 
     expect(() => broadcastLogout()).not.toThrow();
-    expect(() => onLogoutBroadcast(handler)()).not.toThrow();
+    expect(() => broadcastLogin(7)).not.toThrow();
+    expect(() => onAuthBroadcast(handler)()).not.toThrow();
     expect(handler).not.toHaveBeenCalled();
   });
 });
