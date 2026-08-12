@@ -1,4 +1,7 @@
 node_modules/
+# The recommender runs on a bind mount, so the interpreter writes its bytecode
+# cache back into the repository.
+__pycache__/
 secrets/*.txt
 notes.md
 .env
