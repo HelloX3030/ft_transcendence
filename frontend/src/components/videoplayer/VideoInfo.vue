@@ -2,14 +2,14 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useGenresStore } from '@/stores/genres';
-import type { Provider } from '@/lib/test.ts';
+import type { WatchProvider } from '@cinemates/shared';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PropsType {
   title: string;
   genreIds: number[];
-  providers: Provider[];
+  providers: WatchProvider[];
   releaseDate: string;
   showGenres?: boolean;
 }
@@ -50,17 +50,17 @@ const genreNames = computed(() =>
 
         <template v-if="providers.length">
           <span class="text-white/40 pointer-events-none">·</span>
-          <TooltipProvider v-for="provider in providers" :key="provider.name">
+          <TooltipProvider v-for="provider in providers" :key="provider.provider_id">
             <Tooltip>
               <TooltipTrigger>
                 <img
-                  :src="`https://image.tmdb.org/t/p/w45${provider.logoPath}`"
-                  :alt="provider.name"
+                  :src="`https://image.tmdb.org/t/p/w45${provider.logo_path}`"
+                  :alt="provider.provider_name"
                   class="w-8 h-8 rounded-md"
                 />
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p class="text-sm tracking-wide">{{ provider.name }}</p>
+                <p class="text-sm tracking-wide">{{ provider.provider_name }}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

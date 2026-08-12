@@ -3,7 +3,7 @@ import { useTemplateRef, toRef, watch } from 'vue';
 import { useGlobalVideoPlayer, useVideoPlayer } from '@/composables/useVideoPlayer';
 import VideoInfo from './VideoInfo.vue';
 import Controls from './Controls.vue';
-import type { Provider } from '@/lib/test.ts';
+import type { WatchProvider } from '@cinemates/shared';
 
 const props = defineProps<{
   title: string;
@@ -11,7 +11,7 @@ const props = defineProps<{
   videoId: string;
   active: boolean;
   genreIds: number[];
-  providers: Provider[];
+  providers: WatchProvider[];
   releaseDate: string;
   showGenres?: boolean;
 }>();
