@@ -1,4 +1,12 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { TmdbMovieDetail } from '@cinemates/shared';
+import { TmdbService } from 'src/tmdb/tmdb.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -58,6 +66,46 @@ const mockStorage = {
   getObject: jest.fn(),
 } satisfies Partial<jest.Mocked<StorageService>>;
 
+const mockTmdb = {
+  getMovieDetail: jest.fn(),
+} satisfies Partial<jest.Mocked<TmdbService>>;
+
+// Onboarding limits are read in the constructor, so they must be set before the
+// testing module is compiled.
+process.env.ONBOARDING_MAX_GENRES = '5';
+process.env.ONBOARDING_MAX_ACTORS = '4';
+process.env.ONBOARDING_MAX_DIRECTORS = '3';
+
+/** Every pick shares genre 28; movies 1 and 2 share actor 777, nothing else recurs. */
+function movieDetail(id: number): TmdbMovieDetail {
+  return {
+    id,
+    title: `Movie ${id}`,
+    original_title: `Movie ${id}`,
+    overview: '',
+    poster_path: null,
+    backdrop_path: null,
+    release_date: '2024-01-01',
+    vote_average: 7,
+    vote_count: 100,
+    popularity: 1,
+    original_language: 'en',
+    adult: false,
+    video: false,
+    genres: [{ id: 28, name: 'Action' }],
+    runtime: 120,
+    tagline: '',
+    credits: {
+      cast: [{ id: id <= 2 ? 777 : id, name: 'Actor', character: '', profile_path: null }],
+      crew: [
+        { id, name: 'Director', job: 'Director', department: 'Directing', profile_path: null },
+      ],
+    },
+    trailerKey: 'key',
+    similar: [],
+  };
+}
+
 describe('UsersService', () => {
   let service: UsersService;
 
@@ -67,6 +115,7 @@ describe('UsersService', () => {
         UsersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: StorageService, useValue: mockStorage },
+        { provide: TmdbService, useValue: mockTmdb },
       ],
     }).compile();
 
@@ -103,36 +152,120 @@ describe('UsersService', () => {
 
   describe('completeOnboarding', () => {
     const dto = { movieIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] };
+    const onboarded = { ...mockUser, onboardingCompleted: true };
 
-    it('stamps preferences and returns the profile on first onboarding', async () => {
-      const onboarded = { ...mockUser, onboardingCompleted: true };
+    /** The pre-read sees an un-onboarded user; the read-back returns the result. */
+    function readsThen(final: unknown) {
+      mockPrisma.users.findUnique
+        .mockResolvedValueOnce({ onboardingCompleted: false })
+        .mockResolvedValueOnce(final);
+    }
+
+    beforeEach(() => {
+      mockTmdb.getMovieDetail.mockImplementation((id: number) =>
+        Promise.resolve({ data: movieDetail(id) }),
+      );
+    });
+
+    it('writes the derived preferences and returns the profile', async () => {
+      readsThen(onboarded);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.users.findUnique.mockResolvedValue(onboarded);
 
       const result = await service.completeOnboarding(1, dto);
 
       expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
         where: { id: 1, onboardingCompleted: false },
-        data: expect.objectContaining({ onboardingCompleted: true }) as object,
+        data: expect.objectContaining({
+          onboardingCompleted: true,
+          // Every fixture carries genre 28; only the first two share an actor.
+          genreIds: [28],
+          actorIds: [777],
+          directorIds: [],
+        }) as object,
       });
       expect(result.data).toEqual(onboarded);
     });
 
-    it('throws ConflictException and leaves preferences untouched on a repeat call', async () => {
-      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
-      mockPrisma.users.findUnique.mockResolvedValue({
-        ...mockUser,
-        onboardingCompleted: true,
-      });
+    it('derives from one detail call per picked movie', async () => {
+      readsThen(onboarded);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.completeOnboarding(1, dto);
+
+      expect(mockTmdb.getMovieDetail).toHaveBeenCalledTimes(dto.movieIds.length);
+    });
+
+    // Derivation costs ten TMDB calls; a repeat submission must not pay them.
+    it('rejects a repeat call without touching TMDB', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ onboardingCompleted: true });
 
       await expect(service.completeOnboarding(1, dto)).rejects.toThrow(ConflictException);
+      expect(mockTmdb.getMovieDetail).not.toHaveBeenCalled();
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when the user no longer exists', async () => {
-      mockPrisma.users.updateMany.mockResolvedValue({ count: 0 });
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
       await expect(service.completeOnboarding(999, dto)).rejects.toThrow(NotFoundException);
+    });
+
+    // The ids come from our own browse UI seconds earlier, so a 404 means TMDB
+    // retired the entry — deriving from the rest beats failing a signup.
+    it('drops a movie TMDB no longer knows and completes on the rest', async () => {
+      readsThen(onboarded);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+      mockTmdb.getMovieDetail.mockImplementation((id: number) =>
+        id === 3
+          ? Promise.reject(new NotFoundException('TMDB resource not found'))
+          : Promise.resolve({ data: movieDetail(id) }),
+      );
+
+      await expect(service.completeOnboarding(1, dto)).resolves.toBeDefined();
+      expect(mockPrisma.users.updateMany).toHaveBeenCalled();
+    });
+
+    // Onboarding is written once and can never be re-run, so a partial profile
+    // would be permanent. Asserted on the mock: nothing may reach the database.
+    it('aborts on a TMDB outage without writing anything', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ onboardingCompleted: false });
+      mockTmdb.getMovieDetail.mockRejectedValue(new BadGatewayException('TMDB is unreachable'));
+
+      await expect(service.completeOnboarding(1, dto)).rejects.toThrow(BadGatewayException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('aborts when not a single pick resolves', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue({ onboardingCompleted: false });
+      mockTmdb.getMovieDetail.mockRejectedValue(new NotFoundException('TMDB resource not found'));
+
+      await expect(service.completeOnboarding(1, dto)).rejects.toThrow(ServiceUnavailableException);
+      expect(mockPrisma.users.updateMany).not.toHaveBeenCalled();
+    });
+
+    // The shipped configuration withholds actors and directors; the derivation
+    // still runs in full, and only what is stored changes.
+    it('honours a zero limit from the environment', async () => {
+      process.env.ONBOARDING_MAX_ACTORS = '0';
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          UsersService,
+          { provide: PrismaService, useValue: mockPrisma },
+          { provide: StorageService, useValue: mockStorage },
+          { provide: TmdbService, useValue: mockTmdb },
+        ],
+      }).compile();
+      const withoutActors = module.get<UsersService>(UsersService);
+      readsThen(onboarded);
+      mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
+
+      await withoutActors.completeOnboarding(1, dto);
+
+      expect(mockPrisma.users.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, onboardingCompleted: false },
+        data: expect.objectContaining({ genreIds: [28], actorIds: [] }) as object,
+      });
+      process.env.ONBOARDING_MAX_ACTORS = '4';
     });
   });
 

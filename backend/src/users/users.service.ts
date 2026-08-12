@@ -6,17 +6,26 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import * as crypto from 'crypto';
-import { ALLOWED_IMAGE_LABEL, detectImageType, encryptSecret, successResponse } from 'src/utils';
+import {
+  ALLOWED_IMAGE_LABEL,
+  detectImageType,
+  encryptSecret,
+  mapWithConcurrency,
+  successResponse,
+} from 'src/utils';
+import { TmdbService } from 'src/tmdb/tmdb.service';
+import { derivePreferences, OnboardingLimits } from './onboarding-preferences';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import QRCode from 'qrcode';
 import * as OTPAuth from 'otpauth';
 import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
-import { APP_NAME } from '@cinemates/shared';
+import { APP_NAME, TmdbMovieDetail } from '@cinemates/shared';
 
 /** `files.original_name` is VarChar(255) and the value is client-supplied. */
 const MAX_ORIGINAL_NAME_LENGTH = 255;
@@ -35,13 +44,9 @@ export const ME_SELECT = {
   totpActive: true,
 } as const;
 
-// TODO: replace with real preference extraction derived from the movies the user
-// picked during onboarding (feeding the recommendation algorithm). For now we stamp
-// deterministic mock values so the frontend can be built against a realistic /me
-// response. The genre ids are real TMDB ids so they resolve to names in the UI.
-const MOCK_ONBOARDING_GENRE_IDS = [28, 12, 878, 18, 53];
-const MOCK_ONBOARDING_ACTOR_IDS = [500, 287, 1245, 6193];
-const MOCK_ONBOARDING_DIRECTOR_IDS = [525, 138, 1032];
+// Ten detail calls per onboarding, most of them Redis hits since the user browsed
+// these films moments earlier. Matches ENRICH_CONCURRENCY in MoviesService.
+const ONBOARDING_CONCURRENCY = 8;
 
 export const PUBLIC_SELECT = {
   id: true,
@@ -53,10 +58,21 @@ export const PUBLIC_SELECT = {
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
+  // Read here rather than at module scope: ConfigModule's validation runs at
+  // bootstrap, and module-scope reads happen at import time — before it.
+  private readonly limits: OnboardingLimits;
+
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
-  ) {}
+    private tmdb: TmdbService,
+  ) {
+    this.limits = {
+      genres: Number(process.env.ONBOARDING_MAX_GENRES),
+      actors: Number(process.env.ONBOARDING_MAX_ACTORS),
+      directors: Number(process.env.ONBOARDING_MAX_DIRECTORS),
+    };
+  }
 
   async getMe(userId: number) {
     const user = await this.prisma.users.findUnique({
@@ -68,21 +84,32 @@ export class UsersService {
   }
 
   async completeOnboarding(userId: number, dto: OnboardingDto) {
-    // dto.movieIds is accepted and validated now; deriving real preferences from it
-    // is a TODO. For now we mark onboarding done and stamp mock preferences.
+    // Cheap fail-fast: derivation costs ten TMDB calls, and a repeat submission
+    // should not pay them. The guarded updateMany below is still what decides —
+    // two concurrent calls would both pass this read.
+    const existing = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: { onboardingCompleted: true },
+    });
+    if (existing === null) throw new NotFoundException('User not found');
+    if (existing.onboardingCompleted) throw new ConflictException('Onboarding already completed');
+
+    const movies = await this.fetchPickedMovies(dto.movieIds);
+    const preferences = derivePreferences(movies, this.limits);
     this.logger.debug(
-      `Onboarding user ${userId} with ${dto.movieIds.length} movies — applying mock preferences`,
+      `Onboarding user ${userId} from ${movies.length} movies — ` +
+        `${preferences.genreIds.length} genres, ${preferences.actorIds.length} actors, ` +
+        `${preferences.directorIds.length} directors`,
     );
+
     // Guarded on `onboardingCompleted: false` so a repeat call cannot re-stamp the
-    // preference arrays — once real preference extraction exists, whatever it wrote
-    // must never be clobbered from this path.
+    // preference arrays — what the derivation wrote must never be clobbered from
+    // this path.
     const { count } = await this.prisma.users.updateMany({
       where: { id: userId, onboardingCompleted: false },
       data: {
         onboardingCompleted: true,
-        genreIds: MOCK_ONBOARDING_GENRE_IDS,
-        actorIds: MOCK_ONBOARDING_ACTOR_IDS,
-        directorIds: MOCK_ONBOARDING_DIRECTOR_IDS,
+        ...preferences,
       },
     });
 
@@ -96,6 +123,33 @@ export class UsersService {
     if (count === 0) throw new ConflictException('Onboarding already completed');
 
     return successResponse(user);
+  }
+
+  /** Details for the picked movies. A retired id is dropped; an outage is not. */
+  private async fetchPickedMovies(tmdbIds: number[]): Promise<TmdbMovieDetail[]> {
+    const results = await mapWithConcurrency(tmdbIds, ONBOARDING_CONCURRENCY, async (id) => {
+      try {
+        return (await this.tmdb.getMovieDetail(id)).data;
+      } catch (error) {
+        // One id TMDB no longer knows about: derive from the other nine rather
+        // than failing a signup. Anything else is an outage and must abort,
+        // because onboarding is written once and can never be re-run — a partial
+        // or empty profile would be permanent.
+        if (error instanceof NotFoundException) {
+          this.logger.warn(`Skipping unresolvable TMDB movie ${id} during onboarding`);
+          return null;
+        }
+        throw error;
+      }
+    });
+
+    const movies = results.filter((movie): movie is TmdbMovieDetail => movie != null);
+    if (movies.length === 0) {
+      throw new ServiceUnavailableException(
+        'Could not read your picks from TMDB. Please try again.',
+      );
+    }
+    return movies;
   }
 
   async updateMe(userId: number, dto: UpdateUserDto) {

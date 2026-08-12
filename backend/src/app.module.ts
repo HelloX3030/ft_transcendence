@@ -44,6 +44,13 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         TMDB_RATE_LIMIT: Joi.number().integer().min(1).required(),
         TMDB_RATE_WINDOW_SECONDS: Joi.number().positive().required(),
         RECOMMENDER_URL: Joi.string().uri().required(),
+        // How much of the derived onboarding profile is handed to the
+        // recommendation service. min(0), not min(1): zero is the meaningful
+        // value — it withholds a dimension whose Discover filter is currently
+        // over-constrained, and the derivation still computes it either way.
+        ONBOARDING_MAX_GENRES: Joi.number().integer().min(0).required(),
+        ONBOARDING_MAX_ACTORS: Joi.number().integer().min(0).required(),
+        ONBOARDING_MAX_DIRECTORS: Joi.number().integer().min(0).required(),
         REDIS_URL: Joi.string().required(),
         // Optional on purpose. `.required()` would mean a checkout without
         // Google credentials fails to boot — every developer, CI, and any
