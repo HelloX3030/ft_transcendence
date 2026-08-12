@@ -1,10 +1,11 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 
 /**
- * Paces outbound TMDB requests so this backend stays inside the per-key rate
- * limit no matter what the cache is doing — a cold cache, a Redis outage (every
- * request becomes a miss) or a burst of traffic can't turn into upstream 429s,
- * which would degrade the shared API key for every user at once.
+ * Paces outbound TMDB requests so this backend stays inside the rate limit no
+ * matter what the cache is doing — a cold cache, a Redis outage (every request
+ * becomes a miss) or a burst of traffic can't turn into upstream 429s, which
+ * TMDB applies per IP and so would degrade the app for every user at once.
+ * The capacity and window are configured in tmdb.client.ts.
  *
  * Implemented as GCRA (a leaky bucket expressed as a single timestamp): `tat` is
  * the moment the bucket would run dry. Callers arriving before

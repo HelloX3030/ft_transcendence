@@ -1,4 +1,4 @@
-import { Body, Controller, Param, ParseIntPipe, Post, Request } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Request } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -11,6 +11,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import type { Request as ExpressRequest } from 'express';
 import { SKIP_AUTH_THROTTLE } from 'src/throttle.config';
 import { JwtAccessPayload } from 'src/types';
+import { FeedQueryDto } from './dto/feed-query.dto';
 import { ratingDto } from './dto/rating.dto';
 import { MoviesService } from './movies.service';
 
@@ -22,6 +23,17 @@ import { MoviesService } from './movies.service';
 @Controller('movies')
 export class MoviesController {
   constructor(private readonly moviesService: MoviesService) {}
+
+  @Get('feed')
+  @ApiOperation({ summary: 'Personalised trailer feed for the current user' })
+  @ApiResponse({ status: 200, description: 'Playable trailer cards, best first' })
+  @ApiResponse({ status: 400, description: 'limit is out of range' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  @ApiResponse({ status: 503, description: 'Recommendations are temporarily unavailable' })
+  getFeed(@Query() dto: FeedQueryDto, @Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.moviesService.getFeed(user.sub, dto.limit);
+  }
 
   @Post(':tmdbId/rating')
   @ApiOperation({ summary: 'React to a trailer. A reaction is permanent and cannot be changed.' })

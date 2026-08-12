@@ -7,7 +7,7 @@ import {
   TmdbMovieDetail,
   TmdbPerson,
 } from '@cinemates/shared';
-import { successResponse } from 'src/utils';
+import { mapWithConcurrency, successResponse } from 'src/utils';
 import { RedisService } from '../redis/redis.service';
 import { filterMovies, MIN_VOTE_AVERAGE, MIN_VOTE_COUNT } from './movie-filter';
 import { TmdbClient } from './tmdb.client';
@@ -29,9 +29,10 @@ const GENRES_CACHE_TTL_SECONDS = 86_400;
 // A person's name/photo changes very rarely, so cache each one for a week.
 const PERSON_CACHE_TTL_SECONDS = 604_800;
 
-// TMDB rate-limits at roughly 50 requests per 10s per key, and a people lookup
-// can ask for up to MAX_IDS ids at once. On a cold cache those would all fan out
-// simultaneously, so they run through a fixed-size worker pool instead.
+// A people lookup can ask for up to MAX_IDS ids at once. On a cold cache those
+// would all fan out simultaneously, so they run through a fixed-size worker pool
+// instead — well under the per-IP connection ceiling TMDB's CDN is reported to
+// apply (the request budget itself lives in tmdb.client.ts).
 const PERSON_CONCURRENCY = 5;
 
 // Inputs for the discover feed. Structurally matched by DiscoverQueryDto, so the
@@ -48,28 +49,6 @@ export interface DiscoverFilters {
 
 // Picks the single trailer key to embed: the first official YouTube trailer,
 // then any YouTube trailer, then a YouTube teaser, else null (no trailer).
-// Runs `fn` over `items` with at most `limit` in flight at once, preserving
-// input order in the result. A rejection propagates (the first one wins) exactly
-// like Promise.all; the workers still in flight simply finish and are discarded.
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      results[index] = await fn(items[index]);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-}
-
 function pickTrailerKey(videos: TmdbVideo[]): string | null {
   const youtube = videos.filter((v) => v.site === 'YouTube');
   const trailer =

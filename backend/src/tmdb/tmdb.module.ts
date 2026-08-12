@@ -9,5 +9,7 @@ import { TmdbService } from './tmdb.service';
 @Module({
   controllers: [TmdbController],
   providers: [TmdbClient, TmdbService, TmdbThrottlerGuard],
+  // MoviesModule enriches recommended ids into playable feed cards.
+  exports: [TmdbService],
 })
 export class TmdbModule {}

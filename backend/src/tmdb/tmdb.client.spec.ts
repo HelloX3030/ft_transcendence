@@ -5,6 +5,8 @@ import { makeMovie } from './tmdb.fixtures';
 import { TmdbClient } from './tmdb.client';
 
 process.env.TMDB_API_KEY = 'test-api-key';
+process.env.TMDB_RATE_LIMIT = '20';
+process.env.TMDB_RATE_WINDOW_SECONDS = '1';
 
 const mockMovies: TmdbMovie[] = [makeMovie()];
 
@@ -32,6 +34,16 @@ describe('TmdbClient', () => {
 
   it('should be defined', () => {
     expect(client).toBeDefined();
+  });
+
+  // The ceiling has to come from the environment, or turning it down during an
+  // incident would need a rebuild. Read through the derived interval, since that
+  // is what actually paces the requests: 1000ms / 20 requests.
+  it('builds its budget from TMDB_RATE_LIMIT and TMDB_RATE_WINDOW_SECONDS', () => {
+    const budget = client['budget'];
+
+    expect(budget['emissionIntervalMs']).toBe(50);
+    expect(budget['burstToleranceMs']).toBe(19 * 50);
   });
 
   describe('get', () => {
