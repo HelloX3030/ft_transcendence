@@ -76,6 +76,10 @@ Required for:
 | Hosting / deployment | TBD | Open |
 | PWA | TBD | Open |
 
+### Recommendation service
+
+A separate Python/FastAPI service (`recommender/`), owned by the algorithm team and run unmodified. It listens on `:8000` on the internal network only — no published port and no Caddy route, because it carries full database credentials and authenticates nothing itself. It shares the Postgres database with the backend, reading `ratings`/`movies`/`users` and writing only `users.feature_vector`. The HTTP contract is documented in [`recommender/recommendation/INTEGRATION.md`](../../recommender/recommendation/INTEGRATION.md).
+
 ## Dev Setup
 
 ```

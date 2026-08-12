@@ -82,6 +82,53 @@ services:
       - web
       - db
 
+  # The recommendation engine (Python/FastAPI), owned by the algorithm team and merged
+  # in unmodified. It reads ratings/movies/users straight from Postgres and writes only
+  # users.feature_vector, which is its column alone (see
+  # recommender/recommendation/INTEGRATION.md).
+  #
+  # No published port and no Caddy route, deliberately: it holds full database
+  # credentials, has no authentication of its own, and its /retrain endpoint does not
+  # verify the secret it accepts. Being unreachable from the host is what protects it.
+  recommender:
+    build: ./recommender
+    # Same shape as backend/frontend: the image is only a runtime, the code is mounted,
+    # dependencies install at start. --reload gives the algorithm team the edit-and-see-it
+    # loop the node services already have.
+    command: sh -c "pip install -q -r recommendation/requirements.txt && uvicorn recommendation.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./recommender:/app
+      # Not a volume on site-packages, the way node_modules is cached: site-packages holds
+      # pip itself, so an empty volume there shadows pip and the install cannot run.
+      # Caching the wheel downloads instead turns a ~60s reinstall into ~10s.
+      - recommender_pip_cache:/root/.cache/pip
+    environment:
+      # The same database the backend uses, composed the same way.
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      # Absent, the service serves a fixed 10-movie stub pool instead of real candidates.
+      TMDB_API_KEY: ${TMDB_API_KEY}
+    healthcheck:
+      # python:3.11-slim ships no curl and the interpreter is already here.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # The first boot installs numpy/scipy/scikit-learn before uvicorn binds. Without
+      # this the container is reported unhealthy during a normal cold start.
+      start_period: 120s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - web
+      - db
+
   redis:
     image: redis:7-alpine
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -171,3 +218,4 @@ volumes:
   minio_data:
   frontend_node_modules:
   backend_node_modules:
+  recommender_pip_cache:

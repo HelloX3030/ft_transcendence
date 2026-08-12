@@ -64,7 +64,7 @@ docker compose up --build
 
 > **Expect one certificate warning.** The app is served over HTTPS with a self-signed certificate that Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate authority installed into the machine's trust store, neither of which belongs in a project you clone and run.
 >
-> Everything the browser talks to is behind `https://localhost:8443`. Ports `5173`, `3000` and `9000` are deliberately not published — if they were reachable, the plain-HTTP path would still exist. pgAdmin (`5050`), Postgres (`5432`) and the MinIO console (`9001`) stay exposed on purpose: they are developer tools, not part of the web application.
+> Everything the browser talks to is behind `https://localhost:8443`. Ports `5173`, `3000` and `9000` are deliberately not published — if they were reachable, the plain-HTTP path would still exist. The recommendation service on `8000` is unpublished for a stronger reason: it holds full database credentials and has no authentication of its own, so being unreachable from the host is what protects it. pgAdmin (`5050`), Postgres (`5432`) and the MinIO console (`9001`) stay exposed on purpose: they are developer tools, not part of the web application.
 >
 > **Why `:8443` and not `:443`?** The school machines run rootless Docker, which refuses to publish ports below 1024 — on `443` the stack fails to start at all. `8443` needs no host configuration and behaves identically.
 
