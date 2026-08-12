@@ -43,6 +43,7 @@ watch(isFullscreen, (fullscreen) => {
       <CarouselItem v-for="(trailer, index) in popular" :key="trailer.key" class="h-full">
         <VideoPlayer
           :title="trailer.title"
+          :tmdb-id="trailer.id"
           :video-id="trailer.key"
           :active="currentIndex === index"
           :genre-ids="trailer.genre_ids"

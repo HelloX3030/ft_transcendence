@@ -41,6 +41,7 @@ function handleMouseMove() {
 
     <VideoPlayer
       :title="movie.title"
+      :tmdbId="movie.id"
       :videoId="movie.trailerKey ?? ''"
       :active="true"
       :genreIds="movie.genres.map((g) => g.id)"
