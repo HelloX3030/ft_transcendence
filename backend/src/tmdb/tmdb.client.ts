@@ -5,18 +5,27 @@ import { TmdbListResponse } from './tmdb.types';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TIMEOUT_MS = 5000;
 
-// TMDB allows roughly 50 requests per 10s per API key, shared by every user of
-// this backend. We hold ourselves below that so the ceiling is one we enforce
-// (and can observe) rather than one TMDB enforces on us with 429s. Callers wait
-// up to BUDGET_MAX_WAIT_MS for capacity, then get a 503.
-const BUDGET_CAPACITY = 40;
-const BUDGET_WINDOW_MS = 10_000;
+// The ceiling below is one we impose on ourselves, so it can be observed here
+// rather than arriving as 429s from TMDB. TMDB's own limit is soft: they retired
+// the published 40-per-10s figure in December 2019 and now describe an upper
+// bound "in the 40 requests per second range", enforced per IP and liable to
+// change at any time. That is why the two numbers live in the environment
+// (TMDB_RATE_LIMIT, TMDB_RATE_WINDOW_SECONDS) — turning them down needs no
+// rebuild. Callers wait up to BUDGET_MAX_WAIT_MS for capacity, then get a 503.
 const BUDGET_MAX_WAIT_MS = 2000;
 
 @Injectable()
 export class TmdbClient {
   private readonly logger = new Logger(TmdbClient.name);
-  private readonly budget = new TmdbBudget(BUDGET_CAPACITY, BUDGET_WINDOW_MS, BUDGET_MAX_WAIT_MS);
+  private readonly budget: TmdbBudget;
+
+  constructor() {
+    this.budget = new TmdbBudget(
+      Number(process.env.TMDB_RATE_LIMIT),
+      Number(process.env.TMDB_RATE_WINDOW_SECONDS) * 1000,
+      BUDGET_MAX_WAIT_MS,
+    );
+  }
 
   async get<T = TmdbListResponse>(path: string): Promise<T> {
     // Every outbound TMDB call passes through here, so the budget is enforced

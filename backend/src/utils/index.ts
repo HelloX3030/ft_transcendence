@@ -6,3 +6,4 @@ export * from './image.utils';
 export * from './user.utils';
 export * from './friend.utils';
 export * from './cursor.utils';
+export * from './concurrency.utils';

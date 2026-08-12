@@ -37,6 +37,13 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         MINIO_BUCKET: Joi.string().required(),
         MFA_KEY: Joi.string().length(64).hex().required(),
         TMDB_API_KEY: Joi.string().required(),
+        // The ceiling we hold ourselves to on outbound TMDB traffic, and the
+        // window it is measured over. Required rather than defaulted: compose
+        // interpolates an unset ${VAR} to an empty string, which Joi.number()
+        // rejects instead of falling back — so a default would fail confusingly.
+        TMDB_RATE_LIMIT: Joi.number().integer().min(1).required(),
+        TMDB_RATE_WINDOW_SECONDS: Joi.number().positive().required(),
+        RECOMMENDER_URL: Joi.string().uri().required(),
         REDIS_URL: Joi.string().required(),
         // Optional on purpose. `.required()` would mean a checkout without
         // Google credentials fails to boot — every developer, CI, and any
