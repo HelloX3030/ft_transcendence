@@ -12,7 +12,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Clapperboard } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { watchOnce } from '@vueuse/core';
 import { useGlobalVideoPlayer } from '@/composables/useVideoPlayer';
 import { useWatchProviders } from '@/composables/useWatchProviders';
 import { useDelayedLoading } from '@/composables/useDelayedLoading';
@@ -41,14 +40,32 @@ const setApi = (val: CarouselApi) => {
 const activeTmdbId = computed(() => cards.value[currentIndex.value]?.tmdbId);
 const { providers } = useWatchProviders(activeTmdbId);
 
-watchOnce(api, (api) => {
-  if (!api) return;
+// watch, not watchOnce: the carousel is unmounted whenever the feed has no cards
+// (first load, logout) and emits a fresh api when it comes back. Wiring only the
+// first one leaves currentIndex frozen at 0 — no active card, no provider
+// lookup, no end-of-feed refetch.
+watch(api, (embla) => {
+  if (!embla) return;
 
-  currentIndex.value = api.selectedScrollSnap();
-  api.on('select', () => {
-    currentIndex.value = api.selectedScrollSnap();
+  currentIndex.value = embla.selectedScrollSnap();
+  embla.on('select', () => {
+    currentIndex.value = embla.selectedScrollSnap();
   });
 });
+
+// Embla measures its slides when it initialises. A first load mounts the
+// carousel with its cards already present, but cards appended later — and the
+// end-of-feed slide — are invisible to it until it re-measures.
+watch(
+  () => cards.value.length + (exhausted.value || status.value === 'error' ? 1 : 0),
+  (count, previous) => {
+    if (previous > 0 && count > previous) {
+      // Preserve the position: loadMore fires while the user sits on the last
+      // card, and a silent jump back to the top would be worse than not loading.
+      api.value?.reInit({ startIndex: currentIndex.value });
+    }
+  },
+);
 
 // Fires on the last card, not one earlier: with no pagination a refetch is a
 // full recommender round-trip plus enrichment, and prefetching would pay it for
@@ -67,22 +84,21 @@ watch(isFullscreen, (fullscreen) => {
 </script>
 
 <template>
-  <div v-if="showLoading && cards.length === 0" class="h-full flex items-center justify-center">
-    <Spinner class="size-8" />
-  </div>
-
-  <div
-    v-else-if="status === 'error' && cards.length === 0"
-    class="h-full flex items-center justify-center"
-  >
-    <ErrorState message="Couldn't load your feed." @retry="feed.load()" />
-  </div>
-
-  <div
-    v-else-if="status === 'ready' && cards.length === 0"
-    class="h-full flex items-center justify-center"
-  >
-    <EmptyState message="No trailers to show right now." :icon="Clapperboard" />
+  <!-- One branch for "no cards", so the carousel is never mounted empty: embla
+       measures its slides at init, and an empty init would leave it unaware of
+       every card that arrived afterwards. -->
+  <div v-if="cards.length === 0" class="h-full flex items-center justify-center">
+    <Spinner v-if="showLoading" class="size-8" />
+    <ErrorState
+      v-else-if="status === 'error'"
+      message="Couldn't load your feed."
+      @retry="feed.load()"
+    />
+    <EmptyState
+      v-else-if="status === 'ready'"
+      message="No trailers to show right now."
+      :icon="Clapperboard"
+    />
   </div>
 
   <Carousel
