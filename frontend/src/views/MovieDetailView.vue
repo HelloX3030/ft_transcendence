@@ -93,7 +93,7 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
       <TrailerModal
         v-if="showTrailer && movie.trailerKey"
         :movie="movie"
-        :providers="[]"
+        :providers="providers"
         @close="showTrailer = false"
       />
     </div>

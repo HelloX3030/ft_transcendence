@@ -3,12 +3,11 @@ import { ref } from 'vue';
 import { ArrowLeft } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/videoplayer/VideoPlayer.vue';
-import type { TmdbMovieDetail } from '@cinemates/shared';
-import type { Provider } from '@/lib/test';
+import type { TmdbMovieDetail, WatchProvider } from '@cinemates/shared';
 
 defineProps<{
   movie: TmdbMovieDetail;
-  providers: Provider[];
+  providers: WatchProvider[];
 }>();
 
 const emit = defineEmits<{
