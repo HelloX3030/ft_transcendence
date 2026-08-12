@@ -4,4 +4,5 @@ export * from "./users.ts";
 export * from "./watchlists.ts";
 export * from "./friends.ts";
 export * from "./tmdb.ts";
+export * from "./movies.ts";
 export * from "./notify.ts";

@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -12,6 +11,7 @@ import { watchlistCreateDto, watchlistUpdateDto } from './dto';
 import { notification_type, Prisma, watchlist_role, watchlists } from '@prisma/client';
 import { watchlistMovieDto } from './dto/movie.dto';
 import { successResponse, UserUtils } from 'src/utils';
+import { MovieUtils } from 'src/utils/movie.utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 import { NotificationsService } from 'src/notifications/notifications.service';
 
@@ -42,12 +42,11 @@ export const WATCHLIST_SELECT = {
 
 @Injectable()
 export class WatchlistsService {
-  private readonly logger = new Logger(WatchlistsService.name);
-
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private userUtils: UserUtils,
+    private movieUtils: MovieUtils,
   ) {}
 
   // -------------------------
@@ -193,25 +192,7 @@ export class WatchlistsService {
 
   async addMovie(id: number, dto: watchlistMovieDto, currentUserId: number) {
     const watchlistUser = await this.checkUserAccess(id, currentUserId);
-    let movie = await this.prisma.movies.findUnique({
-      where: {
-        tmdbId: dto.tmdbId,
-      },
-    });
-    if (movie === null) {
-      const meta = await this.getMovieMeta(dto.tmdbId);
-      // upsert (not create) so a concurrent first-add of the same tmdbId that
-      // won the race is reused instead of hitting the unique constraint.
-      movie = await this.prisma.movies.upsert({
-        where: { tmdbId: dto.tmdbId },
-        create: {
-          tmdbId: dto.tmdbId,
-          name: meta.name,
-          posterPath: meta.posterPath,
-        },
-        update: {},
-      });
-    }
+    const movie = await this.movieUtils.ensureMovie(dto.tmdbId);
 
     try {
       await this.prisma.watchlist_movies.create({
@@ -466,40 +447,6 @@ export class WatchlistsService {
 
   extractEditorIds(watchlistUsers: { userId: number }[]): number[] {
     return watchlistUsers.map(({ userId }) => userId);
-  }
-
-  async getMovieMeta(tmdbId: number): Promise<{ name: string; posterPath: string | null }> {
-    const url = 'https://api.themoviedb.org/3/movie/' + tmdbId;
-    const options = {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
-      },
-    };
-
-    try {
-      const res = await fetch(url, options);
-      if (!res.ok) throw new Error(`TMDB API error: ${res.status}`);
-      const json: unknown = (await res.json()) as unknown;
-
-      if (
-        typeof json !== 'object' ||
-        json === null ||
-        !('original_title' in json) ||
-        typeof json.original_title !== 'string'
-      ) {
-        throw new Error('Invalid TMDB API response.');
-      }
-
-      const posterPath =
-        'poster_path' in json && typeof json.poster_path === 'string' ? json.poster_path : null;
-
-      return { name: json.original_title, posterPath };
-    } catch (error) {
-      this.logger.error('Failed to fetch movie details from TMDB', error as Error);
-      throw new InternalServerErrorException();
-    }
   }
 
   async notifyMembers(

@@ -7,6 +7,7 @@ import type { Provider } from '@/lib/test.ts';
 
 const props = defineProps<{
   title: string;
+  tmdbId: number;
   videoId: string;
   active: boolean;
   genreIds: number[];
@@ -49,7 +50,7 @@ watch(isMuted, (muted) => {
 <template>
   <div ref="video-container" class="h-full relative overflow-hidden" @mousemove="handleMouseMove">
     <div class="absolute inset-0 z-10" @click="togglePlay" />
-    <Controls v-show="showInfo" @fullscreen-event="toggleFullscreen" />
+    <Controls v-show="showInfo" :tmdb-id="tmdbId" @fullscreen-event="toggleFullscreen" />
     <VideoInfo
       v-show="showInfo"
       :title="title"
