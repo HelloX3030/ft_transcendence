@@ -53,6 +53,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 409, description: 'Onboarding already completed' })
+  @ApiResponse({ status: 503, description: 'Could not read your picks from TMDB' })
   completeOnboarding(@Request() req: ExpressRequest, @Body() dto: OnboardingDto) {
     const user = req.user as JwtAccessPayload;
     return this.usersService.completeOnboarding(user.sub, dto);
