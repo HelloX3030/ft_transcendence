@@ -45,7 +45,20 @@ onMounted(() => {
   if (status.value === 'idle' || cards.value.length === 0) void feed.load();
 });
 
-const showLoading = useDelayedLoading(computed(() => status.value === 'loading'));
+// immediate: the store outlives the component, so a remount can land on a load
+// that is already running. Without it there is no transition left for the
+// watcher to see and the first screen stays blank until the request returns.
+const showLoading = useDelayedLoading(
+  computed(() => status.value === 'loading'),
+  { immediate: true },
+);
+
+// Reaching the end refetches, and that is a recommender round trip plus TMDB
+// enrichment for every card — seconds, spent on the card the user is already
+// sitting on. Nothing marked it as busy, so the feed simply looked stuck.
+const showLoadingMore = useDelayedLoading(
+  computed(() => status.value === 'loading' && cards.value.length > 0),
+);
 
 const currentIndex = ref(0);
 const api = ref<CarouselApi>();
@@ -162,5 +175,17 @@ watch(isFullscreen, (fullscreen) => {
         </div>
       </CarouselItem>
     </CarouselContent>
+
+    <!-- Pinned to the viewport rather than given a slide of its own: loadMore
+         fires while the user is on the last card, so a spinner they would have
+         to scroll onto is a spinner they never see. -->
+    <div
+      v-if="showLoadingMore"
+      class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30"
+      role="status"
+      aria-label="Loading more trailers"
+    >
+      <Spinner class="size-6" />
+    </div>
   </Carousel>
 </template>
