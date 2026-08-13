@@ -17,6 +17,9 @@ const props = defineProps<{
 }>();
 
 const container = useTemplateRef<HTMLElement>('video-container');
+// YouTube replaces this node with its iframe, so it is handed over directly
+// rather than looked up by id.
+const playerHost = useTemplateRef<HTMLElement>('player-host');
 
 // Playback follows `active` and the global mute setting from inside the
 // composable: both have to wait for the YouTube embed to report itself ready,
@@ -25,6 +28,7 @@ const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlay
   props.videoId,
   toRef(props, 'active'),
   container,
+  playerHost,
 );
 </script>
 
@@ -40,6 +44,6 @@ const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlay
       :release-date="releaseDate"
       :show-genres="showGenres"
     />
-    <div :id="`player-${videoId}`" class="w-full h-full lg:scale-y-125 scale-y-150" />
+    <div ref="player-host" class="w-full h-full lg:scale-y-125 scale-y-150" />
   </div>
 </template>

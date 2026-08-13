@@ -17,6 +17,7 @@ export function useVideoPlayer(
   videoId: string,
   activeRef: Ref<boolean>,
   containerRef: Ref<HTMLElement | null>,
+  hostRef: Ref<HTMLElement | null>,
 ) {
   const player = ref<YT.Player>();
   const isPlaying = ref(false);
@@ -52,7 +53,11 @@ export function useVideoPlayer(
   // YouTube Init
   function initPlayer() {
     const init = () => {
-      player.value = new window.YT.Player(`player-${videoId}`, {
+      // The element itself, not an id. The id used to be built from the trailer
+      // key, which is not unique across the feed — two cards sharing a trailer
+      // put two nodes under one id and YouTube took over whichever came first.
+      if (!hostRef.value) return;
+      player.value = new window.YT.Player(hostRef.value, {
         videoId,
         playerVars: {
           controls: 0,
