@@ -62,17 +62,25 @@ const setApi = (val: CarouselApi) => {
 };
 
 /**
- * How many cards either side of the active one keep a mounted player.
+ * How many cards around the active one keep a mounted player.
  *
  * Every VideoPlayer builds a YouTube iframe embed on mount, and the feed is
- * twenty cards long — mounting them all meant twenty concurrent embeds on first
- * paint and another twenty after each loadMore. One either side is enough for
- * the next swipe to start playing immediately, since the neighbour has already
- * loaded by the time it becomes active.
+ * twenty cards long, so mounting them all is not an option — but one either
+ * side gave the next card only a single dwell to load in. An embed needs a
+ * second or more, a feed is swiped in a few hundred milliseconds, so the card
+ * being landed on was routinely still loading and showed nothing.
+ *
+ * Asymmetric because a feed is watched forwards: cards behind the active one
+ * are kept only so a correction swipe finds a live player, while the budget
+ * for lookahead goes where the user is actually heading.
  */
-const PLAYER_WINDOW = 1;
+const PLAYERS_AHEAD = 2;
+const PLAYERS_BEHIND = 1;
 
-const isMounted = (index: number) => Math.abs(index - currentIndex.value) <= PLAYER_WINDOW;
+const isMounted = (index: number) => {
+  const offset = index - currentIndex.value;
+  return offset >= -PLAYERS_BEHIND && offset <= PLAYERS_AHEAD;
+};
 
 // One TMDB call per card actually watched, rather than per card loaded — which
 // is why the feed payload carries no providers.
