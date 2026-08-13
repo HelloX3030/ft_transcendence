@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, watch, type Ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, type Ref } from 'vue';
 
 const isMuted = ref(true);
 const isFullscreen = ref(false);
@@ -25,6 +25,10 @@ export function useVideoPlayer(
   // destroy…) only exist once the embed has loaded and onReady has fired.
   // Calling one before that throws, so every caller waits on this.
   const isReady = ref(false);
+  // Set once the component is gone. An embed that finishes loading after that
+  // has no card left to play on, and destroy() was unavailable while it was
+  // still loading — so the teardown is deferred to onReady instead.
+  let disposed = false;
   let hideTimer: ReturnType<typeof setTimeout>;
 
   /** Play or pause to match `activeRef`. No-op until the embed is ready. */
@@ -58,7 +62,13 @@ export function useVideoPlayer(
           origin: window.location.origin, //TODO: use env for url
         },
         events: {
-          onReady: () => {
+          onReady: (event) => {
+            // Swiped past while it was still loading. event.target rather than
+            // player.value, which the unmount already cleared.
+            if (disposed) {
+              event.target.destroy();
+              return;
+            }
             isReady.value = true;
             // The card may have been swiped onto, or the sound toggled, during
             // the seconds the embed took to load. Apply the state as it is now
@@ -149,11 +159,16 @@ export function useVideoPlayer(
       window.addEventListener('orientationchange', handleOrientationChange);
     }
   });
-  onUnmounted(() => {
+  // onBeforeUnmount, not onUnmounted: destroy() has to run while the iframe is
+  // still in the document. Vue has already detached it by the time onUnmounted
+  // fires, and YouTube then refuses the call and warns on every swipe.
+  onBeforeUnmount(() => {
+    disposed = true;
     clearTimeout(hideTimer);
     // destroy() is one of the methods that only exists once onReady has fired.
     // Unmounting a card that is still loading is routine now that players are
-    // windowed, so this is a normal path, not an edge case.
+    // windowed, so this is a normal path, not an edge case — onReady above
+    // finishes the teardown for those.
     if (isReady.value) player.value?.destroy();
     player.value = undefined;
     isReady.value = false;
