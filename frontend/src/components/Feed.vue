@@ -9,7 +9,8 @@ import VideoPlayer from './videoplayer/VideoPlayer.vue';
 import ErrorState from './ErrorState.vue';
 import EmptyState from './EmptyState.vue';
 import { Spinner } from '@/components/ui/spinner';
-import { Clapperboard } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
+import { Clapperboard, RotateCcw } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useGlobalVideoPlayer } from '@/composables/useVideoPlayer';
@@ -35,9 +36,13 @@ const FEED_HEIGHT = 'h-[calc(100vh-var(--header-height))]';
 const feed = useFeedStore();
 const { cards, status, exhausted } = storeToRefs(feed);
 
-// Kept in the store, so navigating away and back does not refetch.
+// Kept in the store, so navigating away and back does not refetch — unless there
+// is nothing to come back to. An empty feed is a normal outcome here (the
+// recommender can return nothing, and does so until a profile has enough to work
+// with), and 'ready' with no cards is neither idle nor an error, so without this
+// the only way out of it was a full page reload.
 onMounted(() => {
-  if (status.value === 'idle') void feed.load();
+  if (status.value === 'idle' || cards.value.length === 0) void feed.load();
 });
 
 const showLoading = useDelayedLoading(computed(() => status.value === 'loading'));
@@ -106,11 +111,17 @@ watch(isFullscreen, (fullscreen) => {
       message="Couldn't load your feed."
       @retry="feed.load()"
     />
-    <EmptyState
-      v-else-if="status === 'ready'"
-      message="No trailers to show right now."
-      :icon="Clapperboard"
-    />
+    <!-- Retryable, unlike most empty states: this one does not mean "you have
+         nothing", it means the recommender had nothing this time, which changes
+         as the profile fills in. EmptyState is deliberately action-free, so the
+         action sits beside it rather than inside it. -->
+    <div v-else-if="status === 'ready'" class="flex flex-col items-center">
+      <EmptyState message="No trailers to show right now." :icon="Clapperboard" />
+      <Button variant="outline" size="sm" @click="feed.load()">
+        <RotateCcw />
+        Check again
+      </Button>
+    </div>
   </div>
 
   <Carousel
