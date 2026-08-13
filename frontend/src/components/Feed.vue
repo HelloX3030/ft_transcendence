@@ -48,6 +48,19 @@ const setApi = (val: CarouselApi) => {
   api.value = val;
 };
 
+/**
+ * How many cards either side of the active one keep a mounted player.
+ *
+ * Every VideoPlayer builds a YouTube iframe embed on mount, and the feed is
+ * twenty cards long — mounting them all meant twenty concurrent embeds on first
+ * paint and another twenty after each loadMore. One either side is enough for
+ * the next swipe to start playing immediately, since the neighbour has already
+ * loaded by the time it becomes active.
+ */
+const PLAYER_WINDOW = 1;
+
+const isMounted = (index: number) => Math.abs(index - currentIndex.value) <= PLAYER_WINDOW;
+
 // One TMDB call per card actually watched, rather than per card loaded — which
 // is why the feed payload carries no providers.
 const activeTmdbId = computed(() => cards.value[currentIndex.value]?.tmdbId);
@@ -121,8 +134,11 @@ watch(isFullscreen, (fullscreen) => {
     @init-api="setApi"
   >
     <CarouselContent class="h-full">
+      <!-- The slide itself always renders, so embla keeps measuring a full set;
+           only the player inside it is windowed. -->
       <CarouselItem v-for="(card, index) in cards" :key="card.tmdbId" class="h-full">
         <VideoPlayer
+          v-if="isMounted(index)"
           :tmdb-id="card.tmdbId"
           :title="card.title"
           :video-id="card.trailerKey"
