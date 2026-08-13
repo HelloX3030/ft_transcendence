@@ -19,6 +19,19 @@ import { useFeedStore } from '@/stores/feed';
 
 const { isFullscreen } = useGlobalVideoPlayer();
 
+/**
+ * An explicit height, not h-full: the app shell gives the wrapper `min-h-svh`
+ * and no height at all, so `height: 100%` here has nothing to resolve against
+ * and falls back to auto. The only element in the subtree with an intrinsic
+ * size is then the YouTube <iframe>, which ends up sizing the layout instead of
+ * being sized by it — every slide inherited the iframe's height, the page grew
+ * to 20 times the viewport, and the overlays pinned to the slide box (reactions,
+ * fullscreen) landed hundreds of pixels below the fold.
+ *
+ * Same expression as ChatView and WatchlistsView, which need it for the reason.
+ */
+const FEED_HEIGHT = 'h-[calc(100vh-var(--header-height))]';
+
 const feed = useFeedStore();
 const { cards, status, exhausted } = storeToRefs(feed);
 
@@ -87,7 +100,7 @@ watch(isFullscreen, (fullscreen) => {
   <!-- One branch for "no cards", so the carousel is never mounted empty: embla
        measures its slides at init, and an empty init would leave it unaware of
        every card that arrived afterwards. -->
-  <div v-if="cards.length === 0" class="h-full flex items-center justify-center">
+  <div v-if="cards.length === 0" :class="[FEED_HEIGHT, 'flex items-center justify-center']">
     <Spinner v-if="showLoading" class="size-8" />
     <ErrorState
       v-else-if="status === 'error'"
@@ -104,7 +117,7 @@ watch(isFullscreen, (fullscreen) => {
   <Carousel
     v-else
     orientation="vertical"
-    class="w-full h-full border-0 outline-0"
+    :class="['w-full border-0 outline-0', FEED_HEIGHT]"
     @init-api="setApi"
   >
     <CarouselContent class="h-full">
