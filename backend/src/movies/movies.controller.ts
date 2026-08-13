@@ -38,7 +38,7 @@ export class MoviesController {
   @ApiResponse({ status: 503, description: 'Recommendations are temporarily unavailable' })
   getFeed(@Query() dto: FeedQueryDto, @Request() req: ExpressRequest) {
     const user = req.user as JwtAccessPayload;
-    return this.moviesService.getFeed(user.sub, dto.limit, dto.exclude);
+    return this.moviesService.getFeed(user.sub, dto.limit);
   }
 
   @Post(':tmdbId/rating')

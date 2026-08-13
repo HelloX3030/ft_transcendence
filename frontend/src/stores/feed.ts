@@ -57,11 +57,7 @@ export const useFeedStore = defineStore('feed', () => {
     const gen = generation;
     status.value = 'loading';
     try {
-      // Sent, not just filtered against: the endpoint has no cursor and ranks
-      // the same films the same way every time, so a bare refetch returned the
-      // page already on screen and nothing survived the filter below. The
-      // backend widens its request until it has this many genuinely new cards.
-      const data = await moviesApi.getFeed(undefined, [...shown]);
+      const data = await moviesApi.getFeed();
       if (gen !== generation) return;
       const fresh = data.filter((card) => !shown.has(card.tmdbId));
       fresh.forEach((card) => shown.add(card.tmdbId));

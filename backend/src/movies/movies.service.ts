@@ -10,11 +10,6 @@ import { MovieUtils } from 'src/utils/movie.utils';
 export const FEED_DEFAULT_LIMIT = 20;
 // The recommendation service's own ceiling, from its request schema.
 export const FEED_MAX_LIMIT = 50;
-// Ceiling on the caller's already-shown list. Comfortably above FEED_MAX_LIMIT,
-// which is all the recommender can offer in one go, so a client that plays fair
-// never reaches it.
-export const FEED_MAX_EXCLUDE = 200;
-
 // An empty feed has two causes that need telling apart. Nothing about the
 // response shape distinguished them, so a profile too thin to query against
 // looked exactly like TMDB dropping every candidate on the floor.
@@ -49,21 +44,11 @@ export class MoviesService {
     private tmdb: TmdbService,
   ) {}
 
-  async getFeed(userId: number, limit: number, exclude: number[] = []) {
+  async getFeed(userId: number, limit: number) {
     const cards: FeedMovie[] = [];
-    // Ids already enriched, so a widened window re-fetches nothing — seeded with
-    // whatever the caller says it is already showing.
-    //
-    // The recommender excludes only what the user has *rated* and has no cursor,
-    // so it answers with the same ranked list every time. Without the caller's
-    // history, a second request re-enriched the same films and "load more"
-    // appended nothing; with it, the widening below walks past them into the
-    // rest of the ranking.
-    const seen = new Set<number>(exclude);
-    // Wide enough to see past what the caller already has. Asking for `limit`
-    // alone would come back entirely excluded, spending a recommender round trip
-    // and an enrichment pass to learn nothing.
-    let window = Math.min(limit + exclude.length, FEED_MAX_LIMIT);
+    // Ids already enriched, so a widened window re-fetches nothing.
+    const seen = new Set<number>();
+    let window = limit;
     // Films the recommender put forward that we had not already ruled out. The
     // only thing that separates "nothing was recommended" from "everything
     // recommended turned out to be unplayable".
