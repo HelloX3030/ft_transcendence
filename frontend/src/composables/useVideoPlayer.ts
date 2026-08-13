@@ -62,7 +62,17 @@ export function useVideoPlayer(
         playerVars: {
           controls: 0,
           rel: 0,
-          autoplay: activeRef?.value ? 1 : 0,
+          // Always 1, even for the cards either side of the active one. An
+          // embed built with autoplay 0 loads its chrome and poster but buffers
+          // no video, so a windowed neighbour that had finished loading still
+          // started from cold on the swipe onto it and showed a poster until
+          // enough arrived to play. Autoplaying it buffers and paints a real
+          // first frame; onReady below pauses it again if it is not the active
+          // card, leaving the swipe a resume rather than a cold start.
+          autoplay: 1,
+          // Muted throughout: this is what makes the autoplay above permitted
+          // without a user gesture, and syncMuted applies the real setting once
+          // the embed is ready.
           mute: 1,
           origin: window.location.origin, //TODO: use env for url
         },
