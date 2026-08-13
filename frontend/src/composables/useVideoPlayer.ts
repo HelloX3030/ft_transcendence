@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, type Ref } from 'vue';
+import { ref, onMounted, onUnmounted, watch, type Ref } from 'vue';
 
 const isMuted = ref(true);
 const isFullscreen = ref(false);
@@ -21,7 +21,29 @@ export function useVideoPlayer(
   const player = ref<YT.Player>();
   const isPlaying = ref(false);
   const showInfo = ref(true);
+  // new YT.Player() returns an object whose API methods (playVideo, mute,
+  // destroy…) only exist once the embed has loaded and onReady has fired.
+  // Calling one before that throws, so every caller waits on this.
+  const isReady = ref(false);
   let hideTimer: ReturnType<typeof setTimeout>;
+
+  /** Play or pause to match `activeRef`. No-op until the embed is ready. */
+  function syncActive() {
+    if (!isReady.value || !player.value) return;
+    if (activeRef.value) {
+      player.value.playVideo();
+      showInfo.value = true;
+    } else {
+      player.value.pauseVideo();
+    }
+  }
+
+  /** Apply the global mute setting. No-op until the embed is ready. */
+  function syncMuted() {
+    if (!isReady.value || !player.value) return;
+    if (isMuted.value) player.value.mute();
+    else player.value.unMute();
+  }
 
   // YouTube Init
   function initPlayer() {
@@ -36,6 +58,14 @@ export function useVideoPlayer(
           origin: window.location.origin, //TODO: use env for url
         },
         events: {
+          onReady: () => {
+            isReady.value = true;
+            // The card may have been swiped onto, or the sound toggled, during
+            // the seconds the embed took to load. Apply the state as it is now
+            // rather than as it was when the player was created.
+            syncMuted();
+            syncActive();
+          },
           onStateChange: (e) => {
             isPlaying.value = e.data === window.YT.PlayerState.PLAYING;
           },
@@ -56,7 +86,7 @@ export function useVideoPlayer(
 
   // Play/Pause
   function togglePlay() {
-    if (!player.value) return;
+    if (!isReady.value || !player.value) return;
     if (isPlaying.value) player.value.pauseVideo();
     else player.value.playVideo();
   }
@@ -104,6 +134,11 @@ export function useVideoPlayer(
 
   // Lifecycle
 
+  // Owned here rather than in the component: both need the readiness gate, and
+  // the component had no way to know about it.
+  watch(activeRef, syncActive);
+  watch(isMuted, syncMuted);
+
   onMounted(() => {
     initPlayer();
     startHideTimer();
@@ -116,8 +151,12 @@ export function useVideoPlayer(
   });
   onUnmounted(() => {
     clearTimeout(hideTimer);
-    player.value?.destroy();
+    // destroy() is one of the methods that only exists once onReady has fired.
+    // Unmounting a card that is still loading is routine now that players are
+    // windowed, so this is a normal path, not an edge case.
+    if (isReady.value) player.value?.destroy();
     player.value = undefined;
+    isReady.value = false;
     if (screen.orientation) {
       screen.orientation.removeEventListener('change', handleOrientationChange);
     } else {

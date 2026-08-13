@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useTemplateRef, toRef, watch } from 'vue';
-import { useGlobalVideoPlayer, useVideoPlayer } from '@/composables/useVideoPlayer';
+import { useTemplateRef, toRef } from 'vue';
+import { useVideoPlayer } from '@/composables/useVideoPlayer';
 import VideoInfo from './VideoInfo.vue';
 import Controls from './Controls.vue';
 import type { WatchProvider } from '@cinemates/shared';
@@ -18,33 +18,14 @@ const props = defineProps<{
 
 const container = useTemplateRef<HTMLElement>('video-container');
 
-const { player, showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlayer(
+// Playback follows `active` and the global mute setting from inside the
+// composable: both have to wait for the YouTube embed to report itself ready,
+// and only the composable knows when that happens.
+const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlayer(
   props.videoId,
   toRef(props, 'active'),
   container,
 );
-
-const { isMuted } = useGlobalVideoPlayer();
-
-//TODO: Kann man auch in useVidePlayer auslagern ???
-watch(
-  () => props.active,
-  (isActive) => {
-    if (!player.value) return;
-    if (isActive) {
-      player.value.playVideo();
-      showInfo.value = true;
-    } else {
-      player.value.pauseVideo();
-    }
-  },
-);
-
-watch(isMuted, (muted) => {
-  if (!player.value) return;
-  if (muted) player.value.mute();
-  else player.value.unMute();
-});
 </script>
 
 <template>
