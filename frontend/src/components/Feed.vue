@@ -79,20 +79,6 @@ watch(api, (embla) => {
   });
 });
 
-// Embla measures its slides when it initialises. A first load mounts the
-// carousel with its cards already present, but cards appended later — and the
-// end-of-feed slide — are invisible to it until it re-measures.
-watch(
-  () => cards.value.length + (exhausted.value || status.value === 'error' ? 1 : 0),
-  (count, previous) => {
-    if (previous > 0 && count > previous) {
-      // Preserve the position: loadMore fires while the user sits on the last
-      // card, and a silent jump back to the top would be worse than not loading.
-      api.value?.reInit({ startIndex: currentIndex.value });
-    }
-  },
-);
-
 // Fires on the last card, not one earlier: with no pagination a refetch is a
 // full recommender round-trip plus enrichment, and prefetching would pay it for
 // everyone who merely scrolls to the end to see what is there.
