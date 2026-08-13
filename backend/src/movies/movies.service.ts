@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FeedMovie, TmdbMovieDetail } from '@cinemates/shared';
 import { Prisma, reaction_type } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -14,6 +14,12 @@ export const FEED_MAX_LIMIT = 50;
 // which is all the recommender can offer in one go, so a client that plays fair
 // never reaches it.
 export const FEED_MAX_EXCLUDE = 200;
+
+// An empty feed has two causes that need telling apart. Nothing about the
+// response shape distinguished them, so a profile too thin to query against
+// looked exactly like TMDB dropping every candidate on the floor.
+export const FEED_EMPTY_NO_CANDIDATES = 'The recommender has nothing new for this user.';
+export const FEED_EMPTY_NONE_PLAYABLE = 'Recommended films were found, but none had a trailer.';
 // One TMDB detail call per candidate. Well under the per-IP connection ceiling
 // TMDB's CDN is reported to apply, and paced by the budget in tmdb.client.ts.
 const ENRICH_CONCURRENCY = 8;
@@ -34,6 +40,8 @@ function toFeedMovie(detail: TmdbMovieDetail, trailerKey: string): FeedMovie {
 
 @Injectable()
 export class MoviesService {
+  private readonly logger = new Logger(MoviesService.name);
+
   constructor(
     private prisma: PrismaService,
     private movieUtils: MovieUtils,
@@ -56,10 +64,15 @@ export class MoviesService {
     // alone would come back entirely excluded, spending a recommender round trip
     // and an enrichment pass to learn nothing.
     let window = Math.min(limit + exclude.length, FEED_MAX_LIMIT);
+    // Films the recommender put forward that we had not already ruled out. The
+    // only thing that separates "nothing was recommended" from "everything
+    // recommended turned out to be unplayable".
+    let candidates = 0;
 
     while (cards.length < limit) {
       const ids = (await this.recommender.feed(userId, window)).filter((id) => !seen.has(id));
       ids.forEach((id) => seen.add(id));
+      candidates += ids.length;
 
       const enriched = await mapWithConcurrency(ids, ENRICH_CONCURRENCY, (id) => this.enrich(id));
       cards.push(...enriched.filter((card): card is FeedMovie => card !== null));
@@ -71,7 +84,20 @@ export class MoviesService {
       window = Math.min(window * 2, FEED_MAX_LIMIT);
     }
 
-    return successResponse(cards.slice(0, limit));
+    const page = cards.slice(0, limit);
+    if (page.length > 0) return successResponse(page);
+
+    // Both of these used to be a bare empty array, which left the caller — and
+    // anyone reading the logs — unable to tell a cold profile apart from a TMDB
+    // problem, when only one of the two is worth acting on.
+    if (candidates === 0) {
+      this.logger.warn(`Empty feed for user ${userId}: the recommender returned no new films`);
+      return successResponse(page, FEED_EMPTY_NO_CANDIDATES);
+    }
+    this.logger.warn(
+      `Empty feed for user ${userId}: none of the ${candidates} recommended films had a trailer`,
+    );
+    return successResponse(page, FEED_EMPTY_NONE_PLAYABLE);
   }
 
   /** A playable card, or null when this movie cannot be shown. */

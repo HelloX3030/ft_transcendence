@@ -6,7 +6,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RecommenderClient } from 'src/recommender/recommender.client';
 import { TmdbService } from 'src/tmdb/tmdb.service';
 import { MovieUtils } from 'src/utils/movie.utils';
-import { MoviesService } from './movies.service';
+import {
+  FEED_EMPTY_NONE_PLAYABLE,
+  FEED_EMPTY_NO_CANDIDATES,
+  MoviesService,
+} from './movies.service';
 
 const mockMovie = { id: 42, tmdbId: 640146, name: 'Quantumania', posterPath: '/poster.jpg' };
 
@@ -204,6 +208,27 @@ describe('MoviesService', () => {
 
       expect(mockTmdb.getMovieDetail).not.toHaveBeenCalledWith(1);
       expect(mockTmdb.getMovieDetail).not.toHaveBeenCalledWith(2);
+    });
+
+    it('says so when the recommender had nothing to offer', async () => {
+      mockRecommender.feed.mockResolvedValue([]);
+      respondWithDetails();
+
+      const result = await service.getFeed(7, 2);
+
+      expect(result.data).toEqual([]);
+      expect(result.message).toBe(FEED_EMPTY_NO_CANDIDATES);
+    });
+
+    it('says so when everything recommended turned out to be unplayable', async () => {
+      mockRecommender.feed.mockResolvedValue([1, 2]);
+      // Both known to TMDB, neither with a trailer.
+      respondWithDetails([1, 2]);
+
+      const result = await service.getFeed(7, 2);
+
+      expect(result.data).toEqual([]);
+      expect(result.message).toBe(FEED_EMPTY_NONE_PLAYABLE);
     });
 
     it('returns playable cards in the recommender order', async () => {

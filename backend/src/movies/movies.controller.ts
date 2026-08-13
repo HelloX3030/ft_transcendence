@@ -26,7 +26,13 @@ export class MoviesController {
 
   @Get('feed')
   @ApiOperation({ summary: 'Personalised trailer feed for the current user' })
-  @ApiResponse({ status: 200, description: 'Playable trailer cards, best first' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Playable trailer cards, best first. An empty list is a normal answer, and the envelope ' +
+      'message says which of the two reasons it was: the recommender had nothing new, or what ' +
+      'it suggested had no trailers.',
+  })
   @ApiResponse({ status: 400, description: 'limit is out of range' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
   @ApiResponse({ status: 503, description: 'Recommendations are temporarily unavailable' })
