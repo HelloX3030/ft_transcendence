@@ -19,6 +19,29 @@ from .tmdb_bridge import TMDBBridgeImpl, profile_to_params
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s — %(message)s")
 logger = logging.getLogger(__name__)
 
+
+class _SkipHealthChecks(logging.Filter):
+    """
+    Drop the access-log line for /health.
+
+    The container health check polls it every ten seconds, which is a few hundred
+    identical lines an hour — enough to push anything worth reading out of a
+    scrollback. The other routes keep their access logs, since /feed and /signal
+    are how you tell what the service is actually doing.
+
+    uvicorn logs access records with args
+    (client_addr, method, path, http_version, status), so the path is matched
+    positionally rather than by searching the formatted line, which would also
+    swallow a genuine request that happened to mention "/health".
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] == "/health")
+
+
+logging.getLogger("uvicorn.access").addFilter(_SkipHealthChecks())
+
 # ---------------------------------------------------------------------------
 # Inline stubs — replaced module by module as real implementations land.
 # ---------------------------------------------------------------------------
