@@ -176,6 +176,36 @@ describe('MoviesService', () => {
       expect(mockRecommender.feed).toHaveBeenCalledWith(7, 3);
     });
 
+    it('leaves out the cards the caller already has', async () => {
+      mockRecommender.feed.mockResolvedValue([1, 2, 3, 4]);
+      respondWithDetails();
+
+      const result = await service.getFeed(7, 2, [1, 2]);
+
+      expect(result.data?.map((card) => card.tmdbId)).toEqual([3, 4]);
+    });
+
+    it('asks wide enough to see past what the caller already has', async () => {
+      mockRecommender.feed.mockResolvedValue([1, 2, 3, 4, 5]);
+      respondWithDetails();
+
+      await service.getFeed(7, 2, [1, 2, 3]);
+
+      // A window of 2 would come back entirely excluded and buy nothing.
+      expect(mockRecommender.feed).toHaveBeenCalledWith(7, 5);
+      expect(mockRecommender.feed).toHaveBeenCalledTimes(1);
+    });
+
+    it('never enriches a movie the caller already has', async () => {
+      mockRecommender.feed.mockResolvedValue([1, 2, 3]);
+      respondWithDetails();
+
+      await service.getFeed(7, 1, [1, 2]);
+
+      expect(mockTmdb.getMovieDetail).not.toHaveBeenCalledWith(1);
+      expect(mockTmdb.getMovieDetail).not.toHaveBeenCalledWith(2);
+    });
+
     it('returns playable cards in the recommender order', async () => {
       mockRecommender.feed.mockResolvedValue([9, 4]);
       respondWithDetails();

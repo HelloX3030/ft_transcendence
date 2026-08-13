@@ -4,7 +4,12 @@ import type { FeedMovie } from '@cinemates/shared';
 
 const getFeed = vi.fn();
 
-vi.mock('@/api', () => ({ moviesApi: { getFeed: () => getFeed() as Promise<FeedMovie[]> } }));
+vi.mock('@/api', () => ({
+  moviesApi: {
+    getFeed: (limit?: number, exclude?: number[]) =>
+      getFeed(limit, exclude) as Promise<FeedMovie[]>,
+  },
+}));
 // The store logs handled failures; keep the expected ones out of the output.
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), debug: vi.fn(), warn: vi.fn() } }));
 
@@ -62,6 +67,36 @@ describe('feed store', () => {
 
     expect(feed.cards.map((c) => c.tmdbId)).toEqual([1, 2, 3]);
     expect(feed.exhausted).toBe(false);
+  });
+
+  // Filtering the response is not enough on its own: the endpoint ranks the same
+  // films the same way every time, so unless it is told what is already on
+  // screen it answers with that same page and the filter removes all of it.
+  it('tells the endpoint which films are already on screen', async () => {
+    getFeed.mockResolvedValueOnce([card(1), card(2)]);
+    const feed = useFeedStore();
+    await feed.load();
+    expect(getFeed).toHaveBeenLastCalledWith(undefined, undefined);
+
+    getFeed.mockResolvedValueOnce([card(3)]);
+    await feed.loadMore();
+    expect(getFeed).toHaveBeenLastCalledWith(undefined, [1, 2]);
+
+    getFeed.mockResolvedValueOnce([card(4)]);
+    await feed.loadMore();
+    expect(getFeed).toHaveBeenLastCalledWith(undefined, [1, 2, 3]);
+  });
+
+  it('starts from nothing again after a reload', async () => {
+    getFeed.mockResolvedValueOnce([card(1), card(2)]);
+    const feed = useFeedStore();
+    await feed.load();
+    getFeed.mockResolvedValueOnce([card(3)]);
+    await feed.loadMore();
+
+    getFeed.mockResolvedValueOnce([card(9)]);
+    await feed.load();
+    expect(getFeed).toHaveBeenLastCalledWith(undefined, undefined);
   });
 
   it('marks the feed exhausted when nothing new comes back', async () => {
