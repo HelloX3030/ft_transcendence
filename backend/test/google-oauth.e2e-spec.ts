@@ -31,6 +31,31 @@ function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
+const GOOGLE_ENV = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL'] as const;
+
+/**
+ * Runs `body` with the Google credentials taken out of the environment.
+ *
+ * The unconfigured branch cannot be asserted against whatever the developer
+ * happens to have in `.env`: with credentials set, the start route reaches
+ * passport and redirects, and the test read that 302 as a regression. The guard
+ * re-reads process.env per request, so clearing the three variables is enough —
+ * AuthModule's strategy registration is decided at import time and is not what
+ * the 503 hangs on.
+ */
+async function withoutGoogleCredentials(body: () => Promise<void>): Promise<void> {
+  const saved = GOOGLE_ENV.map((key) => [key, process.env[key]] as const);
+  for (const key of GOOGLE_ENV) delete process.env[key];
+  try {
+    await body();
+  } finally {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
 describe('Google OAuth (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -46,15 +71,21 @@ describe('Google OAuth (e2e)', () => {
     if (app !== undefined) await app.close();
   });
 
-  // The test environment has no Google credentials, which is also the state of
-  // any fresh clone. The app has to boot and serve everything else regardless.
+  // The state of any fresh clone, and of CI. Credentials are removed for the
+  // duration of each case rather than assumed absent, so these hold on a
+  // developer machine that does have Google sign-in set up. The app has to boot
+  // and serve everything else regardless.
   describe('without credentials configured', () => {
     it('answers 503 rather than 500 on the start route', async () => {
-      await request(app.getHttpServer()).get('/auth/google').expect(503);
+      await withoutGoogleCredentials(async () => {
+        await request(app.getHttpServer()).get('/auth/google').expect(503);
+      });
     });
 
     it('leaves the rest of the API working', async () => {
-      await request(app.getHttpServer()).get('/auth/me').expect(401);
+      await withoutGoogleCredentials(async () => {
+        await request(app.getHttpServer()).get('/auth/me').expect(401);
+      });
     });
   });
 
