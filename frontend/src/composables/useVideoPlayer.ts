@@ -15,10 +15,12 @@ export function useGlobalVideoPlayer() {
 
 // Instance State
 export function useVideoPlayer(
-  videoId: string,
   activeRef: Ref<boolean>,
   containerRef: Ref<HTMLElement | null>,
-  hostRef: Ref<HTMLElement | null>,
+  // An iframe, not any element: handed anything else, the API builds its own
+  // and writes an `allow` attribute onto it that every browser warns about.
+  // The type is what stops that being reintroduced by accident.
+  hostRef: Ref<HTMLIFrameElement | null>,
 ) {
   const player = ref<YT.Player>();
   const isPlaying = ref(false);
@@ -62,40 +64,16 @@ export function useVideoPlayer(
     // put two nodes under one id and YouTube took over whichever came first.
     if (disposed || !hostRef.value) return;
 
-    // Some of what this embed logs is not ours and will not go away: YouTube's
-    // own response headers name Permissions-Policy features (browsing-topics,
-    // join-ad-interest-group, run-ad-auction, attribution-reporting) that
-    // browsers do not recognise, and third-party storage notices come from the
-    // frame itself. Neither is suppressible from the embedding side.
+    // The iframe already carries the video, the parameters and the host (see
+    // `embedUrl`), because on the existing-iframe path the API reads none of
+    // them: it derives the host from our src and never builds a URL. Only the
+    // events are its business.
+    //
+    // What remains in the console after this is YouTube's own document —
+    // Firefox parsing their minified bundle, their frame's CSP and cookies,
+    // and Firefox announcing that its storage partitioning engaged. None of it
+    // is suppressible from the embedding side.
     player.value = new window.YT.Player(hostRef.value, {
-      // Privacy-enhanced host: no identifying cookies until playback. Same API,
-      // same player. The API *script* still comes from www.youtube.com, which
-      // is the only place it is served.
-      host: 'https://www.youtube-nocookie.com',
-      videoId,
-      playerVars: {
-        controls: 0,
-        rel: 0,
-        // Always 1, even for the cards either side of the active one. An
-        // embed built with autoplay 0 loads its chrome and poster but buffers
-        // no video, so a windowed neighbour that had finished loading still
-        // started from cold on the swipe onto it and showed a poster until
-        // enough arrived to play. Autoplaying it buffers and paints a real
-        // first frame; onReady below pauses it again if it is not the active
-        // card, leaving the swipe a resume rather than a cold start.
-        autoplay: 1,
-        // Muted throughout: this is what makes the autoplay above permitted
-        // without a user gesture, and syncMuted applies the real setting once
-        // the embed is ready.
-        mute: 1,
-        // Without this, iOS Safari takes a trailer fullscreen on play and the
-        // swipe feed stops being a feed.
-        playsinline: 1,
-        // The page's real origin, which is what the embed checks postMessage
-        // against. Not an env var: this has to be what the browser is actually
-        // showing, which only the runtime knows.
-        origin: window.location.origin,
-      },
       events: {
         onReady: (event) => {
           // Swiped past while it was still loading. event.target rather than

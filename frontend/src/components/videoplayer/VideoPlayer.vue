@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useTemplateRef, toRef } from 'vue';
+import { computed, useTemplateRef, toRef } from 'vue';
 import { useVideoPlayer } from '@/composables/useVideoPlayer';
+import { embedUrl } from '@/lib/youtube';
 import VideoInfo from './VideoInfo.vue';
 import Controls from './Controls.vue';
 import type { WatchProvider } from '@cinemates/shared';
@@ -17,15 +18,18 @@ const props = defineProps<{
 }>();
 
 const container = useTemplateRef<HTMLElement>('video-container');
-// YouTube replaces this node with its iframe, so it is handed over directly
-// rather than looked up by id.
-const playerHost = useTemplateRef<HTMLElement>('player-host');
+// The iframe is ours, not one YouTube builds for us: handed an ordinary
+// element, the API replaces it with an iframe carrying an `allow` attribute
+// that names features browsers do not recognise, and warns once per name per
+// player. Handed an iframe, it attaches to it and writes no attributes.
+const playerHost = useTemplateRef<HTMLIFrameElement>('player-host');
+
+const src = computed(() => embedUrl(props.videoId));
 
 // Playback follows `active` and the global mute setting from inside the
 // composable: both have to wait for the YouTube embed to report itself ready,
 // and only the composable knows when that happens.
 const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlayer(
-  props.videoId,
   toRef(props, 'active'),
   container,
   playerHost,
@@ -44,6 +48,17 @@ const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlay
       :release-date="releaseDate"
       :show-genres="showGenres"
     />
-    <div ref="player-host" class="w-full h-full lg:scale-y-125 scale-y-150" />
+    <!--
+      No `allow` attribute: the five names YouTube would write here are for
+      360° video, DRM and the player's own copy-link button, none of which a
+      muted trailer with `controls: 0` uses.
+    -->
+    <iframe
+      ref="player-host"
+      :src="src"
+      :title="`${title} — trailer`"
+      class="w-full h-full lg:scale-y-125 scale-y-150"
+      frameborder="0"
+    />
   </div>
 </template>
