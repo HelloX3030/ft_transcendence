@@ -56,7 +56,7 @@ async function handleDelete() {
           <Button variant="ghost" size="icon"> <Ellipsis /> </Button
         ></DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem @click="router.push(`/profile/${id}`)">
+          <DropdownMenuItem @click="router.push(`/users/${id}`)">
             <ArrowUpRight /> Open</DropdownMenuItem
           >
           <DropdownMenuItem @click="handleDelete"><Trash /> Delete </DropdownMenuItem>
