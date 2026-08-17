@@ -1,6 +1,7 @@
 import { userApi } from '@/api/endpoints/user';
 import type { UploadOptions } from '@/api/upload';
 import type { UpdateUserRequest, UserMeResponse } from '@cinemates/shared';
+import { logger } from '@/lib/logger';
 import { useAsyncState } from '@vueuse/core';
 import { defineStore } from 'pinia';
 import { computed } from 'vue';
@@ -28,6 +29,10 @@ export const useUserStore = defineStore('user', () => {
     null,
     {
       immediate: false,
+      // Without this vueuse falls through to globalThis.reportError, which
+      // announces a failure already captured in `error` as though it were an
+      // uncaught exception.
+      onError: (error) => logger.error('[user] failed to load', error),
     },
   );
 

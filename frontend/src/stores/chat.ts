@@ -41,8 +41,6 @@ export const useChatStore = defineStore('chat', () => {
   const activeChat = ref<Chat>();
   const isHydrated = ref(false);
 
-  const friendsStore = useFriendsStore();
-
   const orderedChats = computed(() =>
     order.value
       .map((peerId) => chats.value.get(peerId))
@@ -52,7 +50,9 @@ export const useChatStore = defineStore('chat', () => {
   // A transcript can be opened before the friend list resolves, so placeholders
   // are backfilled as soon as the real details turn up.
   watch(
-    () => friendsStore.friendsDetails,
+    // Resolved inside the getter so the source stays reactive without this
+    // store holding a reference from its setup body.
+    () => useFriendsStore().friendsDetails,
     (details) => {
       for (const friend of details) {
         const chat = chats.value.get(friend.id);
@@ -65,6 +65,10 @@ export const useChatStore = defineStore('chat', () => {
   /** Seeds the list from the server: one entry per friend, ordered by recency. */
   async function hydrate() {
     try {
+      // Names and avatars in this list come from the friends store, which no
+      // longer loads itself — a transcript would otherwise render as
+      // "User 7" until something else happened to fetch it.
+      void useFriendsStore().ensureLoaded();
       const conversations = await chatApi.conversations();
       for (const conversation of conversations) {
         const chat = ensureChat(conversation.peerUserId);
@@ -106,7 +110,8 @@ export const useChatStore = defineStore('chat', () => {
       return existing;
     }
 
-    const known = details ?? friendsStore.friendsDetails.find((friend) => friend.id === friendId);
+    const known =
+      details ?? useFriendsStore().friendsDetails.find((friend) => friend.id === friendId);
     const chat: Chat = {
       friend: known ?? { id: friendId, username: `User ${friendId}`, avatarFileId: null },
       messages: [],

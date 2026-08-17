@@ -1,4 +1,5 @@
 import { watchlistApi } from '@/api';
+import { logger } from '@/lib/logger';
 import { useWatchlistsStore } from '@/stores/watchlists';
 import { useAsyncState } from '@vueuse/core';
 import { watch } from 'vue';
@@ -12,7 +13,12 @@ export function useWatchlist(
     isLoading,
     error,
     execute: refetchWatchlist,
-  } = useAsyncState(() => watchlistApi.getById(watchlistId), null, options);
+  } = useAsyncState(() => watchlistApi.getById(watchlistId), null, {
+    ...options,
+    // Handled: `error` is rendered by the view. Without this vueuse also
+    // reports it through globalThis.reportError, as an uncaught exception.
+    onError: (error) => logger.error('[watchlist] failed to load', error),
+  });
 
   const watchlists = useWatchlistsStore();
   watch(

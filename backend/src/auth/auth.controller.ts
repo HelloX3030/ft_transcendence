@@ -13,9 +13,16 @@ import {
 import { GoogleAuthExceptionFilter } from './google-auth-exception.filter';
 import { ForgotPasswordDto, LoginDto, MfaVerifyDto, RegisterDto, ResetPasswordDto } from './dto';
 import { AuthService } from './auth.service';
-import { GoogleCallbackGuard, GoogleGuard, JwtRefreshGuard, Public } from './guard';
+import {
+  GoogleCallbackGuard,
+  GoogleGuard,
+  JwtOptionalGuard,
+  JwtRefreshGuard,
+  Public,
+} from './guard';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
-import { GoogleProfile, JwtRefreshPayload } from 'src/types';
+import type { SessionResponse } from '@cinemates/shared';
+import { GoogleProfile, JwtAccessPayload, JwtRefreshPayload } from 'src/types';
 import { ApiOperation, ApiResponse, ApiTooManyRequestsResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
@@ -139,12 +146,22 @@ export class AuthController {
   // Cookie-authenticated, so there is nothing here to guess; a shared IP would
   // burn the login window on ordinary traffic.
   @SkipThrottle(SKIP_AUTH_THROTTLE)
+  // Public so the global guard steps aside, then optional-auth so the token is
+  // still validated and attached when there is one. This endpoint is a
+  // question, and "nobody is signed in" is one of its two correct answers — not
+  // an error. The profile stays behind GET /users/me, which is still guarded.
+  @Public()
+  @UseGuards(JwtOptionalGuard)
   @Get('me')
-  @ApiOperation({ summary: 'Get current authenticated user' })
-  @ApiResponse({ status: 200, description: 'Returns the authenticated user payload' })
-  @ApiResponse({ status: 401, description: 'Not authenticated' })
-  me(@Request() req: ExpressRequest) {
-    return req.user;
+  @ApiOperation({ summary: 'Reports whether the caller has a session' })
+  @ApiResponse({
+    status: 200,
+    description: 'Answers { authenticated: false } or the token payload',
+  })
+  me(@Request() req: ExpressRequest): SessionResponse {
+    const user = req.user as JwtAccessPayload | null | undefined;
+    if (!user) return { authenticated: false };
+    return { authenticated: true, sub: user.sub, email: user.email };
   }
 
   @Public()

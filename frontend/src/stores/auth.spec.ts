@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia';
 
 const logout = vi.fn();
 const login = vi.fn();
+const session = vi.fn();
 const broadcastLogout = vi.fn();
 const broadcastLogin = vi.fn();
 const resetAllStores = vi.fn();
@@ -12,7 +13,11 @@ const notifyStop = vi.fn();
 let signedInUser: { id: number } | null = null;
 
 vi.mock('@/api/endpoints/auth', () => ({
-  authApi: { logout: () => logout(), login: (payload: unknown) => login(payload) },
+  authApi: {
+    logout: () => logout(),
+    login: (payload: unknown) => login(payload),
+    session: () => session(),
+  },
 }));
 vi.mock('@/lib/session-signals', () => ({
   broadcastLogout: () => broadcastLogout(),
@@ -30,6 +35,42 @@ vi.mock('./user', () => ({
 }));
 
 const { useAuthStore } = await import('./auth');
+
+describe('auth store — init', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it('reads the answer rather than catching it', async () => {
+    // GET /auth/me answers 200 either way: "nobody is signed in" is a true
+    // answer to the question, and a 401 for it printed a console error on
+    // every logged-out page load that no catch could unprint.
+    session.mockResolvedValue({ authenticated: false });
+    const store = useAuthStore();
+
+    await store.init();
+
+    expect(store.isLoggedIn).toBe(false);
+  });
+
+  it('is signed in when the session says so', async () => {
+    session.mockResolvedValue({ authenticated: true, sub: 1, email: 'a@b.de' });
+    const store = useAuthStore();
+
+    await store.init();
+
+    expect(store.isLoggedIn).toBe(true);
+  });
+
+  it('stays logged out when the request itself fails', async () => {
+    session.mockRejectedValue(new Error('offline'));
+    const store = useAuthStore();
+
+    await expect(store.init()).resolves.toBeUndefined();
+    expect(store.isLoggedIn).toBe(false);
+  });
+});
 
 describe('auth store — logout', () => {
   beforeEach(() => {
