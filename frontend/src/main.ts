@@ -8,20 +8,6 @@ import { useNotifyStore } from './stores/notify.ts';
 import { useUserStore } from './stores/user.ts';
 import { resetPlugin } from './stores/plugins/resetPlugin.ts';
 
-const youtube = {
-  install() {
-    if (window.YT?.Player) return;
-
-    if (document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-      return;
-    }
-
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-  },
-};
-
 (async () => {
   const app = createApp(App);
   const pinia = createPinia();
@@ -38,6 +24,5 @@ const youtube = {
   }
 
   app.use(router);
-  app.use(youtube);
   app.mount('#app');
 })();

@@ -1,4 +1,5 @@
 import { ref, onMounted, onBeforeUnmount, watch, type Ref } from 'vue';
+import { loadYouTubeApi } from '@/lib/youtube';
 
 const isMuted = ref(true);
 const isFullscreen = ref(false);
@@ -51,62 +52,70 @@ export function useVideoPlayer(
   }
 
   // YouTube Init
-  function initPlayer() {
-    const init = () => {
-      // The element itself, not an id. The id used to be built from the trailer
-      // key, which is not unique across the feed — two cards sharing a trailer
-      // put two nodes under one id and YouTube took over whichever came first.
-      if (!hostRef.value) return;
-      player.value = new window.YT.Player(hostRef.value, {
-        videoId,
-        playerVars: {
-          controls: 0,
-          rel: 0,
-          // Always 1, even for the cards either side of the active one. An
-          // embed built with autoplay 0 loads its chrome and poster but buffers
-          // no video, so a windowed neighbour that had finished loading still
-          // started from cold on the swipe onto it and showed a poster until
-          // enough arrived to play. Autoplaying it buffers and paints a real
-          // first frame; onReady below pauses it again if it is not the active
-          // card, leaving the swipe a resume rather than a cold start.
-          autoplay: 1,
-          // Muted throughout: this is what makes the autoplay above permitted
-          // without a user gesture, and syncMuted applies the real setting once
-          // the embed is ready.
-          mute: 1,
-          origin: window.location.origin, //TODO: use env for url
-        },
-        events: {
-          onReady: (event) => {
-            // Swiped past while it was still loading. event.target rather than
-            // player.value, which the unmount already cleared.
-            if (disposed) {
-              event.target.destroy();
-              return;
-            }
-            isReady.value = true;
-            // The card may have been swiped onto, or the sound toggled, during
-            // the seconds the embed took to load. Apply the state as it is now
-            // rather than as it was when the player was created.
-            syncMuted();
-            syncActive();
-          },
-          onStateChange: (e) => {
-            isPlaying.value = e.data === window.YT.PlayerState.PLAYING;
-          },
-        },
-      });
-    };
+  async function initPlayer() {
+    await loadYouTubeApi();
+    // Awaiting yields to the microtask queue, so a card unmounted while the API
+    // was still loading arrives here with `disposed` already set.
+    //
+    // The element itself, not an id. The id used to be built from the trailer
+    // key, which is not unique across the feed — two cards sharing a trailer
+    // put two nodes under one id and YouTube took over whichever came first.
+    if (disposed || !hostRef.value) return;
 
-    if (window.YT?.Player) {
-      init();
-    } else {
-      const previous = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        previous?.();
-        init();
-      };
-    }
+    // Some of what this embed logs is not ours and will not go away: YouTube's
+    // own response headers name Permissions-Policy features (browsing-topics,
+    // join-ad-interest-group, run-ad-auction, attribution-reporting) that
+    // browsers do not recognise, and third-party storage notices come from the
+    // frame itself. Neither is suppressible from the embedding side.
+    player.value = new window.YT.Player(hostRef.value, {
+      // Privacy-enhanced host: no identifying cookies until playback. Same API,
+      // same player. The API *script* still comes from www.youtube.com, which
+      // is the only place it is served.
+      host: 'https://www.youtube-nocookie.com',
+      videoId,
+      playerVars: {
+        controls: 0,
+        rel: 0,
+        // Always 1, even for the cards either side of the active one. An
+        // embed built with autoplay 0 loads its chrome and poster but buffers
+        // no video, so a windowed neighbour that had finished loading still
+        // started from cold on the swipe onto it and showed a poster until
+        // enough arrived to play. Autoplaying it buffers and paints a real
+        // first frame; onReady below pauses it again if it is not the active
+        // card, leaving the swipe a resume rather than a cold start.
+        autoplay: 1,
+        // Muted throughout: this is what makes the autoplay above permitted
+        // without a user gesture, and syncMuted applies the real setting once
+        // the embed is ready.
+        mute: 1,
+        // Without this, iOS Safari takes a trailer fullscreen on play and the
+        // swipe feed stops being a feed.
+        playsinline: 1,
+        // The page's real origin, which is what the embed checks postMessage
+        // against. Not an env var: this has to be what the browser is actually
+        // showing, which only the runtime knows.
+        origin: window.location.origin,
+      },
+      events: {
+        onReady: (event) => {
+          // Swiped past while it was still loading. event.target rather than
+          // player.value, which the unmount already cleared.
+          if (disposed) {
+            event.target.destroy();
+            return;
+          }
+          isReady.value = true;
+          // The card may have been swiped onto, or the sound toggled, during
+          // the seconds the embed took to load. Apply the state as it is now
+          // rather than as it was when the player was created.
+          syncMuted();
+          syncActive();
+        },
+        onStateChange: (e) => {
+          isPlaying.value = e.data === window.YT.PlayerState.PLAYING;
+        },
+      },
+    });
   }
 
   // Play/Pause
@@ -165,7 +174,7 @@ export function useVideoPlayer(
   watch(isMuted, syncMuted);
 
   onMounted(() => {
-    initPlayer();
+    void initPlayer();
     startHideTimer();
 
     if (screen.orientation) {
