@@ -64,6 +64,33 @@ describe('Auth (e2e)', () => {
     await logout(agent);
   });
 
+  // GET /auth/me is a question, not a demand: it exists so the client can ask
+  // whether it has a session. Answering "no" with a 401 made every logged-out
+  // page load print a console error the client could handle but not unprint.
+  describe('session probe', () => {
+    it('answers 200 to a caller with no cookies', async () => {
+      const response = await request(app.getHttpServer()).get('/auth/me').expect(200);
+
+      expect(response.body).toEqual({ authenticated: false });
+    });
+
+    it('answers with the token payload once signed in', async () => {
+      const agent = request.agent(app.getHttpServer());
+      await login(agent, mockUser);
+
+      const response = await agent.get('/auth/me').expect(200);
+      const body = response.body as { authenticated: boolean; sub: number; email: string };
+
+      expect(body.authenticated).toBe(true);
+      expect(typeof body.sub).toBe('number');
+      expect(body.email).toBe(mockUser.email);
+    });
+
+    it('does not open up the endpoints that serve the profile itself', async () => {
+      await request(app.getHttpServer()).get('/users/me').expect(401);
+    });
+  });
+
   it('marks both session cookies Secure when the request arrived over HTTPS', async () => {
     // In the running app the browser only ever reaches this service through
     // Caddy, which terminates TLS and forwards this header. Setting it here is

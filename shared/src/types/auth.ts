@@ -45,11 +45,14 @@ export interface otp {
  * What GET /auth/me answers with: the access token's payload, not a user row.
  * The profile lives behind GET /users/me — this endpoint exists to say whether
  * there is a session at all.
+ *
+ * Both answers are 200, because both are true answers to the question asked.
+ * Answering "nobody is signed in" with a 401 made every logged-out page load
+ * print a red line the client could handle but not unprint.
  */
-export interface SessionResponse {
-  sub: number;
-  email: string;
-}
+export type SessionResponse =
+  | { authenticated: false }
+  | { authenticated: true; sub: number; email: string };
 
 export interface ForgotPasswordRequest {
   email: string;

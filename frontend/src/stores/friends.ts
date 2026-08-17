@@ -1,5 +1,6 @@
 import { friendsApi } from '@/api/endpoints/friends';
 import { useUserDetails } from '@/composables/useUserDetails';
+import { logger } from '@/lib/logger';
 import type { Friend } from '@cinemates/shared';
 
 import { useAsyncState } from '@vueuse/core';
@@ -15,16 +16,31 @@ export const useFriendsStore = defineStore('friends', () => {
     isReady,
     error,
     execute: executeRefetchFriends,
-  } = useAsyncState<Friend[]>(async () => {
-    const requestGeneration = generation;
-    try {
-      const friends = await friendsApi.getAll();
-      return requestGeneration === generation ? friends : [];
-    } catch (error) {
-      if (requestGeneration !== generation) return [];
-      throw error;
-    }
-  }, []);
+  } = useAsyncState<Friend[]>(
+    async () => {
+      const requestGeneration = generation;
+      try {
+        const friends = await friendsApi.getAll();
+        return requestGeneration === generation ? friends : [];
+      } catch (error) {
+        if (requestGeneration !== generation) return [];
+        throw error;
+      }
+    },
+    [],
+    {
+      // Nothing is signed in when this store is built. It is created transitively
+      // by useAuthStore() in main.ts, three lines before auth.init() runs, so a
+      // fetch here is an authenticated request made before anyone could know
+      // whether there is a session — a guaranteed 401 for every logged-out
+      // visitor. ensureLoaded() is how the list is first populated instead.
+      immediate: false,
+      // Without this, vueuse falls through to globalThis.reportError, which
+      // announces a failure the store has already captured in `error` as though
+      // it were an uncaught exception.
+      onError: (error) => logger.error('[friends] failed to load', error),
+    },
+  );
 
   async function refetchFriends() {
     return executeRefetchFriends();

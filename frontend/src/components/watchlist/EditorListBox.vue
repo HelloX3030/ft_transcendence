@@ -8,7 +8,7 @@ import {
   ListboxRoot,
   useFilter,
 } from 'reka-ui';
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -29,6 +29,10 @@ const user = useUserStore();
 
 const friendsStore = useFriendsStore();
 const { friendsDetails } = storeToRefs(friendsStore);
+
+// The editors to pick from are the user's friends, so this screen is one of the
+// ones that has to ask for them.
+onMounted(() => friendsStore.ensureLoaded());
 
 const usersById = computed(() => {
   const map = new Map<number, GetUserResponse>();

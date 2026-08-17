@@ -14,14 +14,21 @@ import { broadcastLogin, broadcastLogout } from '@/lib/session-signals';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
-  const notify = useNotifyStore();
+
+  // The notify store is resolved where it is used, not here. Resolving it in
+  // the setup body made `useAuthStore()` build the notify, chat and friends
+  // stores with it — and the friends store used to fetch on creation, so
+  // main.ts's first line issued an authenticated request before init() had run.
+  // Keeping the lookups local means a store is only built when something
+  // actually needs it.
 
   async function init() {
     try {
-      await authApi.session();
-      isLoggedIn.value = true;
+      const session = await authApi.session();
+      isLoggedIn.value = session.authenticated;
     } catch {
-      // network error — stay logged out
+      // A genuine network failure — the endpoint answers 200 either way now, so
+      // "nobody is signed in" no longer arrives here. Stay logged out.
     }
   }
 
@@ -37,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn.value = true;
     const userStore = useUserStore();
     await userStore.refetchUser();
-    notify.init();
+    useNotifyStore().init();
     // Only the paths that *establish* a session run through here — a reload
     // rebuilds its state in main.ts without it — so the other tabs are told
     // exactly once, by the tab that changed what the browser holds. Announcing
@@ -78,7 +85,7 @@ export const useAuthStore = defineStore('auth', () => {
    * of by the time it gets here.
    */
   function clearSession() {
-    notify.stop();
+    useNotifyStore().stop();
     // Drops isLoggedIn along with every other store's state, so nothing from
     // the old session survives into the next one.
     resetAllStores();

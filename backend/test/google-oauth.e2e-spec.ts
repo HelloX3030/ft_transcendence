@@ -84,7 +84,9 @@ describe('Google OAuth (e2e)', () => {
 
     it('leaves the rest of the API working', async () => {
       await withoutGoogleCredentials(async () => {
-        await request(app.getHttpServer()).get('/auth/me').expect(401);
+        // A guarded route, deliberately: /auth/me answers 200 to anyone now, so
+        // it would also pass here if the guards had stopped running at all.
+        await request(app.getHttpServer()).get('/users/me').expect(401);
       });
     });
   });
@@ -120,7 +122,11 @@ describe('Google OAuth (e2e)', () => {
 
       // The cookies are Strict, so this is the same-origin request the landing
       // route makes — the whole reason the callback redirects to the SPA first.
-      await request(app.getHttpServer()).get('/auth/me').set('Cookie', cookies).expect(200);
+      const session = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', cookies)
+        .expect(200);
+      expect(session.body).toMatchObject({ authenticated: true });
     });
 
     it('links a verified Google email onto an existing local account', async () => {

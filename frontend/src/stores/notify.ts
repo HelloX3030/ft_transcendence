@@ -51,14 +51,13 @@ export const useNotifyStore = defineStore('notify', () => {
   const connectionStatus = ref<ConnectionStatus>('idle');
   let failedAttempts = 0;
 
-  const chatStore = useChatStore();
-  const friendsStore = useFriendsStore();
-  const notificationsStore = useNotificationsStore();
-  const watchlistsStore = useWatchlistsStore();
-
+  // The four stores this one drives are resolved inside the handlers that use
+  // them rather than here. Resolved in the setup body, they were built the
+  // moment anything touched the notify store — which `useAuthStore()` does on
+  // main.ts's first line, before there is a session to load anything for.
   const INVALIDATE = invalidationMap({
-    refetchFriends: () => void friendsStore.refetchFriends(),
-    invalidateWatchlists: () => watchlistsStore.invalidate(),
+    refetchFriends: () => void useFriendsStore().refetchFriends(),
+    invalidateWatchlists: () => useWatchlistsStore().invalidate(),
   });
 
   function init() {
@@ -72,8 +71,8 @@ export const useNotifyStore = defineStore('notify', () => {
       failedAttempts = 0;
       // Also runs on every reconnect: the socket was down, so events and
       // messages were missed, and only a refetch can close that gap.
-      void notificationsStore.load();
-      void chatStore.hydrate();
+      void useNotificationsStore().load();
+      void useChatStore().hydrate();
     });
 
     // socket.io reports a dropped connection here and only tries again after a
@@ -149,7 +148,7 @@ export const useNotifyStore = defineStore('notify', () => {
       return;
     }
 
-    notificationsStore.ingest(event);
+    useNotificationsStore().ingest(event);
     toast.info(notificationText(event.type, event.params));
     invalidate();
   }
@@ -175,8 +174,8 @@ export const useNotifyStore = defineStore('notify', () => {
     failedAttempts = 0;
     // Also cleared here, not just by the reset plugin on logout: the socket is
     // torn down on token expiry too, and the caches must not outlive it.
-    chatStore.$reset();
-    notificationsStore.$reset();
+    useChatStore().$reset();
+    useNotificationsStore().$reset();
   }
 
   function initWatchFriendsOnlineStatus() {
@@ -225,6 +224,7 @@ export const useNotifyStore = defineStore('notify', () => {
         return;
       }
 
+      const chatStore = useChatStore();
       // Opens the transcript on demand: a message can arrive from a friend the
       // user has never opened a chat with, and dropping it would lose it until
       // the next reload. `ensureChat` does not steal the current selection.
@@ -241,7 +241,7 @@ export const useNotifyStore = defineStore('notify', () => {
         logger.error('[notify] invalid chat read payload', data);
         return;
       }
-      chatStore.applyReadReceipt(data.peerUserId, data.readAt);
+      useChatStore().applyReadReceipt(data.peerUserId, data.readAt);
     });
   }
 
