@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, useTemplateRef } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
@@ -16,10 +16,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useAuthStore } from '@/stores/auth';
 import LegalFooter from '@/components/auth/LegalFooter.vue';
+import PasswordInput from '@/components/auth/PasswordInput.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -39,7 +39,13 @@ const form = useForm({
   validationSchema: toTypedSchema(resetPasswordSchema),
 });
 
+const passwordInput = useTemplateRef('passwordInput');
+const confirmPasswordInput = useTemplateRef('confirmPasswordInput');
+
 const onSubmit = form.handleSubmit(async ({ password }) => {
+  // The 2FA branch below re-renders this form with both passwords still in it.
+  passwordInput.value?.mask();
+  confirmPasswordInput.value?.mask();
   if (token.value === null) return;
   if (mfaRequired.value && otp.value.length !== 6) {
     errorMessage.value = 'Enter the 6-digit code from your authenticator app.';
@@ -105,11 +111,10 @@ const onSubmit = form.handleSubmit(async ({ password }) => {
             <FormItem>
               <FormLabel>New password</FormLabel>
               <FormControl>
-                <Input
+                <PasswordInput
+                  ref="passwordInput"
                   v-bind="componentField"
-                  type="password"
                   autocomplete="new-password"
-                  placeholder="••••••••••••"
                 />
               </FormControl>
               <FormMessage />
@@ -120,11 +125,10 @@ const onSubmit = form.handleSubmit(async ({ password }) => {
             <FormItem>
               <FormLabel>Confirm new password</FormLabel>
               <FormControl>
-                <Input
+                <PasswordInput
+                  ref="confirmPasswordInput"
                   v-bind="componentField"
-                  type="password"
                   autocomplete="new-password"
-                  placeholder="••••••••••••"
                 />
               </FormControl>
               <FormMessage />
