@@ -60,8 +60,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function completeOnboarding(movieIds: number[]) {
-    await userApi.onboarding(movieIds);
-    await refetchUser();
+    // No refetch: the endpoint answers with the updated user, which is the same
+    // row refetchUser() would go and get.
+    state.value = await userApi.onboarding(movieIds);
   }
 
   async function activateTotp(otp: string) {

@@ -34,7 +34,7 @@ export const userApi = {
     }),
 
   onboarding: (movieIds: number[]) =>
-    backendClient<string>('/users/me/onboarding', {
+    backendClient<UserMeResponse>('/users/me/onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ movieIds }),

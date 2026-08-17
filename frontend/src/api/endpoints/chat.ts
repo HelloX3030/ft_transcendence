@@ -1,4 +1,4 @@
-import type { ChatConversation, ChatMessagePage } from '@cinemates/shared';
+import type { ChatConversation, ChatMessagePage, ChatReadResponse } from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const chatApi = {
@@ -16,5 +16,5 @@ export const chatApi = {
   },
 
   markRead: (peerId: number) =>
-    backendClient<{ readAt: string; count: number }>(`/chat/${peerId}/read`, { method: 'POST' }),
+    backendClient<ChatReadResponse>(`/chat/${peerId}/read`, { method: 'POST' }),
 };

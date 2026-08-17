@@ -1,3 +1,18 @@
+/**
+ * Query for GET /tmdb/discover. `DiscoverQueryDto` implements this, so a rename
+ * on either side is a type error rather than a 400 at runtime — the global
+ * ValidationPipe runs with `forbidNonWhitelisted`, which turns an unrecognised
+ * parameter into a rejected request.
+ */
+export interface DiscoverQuery {
+  page?: number;
+  filtered?: boolean;
+  sortBy?: string;
+  withGenres?: string;
+  releaseDateGte?: string;
+  releaseDateLte?: string;
+}
+
 export interface TmdbMovie {
   id: number;
   title: string;

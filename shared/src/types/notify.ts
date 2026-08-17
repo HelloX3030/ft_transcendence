@@ -106,6 +106,13 @@ export interface ChatReadEvent {
   readAt: string;
 }
 
+/** What POST /chat/:peerId/read answers with. */
+export interface ChatReadResponse {
+  readAt: string;
+  /** How many of the peer's messages this call actually marked. */
+  count: number;
+}
+
 export interface NotifyError {
   message: string;
 }
