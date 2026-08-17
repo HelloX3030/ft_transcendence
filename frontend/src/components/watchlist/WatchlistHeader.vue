@@ -65,7 +65,7 @@ const open = ref(false);
             <RouterLink
               v-for="(user, idx) in userDetails"
               :key="user.id"
-              :to="`/profile/${user.id}`"
+              :to="`/users/${user.id}`"
               :style="{ zIndex: userDetails.length - idx }"
             >
               <Tooltip>

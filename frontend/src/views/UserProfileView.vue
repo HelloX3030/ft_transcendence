@@ -1,39 +1,96 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import type { GetUserResponse } from '@cinemates/shared';
+import { userApi } from '@/api/endpoints/user';
+import { ApiError } from '@/api/api-error';
 import UserAvatar from '@/components/UserAvatar.vue';
+import ErrorState from '@/components/ErrorState.vue';
 import { Button } from '@/components/ui/button';
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue';
 import { UserRound, MessageCircle } from '@lucide/vue';
-
-interface PublicProfile {
-  id: number;
-  username: string;
-  avatarFileId: number | null;
-}
+import { useChatStore } from '@/stores/chat';
+import { useFriendsStore } from '@/stores/friends';
+import { useUserStore } from '@/stores/user';
+import { toast } from 'vue-sonner';
 
 const route = useRoute();
-const profile = ref<PublicProfile | null>(null);
+const router = useRouter();
+const chatStore = useChatStore();
+const friendsStore = useFriendsStore();
+const userStore = useUserStore();
+
+const profile = ref<GetUserResponse | null>(null);
 const loading = ref(true);
 const notFound = ref(false);
-const error = ref<string | null>(null);
+const error = ref(false);
+const isSending = ref(false);
 
-onMounted(async () => {
-  const id = route.params.id;
+const profileId = computed(() => Number(route.params.id));
+
+// A profile can be opened straight from a URL, with no friends list fetched
+// yet — and the action button below is read off that list.
+void friendsStore.ensureLoaded();
+
+async function load() {
+  loading.value = true;
+  notFound.value = false;
+  error.value = false;
+  profile.value = null;
+
+  const id = profileId.value;
+  // `/users/abc` is "no such user", not a failure: sending it would earn a 400
+  // from the backend's ParseIntPipe, which would render as an error state.
+  if (!Number.isInteger(id)) {
+    notFound.value = true;
+    loading.value = false;
+    return;
+  }
+
   try {
-    const res = await fetch(`/v1/users/${id}`, { credentials: 'same-origin' });
-    if (res.status === 404) {
-      notFound.value = true;
-      return;
-    }
-    if (!res.ok) throw new Error();
-    profile.value = await res.json();
-  } catch {
-    error.value = 'Could not load this profile.';
+    profile.value = await userApi.getById(id);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) notFound.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }
+}
+
+// Not onMounted: the router reuses this component between /users/7 and
+// /users/9, which two members of a shared watchlist make one click apart.
+watch(profileId, load, { immediate: true });
+
+const isSelf = computed(() => profile.value?.id === userStore.state?.id);
+
+const friendship = computed(() => friendsStore.state.find((f) => f.friendId === profileId.value));
+
+/** What is true between the signed-in user and this profile. */
+const relation = computed(() => {
+  if (isSelf.value) return 'self';
+  const row = friendship.value;
+  if (!row) return 'none';
+  if (row.status === 'accepted') return 'friends';
+  return row.initiatorId === userStore.state?.id ? 'sent' : 'received';
 });
+
+async function handleMessage() {
+  if (!profile.value) return;
+  chatStore.createChat(profile.value);
+  await router.push('/chat');
+}
+
+async function handleAddFriend() {
+  isSending.value = true;
+  try {
+    await friendsStore.sendRequest(profileId.value);
+    toast.success('Friend request sent');
+  } catch (err) {
+    toast.error((err as Error).message);
+  } finally {
+    isSending.value = false;
+  }
+}
 </script>
 
 <template>
@@ -55,7 +112,7 @@ onMounted(async () => {
     </div>
 
     <!-- Error -->
-    <p v-else-if="error" class="text-destructive">{{ error }}</p>
+    <ErrorState v-else-if="error" message="Could not load this profile." @retry="load" />
 
     <!-- Profile -->
     <template v-else-if="profile">
@@ -69,13 +126,31 @@ onMounted(async () => {
         <div class="flex flex-1 flex-col gap-3">
           <h1 class="text-2xl font-bold">{{ profile.username }}</h1>
           <div class="flex gap-2">
-            <Button variant="outline" disabled>
+            <!--
+              Message is offered to friends only: the chat store is seeded one
+              entry per friend and presence exists for friends alone, so a
+              transcript with a stranger is one nothing else in the app knows.
+            -->
+            <Button v-if="relation === 'friends'" variant="outline" @click="handleMessage">
+              <MessageCircle class="size-4" />
+              Message
+            </Button>
+            <Button
+              v-else-if="relation === 'none'"
+              variant="outline"
+              :disabled="isSending"
+              @click="handleAddFriend"
+            >
               <UserRound class="size-4" />
               Add Friend
             </Button>
-            <Button variant="ghost" disabled>
-              <MessageCircle class="size-4" />
-              Message
+            <!-- Taking it back belongs on the friends page, beside the row. -->
+            <Button v-else-if="relation === 'sent'" variant="outline" disabled>
+              <UserRound class="size-4" />
+              Request sent
+            </Button>
+            <Button v-else-if="relation === 'received'" variant="outline" as-child>
+              <RouterLink to="/friends">Respond on the Friends page</RouterLink>
             </Button>
           </div>
         </div>
