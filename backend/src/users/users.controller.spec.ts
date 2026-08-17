@@ -9,6 +9,7 @@ const mockUsersService = {
   updateMe: jest.fn(),
   deleteMe: jest.fn(),
   getUser: jest.fn(),
+  getUserProfile: jest.fn(),
   searchUsers: jest.fn(),
   uploadAvatar: jest.fn(),
 } satisfies Partial<jest.Mocked<UsersService>>;
@@ -97,6 +98,25 @@ describe('UsersController', () => {
 
       expect(mockUsersService.getUser).toHaveBeenCalledWith(7);
       expect(result).toEqual(publicProfile);
+    });
+  });
+
+  describe('getUserProfile', () => {
+    it('delegates to usersService.getUserProfile with the route param id', async () => {
+      const profile = {
+        id: 7,
+        username: 'other',
+        avatarFileId: null,
+        genreIds: [28],
+        actorIds: [500],
+        directorIds: [138],
+      };
+      mockUsersService.getUserProfile.mockResolvedValue(profile);
+
+      const result = await controller.getUserProfile(7);
+
+      expect(mockUsersService.getUserProfile).toHaveBeenCalledWith(7);
+      expect(result).toEqual(profile);
     });
   });
 });

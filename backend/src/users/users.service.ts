@@ -54,6 +54,15 @@ export const PUBLIC_SELECT = {
   avatarFileId: true,
 } as const;
 
+// What another user's profile page reads. The preference arrays are taste, not
+// identity; email, role and totpActive stay out of every read but ME_SELECT.
+export const PROFILE_SELECT = {
+  ...PUBLIC_SELECT,
+  genreIds: true,
+  actorIds: true,
+  directorIds: true,
+} as const;
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -301,6 +310,19 @@ export class UsersService {
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
       select: PUBLIC_SELECT,
+    });
+    if (user === null) throw new NotFoundException('User not found');
+    return successResponse(user);
+  }
+
+  /**
+   * The profile page's read, kept apart from `getUser` so the lean shape every
+   * list surface fetches per member does not grow three arrays it never renders.
+   */
+  async getUserProfile(userId: number) {
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: PROFILE_SELECT,
     });
     if (user === null) throw new NotFoundException('User not found');
     return successResponse(user);

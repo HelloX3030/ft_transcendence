@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { flushPromises } from '@vue/test-utils';
+import { createMemoryHistory, createRouter } from 'vue-router';
 import type { Friend } from '@cinemates/shared';
 
 const getById = vi.fn();
@@ -38,7 +39,17 @@ async function mountRequest(initiatorId: number) {
     createdAt: '2026-01-01T00:00:00.000Z',
   };
 
-  const wrapper = mount(FriendRequestItem, { props: friend });
+  // The avatar links to the sender's profile, so the row needs a router.
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div />' } },
+      { path: '/users/:id', component: { template: '<div />' } },
+    ],
+  });
+  await router.push('/');
+
+  const wrapper = mount(FriendRequestItem, { props: friend, global: { plugins: [router] } });
   await flushPromises();
   return wrapper;
 }
@@ -72,5 +83,11 @@ describe('FriendRequestItem', () => {
     const wrapper = await mountRequest(PEER);
 
     expect(labels(wrapper)).toEqual(['Accept', 'Decline']);
+  });
+
+  it('opens the other side of the row from the avatar', async () => {
+    const wrapper = await mountRequest(PEER);
+
+    expect(wrapper.get('a').attributes('href')).toBe(`/users/${PEER}`);
   });
 });

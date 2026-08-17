@@ -8,6 +8,7 @@ import {
   FILE_RULES,
   GetUserResponse,
   UserMeResponse,
+  UserProfileResponse,
   UserSearchResponse,
 } from '@cinemates/shared';
 import { checkCookies, createTestApp } from './utils';
@@ -392,6 +393,50 @@ describe('Users (e2e)', () => {
       const agent = await registerUser(app, buildRegisterDto('badid'));
 
       await agent.get('/users/not-a-number').expect(400);
+    });
+  });
+
+  describe('GET /users/:id/profile', () => {
+    it('returns the preferences and nothing personal', async () => {
+      const targetDto = buildRegisterDto('profile');
+      const target = await registerUser(app, targetDto);
+      const targetId = await getUserId(target);
+      const viewer = await registerUser(app, buildRegisterDto('profile-viewer'));
+
+      const response = await viewer.get(`/users/${targetId}/profile`).expect(200);
+      const body = response.body as apiResponse<UserProfileResponse>;
+
+      // toEqual, not toMatchObject: the point of this endpoint is the fields it
+      // leaves out, and a subset match would pass while leaking every one of them.
+      expect(body.data).toEqual({
+        id: targetId,
+        username: targetDto.username,
+        avatarFileId: null,
+        genreIds: [],
+        actorIds: [],
+        directorIds: [],
+      });
+
+      const leaked = ['email', 'role', 'totpActive', 'language', 'onboardingCompleted'];
+      for (const field of leaked) {
+        expect(body.data).not.toHaveProperty(field);
+      }
+    });
+
+    it('returns 404 for an unknown id', async () => {
+      const agent = await registerUser(app, buildRegisterDto('profile-missing'));
+
+      await agent.get('/users/99999999/profile').expect(404);
+    });
+
+    it('returns 400 for a non-numeric id', async () => {
+      const agent = await registerUser(app, buildRegisterDto('profile-badid'));
+
+      await agent.get('/users/not-a-number/profile').expect(400);
+    });
+
+    it('rejects an unauthenticated request', async () => {
+      await request(app.getHttpServer()).get('/users/1/profile').expect(401);
     });
   });
 

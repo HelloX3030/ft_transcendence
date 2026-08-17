@@ -1,16 +1,19 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import type { GetUserResponse } from '@cinemates/shared';
+import type { UserProfileResponse } from '@cinemates/shared';
 import { userApi } from '@/api/endpoints/user';
 import { ApiError } from '@/api/api-error';
 import UserAvatar from '@/components/UserAvatar.vue';
 import ErrorState from '@/components/ErrorState.vue';
+import PresenceDot from '@/components/PresenceDot.vue';
+import ProfilePreferences from '@/components/profile/ProfilePreferences.vue';
 import { Button } from '@/components/ui/button';
 import Skeleton from '@/components/ui/skeleton/Skeleton.vue';
 import { UserRound, MessageCircle } from '@lucide/vue';
 import { useChatStore } from '@/stores/chat';
 import { useFriendsStore } from '@/stores/friends';
+import { useNotifyStore } from '@/stores/notify';
 import { useUserStore } from '@/stores/user';
 import { toast } from 'vue-sonner';
 
@@ -18,9 +21,10 @@ const route = useRoute();
 const router = useRouter();
 const chatStore = useChatStore();
 const friendsStore = useFriendsStore();
+const notify = useNotifyStore();
 const userStore = useUserStore();
 
-const profile = ref<GetUserResponse | null>(null);
+const profile = ref<UserProfileResponse | null>(null);
 const loading = ref(true);
 const notFound = ref(false);
 const error = ref(false);
@@ -48,7 +52,7 @@ async function load() {
   }
 
   try {
-    profile.value = await userApi.getById(id);
+    profile.value = await userApi.getProfileById(id);
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) notFound.value = true;
     else error.value = true;
@@ -72,6 +76,19 @@ const relation = computed(() => {
   if (!row) return 'none';
   if (row.status === 'accepted') return 'friends';
   return row.initiatorId === userStore.state?.id ? 'sent' : 'received';
+});
+
+/**
+ * Presence is seeded per friend, so `isUserOnline` reads false for everyone
+ * else — a dot on a stranger would assert something we do not know.
+ */
+const isOnline = computed(() => notify.isUserOnline(profileId.value));
+
+// Same phrasing as the friends list row, off the same `createdAt`.
+const friendsSince = computed(() => {
+  const createdAt = friendship.value?.createdAt;
+  if (relation.value !== 'friends' || createdAt === undefined) return null;
+  return new Date(createdAt).toLocaleDateString();
 });
 
 async function handleMessage() {
@@ -117,14 +134,22 @@ async function handleAddFriend() {
     <!-- Profile -->
     <template v-else-if="profile">
       <div class="flex flex-wrap items-center gap-5">
-        <UserAvatar
-          :avatar-file-id="profile.avatarFileId"
-          :username="profile.username"
-          class="size-24 text-2xl font-semibold"
-        />
+        <span class="relative inline-flex">
+          <UserAvatar
+            :avatar-file-id="profile.avatarFileId"
+            :username="profile.username"
+            class="size-24 text-2xl font-semibold"
+          />
+          <PresenceDot v-if="relation === 'friends'" overlay :online="isOnline" />
+        </span>
 
         <div class="flex flex-1 flex-col gap-3">
-          <h1 class="text-2xl font-bold">{{ profile.username }}</h1>
+          <div class="flex flex-col gap-1">
+            <h1 class="text-2xl font-bold">{{ profile.username }}</h1>
+            <p v-if="friendsSince" class="text-muted-foreground text-sm">
+              Friends since {{ friendsSince }}
+            </p>
+          </div>
           <div class="flex gap-2">
             <!--
               Message is offered to friends only: the chat store is seeded one
@@ -155,6 +180,12 @@ async function handleAddFriend() {
           </div>
         </div>
       </div>
+
+      <ProfilePreferences
+        :genre-ids="profile.genreIds"
+        :actor-ids="profile.actorIds"
+        :director-ids="profile.directorIds"
+      />
     </template>
   </div>
 </template>

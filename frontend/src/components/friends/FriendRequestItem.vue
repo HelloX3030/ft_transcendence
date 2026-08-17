@@ -3,7 +3,7 @@ import type { Friend, GetUserResponse } from '@cinemates/shared';
 import { computed, onMounted, ref } from 'vue';
 import { userApi } from '@/api/endpoints/user';
 import { toast } from 'vue-sonner';
-import UserAvatar from '../UserAvatar.vue';
+import UserAvatarLink from '../UserAvatarLink.vue';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle, ItemDescription } from '../ui/item';
 import { Button } from '../ui/button';
 import { Check, X } from '@lucide/vue';
@@ -69,7 +69,8 @@ async function handleCancel() {
 <template>
   <Item variant="outline">
     <ItemMedia>
-      <UserAvatar
+      <UserAvatarLink
+        :user-id="otherUserId"
         :avatar-file-id="userDetail?.avatarFileId"
         :username="userDetail?.username"
         class="size-10"

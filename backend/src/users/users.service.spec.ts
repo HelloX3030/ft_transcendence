@@ -12,7 +12,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StorageService } from 'src/storage/storage.service';
 import { UpdateUserDto } from './dto';
-import { ME_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
+import { ME_SELECT, PROFILE_SELECT, PUBLIC_SELECT, UsersService } from './users.service';
 import { verifyTOTP } from 'src/utils/otp.utils';
 import { CRYPTO_FORMAT, decryptSecret } from 'src/utils/crypto.utils';
 
@@ -509,6 +509,41 @@ describe('UsersService', () => {
       mockPrisma.users.findUnique.mockResolvedValue(null);
 
       await expect(service.getUser(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getUserProfile', () => {
+    const mockProfileUser = { ...mockPublicUser, genreIds: [28], actorIds: [], directorIds: [] };
+
+    it('adds the preferences to the public fields, and nothing else', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(mockProfileUser);
+
+      const result = await service.getUserProfile(1);
+
+      expect(mockPrisma.users.findUnique).toHaveBeenCalledWith({
+        where: { id: 1 },
+        select: PROFILE_SELECT,
+      });
+      expect(result.data).toEqual(mockProfileUser);
+    });
+
+    // The select is the whole privacy boundary of this endpoint, so it is
+    // asserted directly rather than only through what one fixture happens to hold.
+    it('never selects email, role, totpActive, language or onboardingCompleted', () => {
+      expect(Object.keys(PROFILE_SELECT).sort()).toEqual([
+        'actorIds',
+        'avatarFileId',
+        'directorIds',
+        'genreIds',
+        'id',
+        'username',
+      ]);
+    });
+
+    it('throws NotFoundException when user does not exist', async () => {
+      mockPrisma.users.findUnique.mockResolvedValue(null);
+
+      await expect(service.getUserProfile(999)).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -1,18 +1,9 @@
 <script lang="ts" setup>
-import { computed, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { useGenresStore } from '@/stores/genres';
-import { usePeopleStore } from '@/stores/people';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import ProfilePreferences from '@/components/profile/ProfilePreferences.vue';
 import TotpCard from '@/components/profile/TotpCard.vue';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
@@ -20,53 +11,8 @@ import { storeToRefs } from 'pinia';
 const userStore = useUserStore();
 
 const { state: profile } = storeToRefs(userStore);
-const genres = useGenresStore();
-const people = usePeopleStore();
 
 const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español' };
-
-// Map preference id lists to display names, dropping any not yet resolved (the
-// catalogue/people cache may still be loading, or an id may be stale).
-function resolveNames(ids: number[] | undefined, lookup: (id: number) => string | undefined) {
-  return (ids ?? []).map(lookup).filter((name): name is string => name !== undefined);
-}
-
-const preferenceSections = computed(() => [
-  {
-    label: 'Favorite Genres',
-    items: resolveNames(profile.value?.genreIds, genres.genreName),
-    empty: 'No favorite genres yet',
-  },
-  {
-    label: 'Favorite Directors',
-    items: resolveNames(profile.value?.directorIds, people.personName),
-    empty: 'No favorite directors yet',
-  },
-  {
-    label: 'Favorite Actors',
-    items: resolveNames(profile.value?.actorIds, people.personName),
-    empty: 'No favorite actors yet',
-  },
-]);
-
-// The person ids to resolve, recomputed when the profile loads (it may arrive
-// after this view mounts).
-const personIds = computed(() => [
-  ...(profile.value?.directorIds ?? []),
-  ...(profile.value?.actorIds ?? []),
-]);
-
-onMounted(() => {
-  void genres.ensureLoaded();
-});
-
-watch(
-  personIds,
-  (ids) => {
-    if (ids.length) void people.ensureLoaded(ids);
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
@@ -106,25 +52,11 @@ watch(
         </CardFooter>
       </Card>
 
-      <Card v-for="section in preferenceSections" :key="section.label">
-        <CardHeader>
-          <CardTitle class="text-muted-foreground text-sm font-medium">{{
-            section.label
-          }}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div v-if="section.items.length" class="flex flex-wrap gap-2">
-            <span
-              v-for="item in section.items"
-              :key="item"
-              class="text-primary rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium"
-            >
-              {{ item }}
-            </span>
-          </div>
-          <p v-else class="text-muted-foreground text-sm">{{ section.empty }}</p>
-        </CardContent>
-      </Card>
+      <ProfilePreferences
+        :genre-ids="profile.genreIds"
+        :actor-ids="profile.actorIds"
+        :director-ids="profile.directorIds"
+      />
       <TotpCard :totp-active="profile.totpActive" />
     </template>
   </div>
