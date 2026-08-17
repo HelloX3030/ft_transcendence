@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { DiscoverQuery } from '@cinemates/shared';
 import { IsIn, IsISO8601, IsOptional, Matches } from 'class-validator';
 import { IsNotAfter } from './is-not-after.validator';
 import { PaginationQueryDto } from './pagination-query.dto';
@@ -20,7 +21,11 @@ export const DISCOVER_SORT_OPTIONS = [
 // Optional discover filters layered on top of pagination + the quality toggle.
 // All go straight into the TMDB /discover/movie request, so each is validated
 // to a strict shape (sort_by is whitelisted; genres/dates are format-checked).
-export class DiscoverQueryDto extends PaginationQueryDto {
+//
+// `implements DiscoverQuery` binds the parameter names to the shared contract
+// the frontend builds its URL from; the validators and the defaults stay here,
+// since `implements` only checks the members it also declares.
+export class DiscoverQueryDto extends PaginationQueryDto implements DiscoverQuery {
   @ApiPropertyOptional({ description: 'Sort order', enum: DISCOVER_SORT_OPTIONS })
   @IsOptional()
   @IsIn(DISCOVER_SORT_OPTIONS)

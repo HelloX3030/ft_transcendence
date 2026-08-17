@@ -12,6 +12,7 @@ import {
   ChatConversation,
   ChatMessage,
   ChatMessagePage,
+  ChatReadResponse,
   MESSAGE_MAX_LENGTH,
 } from '@cinemates/shared';
 import { NotifyService } from 'src/notify/notify.service';
@@ -168,7 +169,8 @@ export class ChatService {
       this.notify.sendChatRead(peerId, { peerUserId: userId, readAt: readAt.toISOString() });
     }
 
-    return successResponse({ readAt: readAt.toISOString(), count });
+    const response: ChatReadResponse = { readAt: readAt.toISOString(), count };
+    return successResponse(response);
   }
 
   // -------------------------

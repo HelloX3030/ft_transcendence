@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
-import type { PaginatedMovies, TmdbMovie } from '@cinemates/shared';
+import type { DiscoverQuery, PaginatedMovies, TmdbMovie } from '@cinemates/shared';
 import { useSearchFilter } from '@/composables/useSearchFilter';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';
@@ -99,15 +99,23 @@ export const useMoviesStore = defineStore('movies', () => {
 
   // Builds the discover request from pagination, the quality toggle and the
   // active filter bar, omitting any filter that isn't set.
+  //
+  // Assembled as a DiscoverQuery rather than as string literals: the backend DTO
+  // implements the same interface, so a renamed parameter fails to compile here
+  // instead of turning every discover request into a 400.
   function discoverUrl(page: number): string {
-    const params = new URLSearchParams({
-      page: String(page),
-      filtered: String(filtered.value),
-    });
-    if (sortBy.value) params.set('sortBy', sortBy.value);
-    if (withGenres.value) params.set('withGenres', withGenres.value);
-    if (primaryReleaseDateGte.value) params.set('releaseDateGte', primaryReleaseDateGte.value);
-    if (primaryReleaseDateLte.value) params.set('releaseDateLte', primaryReleaseDateLte.value);
+    const query: DiscoverQuery = {
+      page,
+      filtered: filtered.value,
+      ...(sortBy.value ? { sortBy: sortBy.value } : {}),
+      ...(withGenres.value ? { withGenres: withGenres.value } : {}),
+      ...(primaryReleaseDateGte.value ? { releaseDateGte: primaryReleaseDateGte.value } : {}),
+      ...(primaryReleaseDateLte.value ? { releaseDateLte: primaryReleaseDateLte.value } : {}),
+    };
+
+    const params = new URLSearchParams(
+      Object.entries(query).map(([key, value]) => [key, String(value)]),
+    );
     return `/tmdb/discover?${params}`;
   }
 

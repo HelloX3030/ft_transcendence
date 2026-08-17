@@ -6,6 +6,7 @@ import type {
   WatchlistResponse,
   WatchlistRole,
   WatchlistUpdateRequest,
+  WatchlistUserResponse,
 } from '@cinemates/shared';
 
 export const watchlistApi = {
@@ -50,7 +51,7 @@ export const watchlistApi = {
       method: 'GET',
     }),
 
-  getUsers: (id: number) => backendClient(`/watchlists/${id}/users`),
+  getUsers: (id: number) => backendClient<WatchlistUserResponse[]>(`/watchlists/${id}/users`),
 
   addUser: (id: number, payload: { userId: number; role: WatchlistRole }) => {
     return backendClient(`/watchlists/${id}/users`, {

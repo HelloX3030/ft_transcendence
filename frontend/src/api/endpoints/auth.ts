@@ -5,11 +5,12 @@ import type {
   MfaVerifyRequest,
   RegisterRequest,
   ResetPasswordRequest,
+  SessionResponse,
 } from '@cinemates/shared';
 import { backendClient } from '../client';
 
 export const authApi = {
-  session: () => backendClient('/auth/me'),
+  session: () => backendClient<SessionResponse>('/auth/me'),
 
   login: (payload: LoginRequest) =>
     backendClient<LoginResponse>('/auth/login', {

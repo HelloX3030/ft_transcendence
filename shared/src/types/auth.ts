@@ -41,6 +41,16 @@ export interface otp {
   otp: string;
 }
 
+/**
+ * What GET /auth/me answers with: the access token's payload, not a user row.
+ * The profile lives behind GET /users/me — this endpoint exists to say whether
+ * there is a session at all.
+ */
+export interface SessionResponse {
+  sub: number;
+  email: string;
+}
+
 export interface ForgotPasswordRequest {
   email: string;
 }

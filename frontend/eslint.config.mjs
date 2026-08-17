@@ -21,4 +21,21 @@ export default defineConfigWithVueTs(
       'vue/multi-word-component-names': 'off',
     },
   },
+  // src/api owns the base URL, the credentials mode, the 401-refresh-retry and
+  // the envelope unwrap. A bare fetch elsewhere gets none of them — which is how
+  // a profile page shipped pointing at the Vue dev server instead of the API.
+  {
+    files: ['src/**/*.{ts,vue}'],
+    ignores: ['src/api/**'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'fetch',
+          message:
+            'Use backendClient / uploadWithProgress from @/api — they own the base URL, the credentials and the 401 refresh.',
+        },
+      ],
+    },
+  },
 );
