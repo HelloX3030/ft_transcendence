@@ -39,6 +39,16 @@ export interface GetUserResponse {
   username: string;
 }
 
+/**
+ * The profile page's read. Everything in GetUserResponse, plus the taste the
+ * onboarding derived — deliberately not email, role or totpActive.
+ */
+export interface UserProfileResponse extends GetUserResponse {
+  genreIds: number[];
+  actorIds: number[];
+  directorIds: number[];
+}
+
 export interface UserSearchResponse {
   page: number;
   limit: number;

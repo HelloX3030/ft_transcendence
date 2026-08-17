@@ -2,6 +2,7 @@ import type {
   GetUserResponse,
   UpdateUserRequest,
   UserMeResponse,
+  UserProfileResponse,
   UserSearchResponse,
 } from '@cinemates/shared';
 import { backendClient } from '../client';
@@ -11,6 +12,10 @@ export const userApi = {
   getMe: () => backendClient<UserMeResponse>('/users/me'),
 
   getById: (id: number) => backendClient<GetUserResponse>(`/users/${id}`),
+
+  // The profile page's read only: every list surface stays on `getById`, which
+  // is what keeps one request per member cheap.
+  getProfileById: (id: number) => backendClient<UserProfileResponse>(`/users/${id}/profile`),
 
   search: ({ query, page, limit }: { query: string; page?: number; limit?: number }) => {
     const params = new URLSearchParams({ query });

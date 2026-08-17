@@ -12,6 +12,7 @@ import type { Chat } from '@/stores/chat';
 import { useUserStore } from '@/stores/user';
 import { storeToRefs } from 'pinia';
 import UserAvatar from '../UserAvatar.vue';
+import UserAvatarLink from '../UserAvatarLink.vue';
 import { formatTime } from '@/lib/format.ts';
 
 const props = defineProps<Chat>();
@@ -51,7 +52,11 @@ function isMine(senderId: number) {
           <UserAvatar v-if="user" :avatar-file-id="user.avatarFileId" :username="user.username" />
         </template>
         <template v-else>
-          <UserAvatar :avatar-file-id="friend.avatarFileId" :username="friend.username" />
+          <UserAvatarLink
+            :user-id="friend.id"
+            :avatar-file-id="friend.avatarFileId"
+            :username="friend.username"
+          />
         </template>
       </MessageAvatar>
 

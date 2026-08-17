@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GetUserResponse } from '@cinemates/shared';
-import UserAvatar from '../UserAvatar.vue';
+import UserAvatarLink from '../UserAvatarLink.vue';
 import { ArrowUpRight, Ellipsis, Trash } from '@lucide/vue';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item';
 import {
@@ -39,10 +39,14 @@ async function handleDelete() {
 <template>
   <Item variant="outline">
     <ItemMedia>
-      <span class="relative inline-flex">
-        <UserAvatar :avatar-file-id="avatarFileId" :username="username" class="size-10" />
+      <UserAvatarLink
+        :user-id="id"
+        :avatar-file-id="avatarFileId"
+        :username="username"
+        class="size-10"
+      >
         <PresenceDot overlay :online="notify.isUserOnline(id)" />
-      </span>
+      </UserAvatarLink>
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ username }}</ItemTitle>

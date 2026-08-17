@@ -122,6 +122,22 @@ export class UsersController {
     return this.usersService.getUser(id);
   }
 
+  @Get(':id/profile')
+  @ApiOperation({
+    summary: "Get a user's profile page",
+    description:
+      "The public fields plus the preferences onboarding derived. Never returns email, role, totpActive, language or onboardingCompleted — those belong to the owner's own read.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Public profile with favourite genres, actors, directors',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  getUserProfile(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getUserProfile(id);
+  }
+
   @Post('mfa/totp/setup')
   @ApiOperation({ summary: 'Generate TOTP secret for authenticated user' })
   @ApiResponse({

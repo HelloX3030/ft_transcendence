@@ -6,7 +6,7 @@ import { useUserSearch } from '@/composables/useUserSearch';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import { Button } from '../ui/button';
 import { Spinner } from '../ui/spinner';
-import UserAvatar from '../UserAvatar.vue';
+import UserAvatarLink from '../UserAvatarLink.vue';
 import { toast } from 'vue-sonner';
 import ItemGroup from '../ui/item/ItemGroup.vue';
 import ItemSeparator from '../ui/item/ItemSeparator.vue';
@@ -83,7 +83,8 @@ watch(inputQuery, (value) => value.length <= 0 && handleClear());
           <template v-for="(user, idx) in searchData!.results" :key="user.id">
             <Item>
               <ItemMedia>
-                <UserAvatar
+                <UserAvatarLink
+                  :user-id="user.id"
                   :avatar-file-id="user.avatarFileId"
                   :username="user.username"
                   class="size-10"

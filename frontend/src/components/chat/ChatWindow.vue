@@ -10,7 +10,7 @@ import { useChatStore } from '@/stores/chat';
 import { useNotifyStore } from '@/stores/notify';
 import ChatMessage from '@/components/chat/ChatMessage.vue';
 import { useSendMessage } from '@/composables/chat/useSendMessage';
-import UserAvatar from '../UserAvatar.vue';
+import UserAvatarLink from '../UserAvatarLink.vue';
 
 /** How close to the bottom still counts as "following the conversation". */
 const BOTTOM_THRESHOLD_PX = 100;
@@ -157,7 +157,8 @@ watch(
           <ArrowLeft class="h-5 w-5" />
         </Button>
 
-        <UserAvatar
+        <UserAvatarLink
+          :user-id="activeChat.friend.id"
           :avatar-file-id="activeChat.friend.avatarFileId"
           :username="activeChat.friend.username"
         />

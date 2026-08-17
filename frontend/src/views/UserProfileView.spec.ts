@@ -6,9 +6,26 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import type { Friend } from '@cinemates/shared';
 import { ApiError } from '@/api/api-error';
 
-const getById = vi.fn();
+const getProfileById = vi.fn();
 vi.mock('@/api/endpoints/user', () => ({
-  userApi: { getById: (id: number) => getById(id), getMe: vi.fn() },
+  userApi: {
+    // The lean read the friends store resolves each row with — the chat store
+    // watches those details, so it has to answer with a user.
+    getById: (id: number) => Promise.resolve({ id, username: `user-${id}`, avatarFileId: null }),
+    getProfileById: (id: number) => getProfileById(id),
+    getMe: vi.fn(),
+  },
+}));
+
+// The preference cards resolve ids through these two caches; both are backed by
+// the API, so they are stubbed the same way the profile read is.
+const genreName = vi.fn((id: number) => `genre-${id}`);
+const personName = vi.fn((id: number) => `person-${id}`);
+vi.mock('@/stores/genres', () => ({
+  useGenresStore: () => ({ genreName, ensureLoaded: vi.fn().mockResolvedValue(undefined) }),
+}));
+vi.mock('@/stores/people', () => ({
+  usePeopleStore: () => ({ personName, ensureLoaded: vi.fn().mockResolvedValue(undefined) }),
 }));
 
 const sendRequest = vi.fn();
@@ -28,6 +45,12 @@ vi.mock('@/api/endpoints/chat', () => ({
     messages: vi.fn().mockResolvedValue({ messages: [], nextCursor: null }),
   },
 }));
+// Presence rides a socket the view never opens itself; only the answer matters.
+const onlineIds = new Set<number>();
+vi.mock('@/stores/notify', () => ({
+  useNotifyStore: () => ({ isUserOnline: (id: number) => onlineIds.has(id) }),
+}));
+
 vi.mock('vue-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import UserProfileView from './UserProfileView.vue';
@@ -37,7 +60,17 @@ import { useUserStore } from '@/stores/user';
 const ME = 1;
 const PEER = 7;
 
-const PROFILE = { id: PEER, username: 'peer', avatarFileId: null };
+const PROFILE = {
+  id: PEER,
+  username: 'peer',
+  avatarFileId: null,
+  genreIds: [28],
+  actorIds: [500],
+  directorIds: [138],
+};
+
+/** PresenceDot is the only `role="img"` this page renders. */
+const PRESENCE_DOT = '[role="img"]';
 
 function makeRouter(): Router {
   return createRouter({
@@ -77,7 +110,8 @@ describe('UserProfileView', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
-    getById.mockResolvedValue(PROFILE);
+    onlineIds.clear();
+    getProfileById.mockResolvedValue(PROFILE);
     getAll.mockResolvedValue([]);
     sendRequest.mockResolvedValue(undefined);
   });
@@ -86,19 +120,19 @@ describe('UserProfileView', () => {
     it('renders the user it fetched through the API layer', async () => {
       const { wrapper } = await mountProfile(PEER);
 
-      expect(getById).toHaveBeenCalledWith(PEER);
+      expect(getProfileById).toHaveBeenCalledWith(PEER);
       expect(wrapper.text()).toContain('peer');
     });
 
     it('shows "not found" on a 404', async () => {
-      getById.mockRejectedValue(new ApiError(404, 'User not found.'));
+      getProfileById.mockRejectedValue(new ApiError(404, 'User not found.'));
       const { wrapper } = await mountProfile(PEER);
 
       expect(wrapper.text()).toContain('User not found');
     });
 
     it('shows a retryable error on anything else', async () => {
-      getById.mockRejectedValue(new ApiError(500, 'boom'));
+      getProfileById.mockRejectedValue(new ApiError(500, 'boom'));
       const { wrapper } = await mountProfile(PEER);
 
       expect(wrapper.text()).toContain('Could not load this profile.');
@@ -108,18 +142,18 @@ describe('UserProfileView', () => {
     it('treats an id that is not a number as "not found", without asking the API', async () => {
       const { wrapper } = await mountProfile('abc');
 
-      expect(getById).not.toHaveBeenCalled();
+      expect(getProfileById).not.toHaveBeenCalled();
       expect(wrapper.text()).toContain('User not found');
     });
 
     it('reloads when the id in the URL changes', async () => {
       const { wrapper, router } = await mountProfile(PEER);
 
-      getById.mockResolvedValue({ id: 9, username: 'someone-else', avatarFileId: null });
+      getProfileById.mockResolvedValue({ id: 9, username: 'someone-else', avatarFileId: null });
       await router.push('/users/9');
       await flushPromises();
 
-      expect(getById).toHaveBeenLastCalledWith(9);
+      expect(getProfileById).toHaveBeenLastCalledWith(9);
       expect(wrapper.text()).toContain('someone-else');
     });
   });
@@ -160,10 +194,58 @@ describe('UserProfileView', () => {
     });
 
     it('offers nothing on your own profile', async () => {
-      getById.mockResolvedValue({ id: ME, username: 'me', avatarFileId: null });
+      getProfileById.mockResolvedValue({ ...PROFILE, id: ME, username: 'me' });
       const { wrapper } = await mountProfile(ME);
 
       expect(wrapper.findAll('button')).toHaveLength(0);
+    });
+  });
+
+  describe('the preference cards', () => {
+    it('renders the three sections with the resolved names', async () => {
+      const { wrapper } = await mountProfile(PEER);
+
+      expect(wrapper.text()).toContain('Favorite Genres');
+      expect(wrapper.text()).toContain('Favorite Directors');
+      expect(wrapper.text()).toContain('Favorite Actors');
+
+      expect(wrapper.text()).toContain('genre-28');
+      expect(wrapper.text()).toContain('person-138');
+      expect(wrapper.text()).toContain('person-500');
+    });
+
+    it('keeps the cards, with their empty states, for a user who never onboarded', async () => {
+      getProfileById.mockResolvedValue({
+        ...PROFILE,
+        genreIds: [],
+        actorIds: [],
+        directorIds: [],
+      });
+      const { wrapper } = await mountProfile(PEER);
+
+      expect(wrapper.text()).toContain('No favorite genres yet');
+      expect(wrapper.text()).toContain('No favorite directors yet');
+      expect(wrapper.text()).toContain('No favorite actors yet');
+    });
+  });
+
+  describe('presence and "friends since"', () => {
+    it('shows both on a friend', async () => {
+      onlineIds.add(PEER);
+      const { wrapper } = await mountProfile(PEER, [friendRow('accepted', ME)]);
+
+      const dot = wrapper.get(PRESENCE_DOT);
+      expect(dot.attributes('aria-label')).toBe('Online');
+      expect(wrapper.text()).toContain(
+        `Friends since ${new Date('2026-01-01T00:00:00.000Z').toLocaleDateString()}`,
+      );
+    });
+
+    it('shows neither on a stranger — an absent id is not a known-offline one', async () => {
+      const { wrapper } = await mountProfile(PEER);
+
+      expect(wrapper.find(PRESENCE_DOT).exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('Friends since');
     });
   });
 });

@@ -52,6 +52,11 @@ describe('endpoint contract', () => {
       expect(lastCall()).toMatchObject({ path: '/users/7', method: 'GET' });
     });
 
+    it('reads the profile page from its own path, so the lean read stays lean', () => {
+      userApi.getProfileById(7);
+      expect(lastCall()).toMatchObject({ path: '/users/7/profile', method: 'GET' });
+    });
+
     it('reads the signed-in user', () => {
       userApi.getMe();
       expect(lastCall()).toMatchObject({ path: '/users/me', method: 'GET' });
