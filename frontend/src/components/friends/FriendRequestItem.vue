@@ -51,6 +51,19 @@ async function handleDecline() {
     isProcessing.value = false;
   }
 }
+
+async function handleCancel() {
+  isProcessing.value = true;
+  try {
+    await friendsStore.cancelRequest(otherUserId.value);
+    toast.success('Friend request cancelled');
+  } catch (error) {
+    const message = (error as Error).message;
+    toast.error(message);
+  } finally {
+    isProcessing.value = false;
+  }
+}
 </script>
 
 <template>
@@ -89,6 +102,17 @@ async function handleDecline() {
           <X class="text-red-500" />
         </Button>
       </template>
+      <Button
+        v-else
+        size="icon-sm"
+        variant="outline"
+        class="rounded-full"
+        :disabled="isProcessing"
+        aria-label="Cancel request"
+        @click="handleCancel"
+      >
+        <X class="text-red-500" />
+      </Button>
     </ItemActions>
   </Item>
 </template>

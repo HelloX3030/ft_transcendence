@@ -47,6 +47,14 @@ export const useFriendsStore = defineStore('friends', () => {
     await refetchFriends();
   }
 
+  // Same call as declineRequest and deleteFriend, kept apart because the backend
+  // branches on who is deleting what: the peer of a cancelled request is told
+  // "cancelled", not "declined" or "removed".
+  async function cancelRequest(friendId: number) {
+    await friendsApi.delete(friendId);
+    await refetchFriends();
+  }
+
   async function sendRequest(userId: number) {
     await friendsApi.sendRequest(userId);
     await refetchFriends();
@@ -80,6 +88,7 @@ export const useFriendsStore = defineStore('friends', () => {
     refetchFriends,
     acceptRequest,
     declineRequest,
+    cancelRequest,
     sendRequest,
     deleteFriend,
     $reset,
