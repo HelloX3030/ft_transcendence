@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { toTypedSchema } from '@vee-validate/zod';
 import { useForm } from 'vee-validate';
+import { useTemplateRef } from 'vue';
 import { RouterLink } from 'vue-router';
 import { loginSchema } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import GoogleButton from './GoogleButton.vue';
+import PasswordInput from './PasswordInput.vue';
 
 defineProps<{ error: string | null }>();
 const emit = defineEmits<{ submit: [email: string, password: string] }>();
@@ -15,7 +17,11 @@ const form = useForm({
   validationSchema: toTypedSchema(loginSchema),
 });
 
+const passwordInput = useTemplateRef('passwordInput');
+
 const onSubmit = form.handleSubmit(({ email, password }) => {
+  // A rejected login re-renders this form with the password still in it.
+  passwordInput.value?.mask();
   emit('submit', email, password);
 });
 </script>
@@ -46,11 +52,10 @@ const onSubmit = form.handleSubmit(({ email, password }) => {
           </RouterLink>
         </div>
         <FormControl>
-          <Input
+          <PasswordInput
+            ref="passwordInput"
             v-bind="componentField"
-            type="password"
             autocomplete="current-password"
-            placeholder="••••••••••••"
           />
         </FormControl>
         <FormMessage />

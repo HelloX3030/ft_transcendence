@@ -7,11 +7,11 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 
 import { registerSchema } from '@/lib/schemas';
-import { Eye, EyeOff } from '@lucide/vue';
-import { ref } from 'vue';
+import { ref, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
 
 import GoogleButton from './GoogleButton.vue';
+import PasswordInput from './PasswordInput.vue';
 import { ApiError } from '@/api/api-error';
 import { useAuthStore } from '@/stores/auth';
 import { useUserStore } from '@/stores/user';
@@ -25,8 +25,14 @@ const auth = useAuthStore();
 const userStore = useUserStore();
 const errorMessage = ref<string | null>(null);
 
+const passwordInput = useTemplateRef('passwordInput');
+const confirmPasswordInput = useTemplateRef('confirmPasswordInput');
+
 const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
   errorMessage.value = null;
+  // A rejected signup re-renders this form with both passwords still in it.
+  passwordInput.value?.mask();
+  confirmPasswordInput.value?.mask();
   try {
     await auth.register({ username, email, password, language: 'de' }); //TODO: dynamic language
     await userStore.refetchUser();
@@ -41,8 +47,6 @@ const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
     }
   }
 });
-
-const isPwVisible = ref(false);
 </script>
 
 <template>
@@ -77,24 +81,9 @@ const isPwVisible = ref(false);
     </FormField>
     <FormField v-slot="{ componentField }" name="password">
       <FormItem>
-        <div class="flex justify-between">
-          <FormLabel>Password</FormLabel>
-          <Button variant="ghost" type="button" @click="isPwVisible = !isPwVisible">
-            <EyeOff v-if="isPwVisible" />
-            <Eye v-else />
-          </Button>
-        </div>
-
+        <FormLabel>Password</FormLabel>
         <FormControl>
-          <div class="flex items-center gap-2">
-            <Input
-              v-bind="componentField"
-              :type="isPwVisible ? 'text' : 'password'"
-              autocomplete="new-password"
-              placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
-            >
-            </Input>
-          </div>
+          <PasswordInput ref="passwordInput" v-bind="componentField" autocomplete="new-password" />
         </FormControl>
         <FormMessage />
       </FormItem>
@@ -103,11 +92,10 @@ const isPwVisible = ref(false);
       <FormItem>
         <FormLabel>Confirm Password</FormLabel>
         <FormControl>
-          <Input
+          <PasswordInput
+            ref="confirmPasswordInput"
             v-bind="componentField"
-            type="password"
             autocomplete="new-password"
-            placeholder="🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄🞄"
           />
         </FormControl>
         <FormMessage />
