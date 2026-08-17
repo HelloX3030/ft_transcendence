@@ -49,14 +49,23 @@ const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlay
       :show-genres="showGenres"
     />
     <!--
-      No `allow` attribute: the five names YouTube would write here are for
-      360° video, DRM and the player's own copy-link button, none of which a
-      muted trailer with `controls: 0` uses.
+      Two delegations, not the seven YouTube writes for itself. The five that
+      are gone are for 360° video, DRM and the player's own copy-link button,
+      none of which a muted trailer with `controls: 0` uses.
+
+      `compute-pressure` is here because the player probes it and Chrome logs a
+      permissions-policy violation per probe when it is not granted; `autoplay`
+      because Chrome delegates unmuted playback in a cross-origin frame through
+      it, and the sound toggle unmutes one. Both are names Firefox does not
+      know, so it warns about them instead — an accepted trade: a clean Chrome
+      console is the target, and Firefox's remaining noise is YouTube's own
+      document either way.
     -->
     <iframe
       ref="player-host"
       :src="src"
       :title="`${title} — trailer`"
+      allow="autoplay; compute-pressure"
       class="w-full h-full lg:scale-y-125 scale-y-150"
       frameborder="0"
     />

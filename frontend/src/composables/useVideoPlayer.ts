@@ -53,6 +53,28 @@ export function useVideoPlayer(
     else player.value.unMute();
   }
 
+  /**
+   * Resolves once the iframe holds its YouTube document.
+   *
+   * A freshly inserted iframe still has `about:blank` in it, which inherits
+   * this page's origin. The API starts a 250ms handshake poll the moment it is
+   * constructed and aims each `postMessage` at the embed's host, so every tick
+   * before the real document commits is refused by the browser and logged.
+   *
+   * Waiting costs nothing: the handshake could not have succeeded before the
+   * document existed either way — it only stops the failed attempts being made.
+   */
+  function iframeLoaded(frame: HTMLIFrameElement): Promise<void> {
+    // A committed cross-origin document makes contentDocument null; while the
+    // iframe still holds about:blank it is same-origin and readable. That is
+    // the difference between "already loaded" and "load is still coming", and
+    // without it a load that beat us here would leave this waiting forever.
+    if (frame.contentDocument === null) return Promise.resolve();
+    return new Promise((resolve) => {
+      frame.addEventListener('load', () => resolve(), { once: true });
+    });
+  }
+
   // YouTube Init
   async function initPlayer() {
     await loadYouTubeApi();
@@ -62,6 +84,11 @@ export function useVideoPlayer(
     // The element itself, not an id. The id used to be built from the trailer
     // key, which is not unique across the feed — two cards sharing a trailer
     // put two nodes under one id and YouTube took over whichever came first.
+    if (disposed || !hostRef.value) return;
+
+    await iframeLoaded(hostRef.value);
+    // Swiped past while the embed was loading: there is nothing left to drive,
+    // and constructing a player here would only build one to destroy.
     if (disposed || !hostRef.value) return;
 
     // The iframe already carries the video, the parameters and the host (see
