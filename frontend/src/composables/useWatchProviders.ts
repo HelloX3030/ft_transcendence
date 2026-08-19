@@ -1,6 +1,6 @@
 import { onScopeDispose, ref, watch, type Ref } from 'vue';
 import type { MovieWatchProviders, WatchProvider } from '@cinemates/shared';
-import { DEFAULT_REGION } from '@/lib/constants';
+import { WATCH_PROVIDER_REGION } from '@/lib/constants';
 import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';
 
@@ -15,9 +15,10 @@ import { logger } from '@/lib/logger';
 const SETTLE_MS = 300;
 
 /**
- * Fetches the DEFAULT_REGION flatrate (subscription) providers for a movie,
- * refetching once the id has settled. Returns an empty list on error or when the
- * region/flatrate is missing, so callers can simply hide the section when empty.
+ * Fetches the WATCH_PROVIDER_REGION flatrate (subscription) providers for a
+ * movie, refetching once the id has settled. Returns an empty list on error or
+ * when the region/flatrate is missing, so callers can simply hide the section
+ * when empty — which is what a user outside that region sees.
  */
 export function useWatchProviders(movieId: Ref<number | undefined>) {
   const providers = ref<WatchProvider[]>([]);
@@ -47,7 +48,7 @@ export function useWatchProviders(movieId: Ref<number | undefined>) {
       try {
         const data = await backendClient<MovieWatchProviders>(`/tmdb/movies/${id}/providers`);
         if (gen !== generation) return;
-        providers.value = data.results?.[DEFAULT_REGION]?.flatrate ?? [];
+        providers.value = data.results?.[WATCH_PROVIDER_REGION]?.flatrate ?? [];
       } catch (error) {
         if (gen !== generation) return;
         logger.error(error);

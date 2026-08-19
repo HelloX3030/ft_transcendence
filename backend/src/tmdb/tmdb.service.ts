@@ -142,6 +142,11 @@ export class TmdbService {
 
     // TMDB returns { id, results: { <country>: { link, flatrate, rent, buy } } }
     // which already matches MovieWatchProviders, so it's cached and returned as-is.
+    //
+    // Deliberately fetched with no `watch_region`: one cache entry per movie then
+    // serves every country, and the server stays free of a product decision the
+    // client already owns (`WATCH_PROVIDER_REGION`). Narrowing it server-side
+    // would multiply cache entries by region for a few kilobytes of payload.
     const response = await this.client.get<MovieWatchProviders>(
       `/movie/${movieId}/watch/providers`,
     );

@@ -22,5 +22,20 @@ export const GOOGLE_LOGIN_URL = `${BACKEND_URL}/v1/auth/google`;
  */
 export const FRONTEND_ORIGIN = typeof window === 'undefined' ? '' : window.location.origin;
 
-// ISO 3166-1 region whose watch providers we surface (TMDB returns all regions).
-export const DEFAULT_REGION = 'DE';
+/**
+ * ISO 3166-1 country whose streaming availability every user sees.
+ *
+ * Not a fallback and not user-configurable — deliberately one fixed country. The
+ * audience for this build is in Germany, so DE is the availability they can check
+ * against their own subscriptions. A user elsewhere sees no providers rather than
+ * wrong ones; both call sites hide the section when the list is empty.
+ *
+ * Independent of the `en-GB` date formatting in `format.ts`: that pins how text is
+ * written, this pins where the content is watched. TMDB models them as separate
+ * parameters for the same reason — `de` alone would not say whether to mean DE, AT
+ * or CH.
+ *
+ * Frontend-only on purpose; see the note on the server's region-neutral fetch in
+ * `TmdbService.getWatchProviders`.
+ */
+export const WATCH_PROVIDER_REGION = 'DE';
