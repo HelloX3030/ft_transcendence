@@ -50,6 +50,10 @@ export const useNotifyStore = defineStore('notify', () => {
   });
   const connectionStatus = ref<ConnectionStatus>('idle');
   let failedAttempts = 0;
+  // One refresh-and-reconnect in flight at a time. The recovery below can itself
+  // be disconnected, and a handler that started another on every drop would
+  // hammer the gateway with handshakes.
+  let isReconnecting = false;
 
   // The four stores this one drives are resolved inside the handlers that use
   // them rather than here. Resolved in the setup body, they were built the
@@ -81,6 +85,12 @@ export const useNotifyStore = defineStore('notify', () => {
     socket.on('disconnect', (reason) => {
       logger.debug('[notify] disconnected: ', reason);
       connectionStatus.value = 'connecting';
+      // socket.io retries a connection *it* lost, but never one the server asked
+      // to close — so on this path `connect_error`, and the refresh that lives
+      // inside it, are never reached. The gateway closes sockets whose access
+      // token expired, which made every idle tab sit on 'connecting' forever
+      // with chat, notifications and presence dead until a reload.
+      if (reason === 'io server disconnect') void reconnectAfterServerDisconnect();
     });
 
     socket.on('connect_error', (error) => {
@@ -145,6 +155,40 @@ export const useNotifyStore = defineStore('notify', () => {
   }
 
   /**
+   * Re-handshakes after the server closed the socket, which it does once the
+   * access token behind the handshake has run out.
+   *
+   * Both steps are needed and neither happens on its own: the cookie has to be
+   * renewed or the new handshake is rejected for the same reason, and
+   * `socket.connect()` has to be explicit because socket.io does not retry a
+   * server-initiated disconnect.
+   */
+  async function reconnectAfterServerDisconnect() {
+    if (isReconnecting) return;
+    isReconnecting = true;
+    try {
+      // Counted here as well as in `connect_error`: a socket that never retries
+      // could otherwise never reach the offline ceiling, which is why the status
+      // used to stick on 'connecting'. A successful `connect` resets it, so a
+      // routine expiry-and-recover cycle never accumulates — five drops with no
+      // connection in between is a storm, and gives up.
+      failedAttempts += 1;
+      if (failedAttempts >= OFFLINE_AFTER_FAILED_ATTEMPTS) {
+        connectionStatus.value = 'offline';
+        return;
+      }
+      await refreshSession();
+      socket.connect();
+    } catch {
+      // The refresh token is gone too, so the session is genuinely over and no
+      // number of retries can bring it back.
+      connectionStatus.value = 'offline';
+    } finally {
+      isReconnecting = false;
+    }
+  }
+
+  /**
    * Routes one typed event: fold it into the inbox, surface it, then invalidate
    * whatever store it makes stale. An unknown type is logged and dropped — a
    * throw here would take down the socket handler for every later event.
@@ -180,6 +224,7 @@ export const useNotifyStore = defineStore('notify', () => {
     friendsStatus.value = new Map<number, boolean>();
     connectionStatus.value = 'idle';
     failedAttempts = 0;
+    isReconnecting = false;
     // Also cleared here, not just by the reset plugin on logout: the socket is
     // torn down on token expiry too, and the caches must not outlive it.
     useChatStore().$reset();

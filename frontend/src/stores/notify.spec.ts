@@ -28,7 +28,8 @@ function fire(event: string, payload?: unknown) {
 
 vi.mock('socket.io-client', () => ({ io: () => socket }));
 vi.mock('vue-sonner', () => ({ toast: { info: vi.fn() } }));
-vi.mock('@/api/http', () => ({ refreshSession: vi.fn().mockResolvedValue(undefined) }));
+const refreshSession = vi.fn<() => Promise<void>>();
+vi.mock('@/api/http', () => ({ refreshSession: () => refreshSession() }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), debug: vi.fn(), warn: vi.fn() } }));
 vi.mock('./chat', () => ({
   useChatStore: () => ({ hydrate: vi.fn(), ingestMessage: vi.fn(), $reset: vi.fn() }),
@@ -46,6 +47,7 @@ describe('notify store — connection status', () => {
     setActivePinia(createPinia());
     handlers.clear();
     vi.clearAllMocks();
+    refreshSession.mockResolvedValue(undefined);
   });
 
   it('starts idle, so a page that never connects shows nothing', () => {
@@ -97,6 +99,81 @@ describe('notify store — connection status', () => {
     // Without the reset this single failure would land back on `offline`.
     fire('connect_error', new Error('nope'));
     expect(store.connectionStatus).toBe('connecting');
+  });
+
+  // The gateway drops sockets whose access token expired. socket.io does not
+  // retry a disconnect the server asked for, so before this the socket stayed
+  // down — and `connect_error`, where the refresh used to live, never ran.
+  describe('a server-initiated disconnect', () => {
+    it('renews the session and reconnects, which socket.io will not do', async () => {
+      const store = useNotifyStore();
+      store.init();
+      fire('connect');
+      socket.connect.mockClear();
+
+      fire('disconnect', 'io server disconnect');
+      await vi.waitFor(() => expect(socket.connect).toHaveBeenCalledTimes(1));
+
+      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(store.connectionStatus).toBe('connecting');
+    });
+
+    it('leaves a drop socket.io does retry alone', async () => {
+      const store = useNotifyStore();
+      store.init();
+      fire('connect');
+      socket.connect.mockClear();
+
+      fire('disconnect', 'transport close');
+      await Promise.resolve();
+
+      expect(refreshSession).not.toHaveBeenCalled();
+      expect(socket.connect).not.toHaveBeenCalled();
+      expect(store.connectionStatus).toBe('connecting');
+    });
+
+    it('goes offline when the refresh fails, rather than looping', async () => {
+      refreshSession.mockRejectedValue(new Error('refresh token gone'));
+      const store = useNotifyStore();
+      store.init();
+      fire('connect');
+      socket.connect.mockClear();
+
+      fire('disconnect', 'io server disconnect');
+      await vi.waitFor(() => expect(store.connectionStatus).toBe('offline'));
+
+      expect(socket.connect).not.toHaveBeenCalled();
+    });
+
+    // Before this the counter only moved inside `connect_error`, so a socket
+    // that never retried could never be reported as offline — the indicator sat
+    // on "Reconnecting" for good.
+    it('reaches offline after repeated drops with no connection in between', async () => {
+      const store = useNotifyStore();
+      store.init();
+      // init() connects once; the counting below is about the manual retries.
+      socket.connect.mockClear();
+
+      for (let attempt = 1; attempt < 5; attempt++) {
+        fire('disconnect', 'io server disconnect');
+        await vi.waitFor(() => expect(socket.connect).toHaveBeenCalledTimes(attempt));
+        expect(store.connectionStatus).toBe('connecting');
+      }
+
+      fire('disconnect', 'io server disconnect');
+      await vi.waitFor(() => expect(store.connectionStatus).toBe('offline'));
+    });
+
+    it('recovers the ceiling once a reconnect actually succeeds', async () => {
+      const store = useNotifyStore();
+      store.init();
+
+      fire('disconnect', 'io server disconnect');
+      await vi.waitFor(() => expect(socket.connect).toHaveBeenCalled());
+      fire('connect');
+
+      expect(store.connectionStatus).toBe('online');
+    });
   });
 
   it('returns to idle on $reset, so logging out clears the indicator', () => {
