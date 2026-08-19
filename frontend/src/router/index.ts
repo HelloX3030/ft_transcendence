@@ -129,7 +129,7 @@ const router = createRouter({
     },
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/', //TODO: Or show 404 page
+      redirect: '/',
     },
   ],
 });
