@@ -4,10 +4,11 @@ import type { DomainEventType } from '@cinemates/shared';
  * Rendering lives here, not in the database.
  *
  * The backend stores a type plus the values that were true at event time; this
- * file turns that pair into a sentence. That keeps stored rows language-neutral,
- * so when the i18n module lands this is the only file that needs translating and
- * no data migration is required. It also means a notification about a deleted
- * watchlist still renders — the name came along in `params`.
+ * file turns that pair into a sentence. Storing the rendered sentence instead
+ * would freeze the wording into the data: changing a phrase would need a
+ * migration, and a row would keep whatever text was current when it was written.
+ * It also means a notification about a deleted watchlist still renders — the
+ * name came along in `params`, so nothing has to be looked up after the fact.
  */
 export type NotificationParams = Record<string, string>;
 
