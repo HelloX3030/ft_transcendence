@@ -104,7 +104,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       }
     } catch (error) {
       this.logger.error(error);
-      client.emit('error', 'No token provided or the token is invalid.');
+      client.emit('error', { message: 'No token provided or the token is invalid.' });
       client.disconnect(true);
     }
   }
@@ -141,7 +141,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       const expiresAt = socket.data?.tokenExpiresAt;
       if (expiresAt !== undefined && expiresAt <= now) {
         this.logger.debug(`Disconnecting socket of user ${socket.data.user}: token expired`);
-        socket.emit('error', 'Your session expired.');
+        socket.emit('session_expired', { message: 'Your session expired.' });
         socket.disconnect(true);
       }
     }
@@ -168,7 +168,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       await this.seedFriendStatusRooms(client);
     } catch (error) {
       this.logger.error(error);
-      client.emit('error', 'Unable to load your friends online status.');
+      client.emit('error', { message: 'Unable to load your friends online status.' });
     }
   }
 

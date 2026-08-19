@@ -100,6 +100,14 @@ export const useNotifyStore = defineStore('notify', () => {
       });
     });
 
+    // Not an error, and deliberately on its own channel: the gateway is asking
+    // for a fresh handshake, which the `disconnect` handler above performs. It
+    // fires once per access-token lifetime in a perfectly healthy app, so
+    // logging it at `error` put a red line in the console every 15 minutes.
+    socket.on('session_expired', () => {
+      logger.debug('[notify] session expired; re-handshaking');
+    });
+
     socket.on('error', (error) => {
       if (!isError(error)) {
         logger.error('[notify] invalid error payload ', error);
@@ -187,6 +195,10 @@ export const useNotifyStore = defineStore('notify', () => {
       for (const user of data) {
         socket.off(`online-status:${user.id}`);
         socket.on(`online-status:${user.id}`, (update) => {
+          if (!isFriendsStatus(update)) {
+            logger.error('[notify] invalid presence payload', update);
+            return;
+          }
           friendsStatus.value.set(update.id, update.isOnline);
         });
         friendsStatus.value.set(user.id, user.isOnline);

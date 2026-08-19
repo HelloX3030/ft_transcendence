@@ -186,7 +186,9 @@ describe('NotifyGateway', () => {
 
       expect(mockJwtService.verifyAsync).not.toHaveBeenCalled();
       expect(mockNotifyService.setUserAsActive).not.toHaveBeenCalled();
-      expect(client.emit).toHaveBeenCalledWith('error', expect.any(String));
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'No token provided or the token is invalid.',
+      });
       expect(client.disconnect).toHaveBeenCalledWith(true);
     });
 
@@ -231,7 +233,12 @@ describe('NotifyGateway', () => {
 
       gateway.disconnectExpiredSockets();
 
-      expect(expired.emit).toHaveBeenCalledWith('error', expect.any(String));
+      expect(expired.emit).toHaveBeenCalledWith('session_expired', {
+        message: 'Your session expired.',
+      });
+      // Expiry must not reach the `error` channel: the client logs that one, and
+      // this fires once per access-token lifetime in a perfectly healthy app.
+      expect(expired.emit).not.toHaveBeenCalledWith('error', expect.anything());
       expect(expired.disconnect).toHaveBeenCalledWith(true);
     });
 
@@ -345,7 +352,9 @@ describe('NotifyGateway', () => {
 
       await gateway.userStatus(asSocket(client));
 
-      expect(client.emit).toHaveBeenCalledWith('error', expect.any(String));
+      expect(client.emit).toHaveBeenCalledWith('error', {
+        message: 'Unable to load your friends online status.',
+      });
     });
   });
 

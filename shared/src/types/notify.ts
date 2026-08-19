@@ -113,6 +113,20 @@ export interface ChatReadResponse {
   count: number;
 }
 
+/** Payload of the `error` event. A genuine fault the client could not foresee. */
 export interface NotifyError {
+  message: string;
+}
+
+/**
+ * Payload of the `session_expired` event.
+ *
+ * Deliberately not an `error`: the gateway only checks the access token during
+ * the handshake, so it drops sockets whose token has since run out. That is a
+ * routine request to re-handshake, not a failure — the client renews the cookie
+ * and reconnects. Sending it on the `error` channel put a console error in front
+ * of every user every time their access token aged out.
+ */
+export interface NotifySessionExpired {
   message: string;
 }
