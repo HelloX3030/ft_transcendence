@@ -15,6 +15,7 @@ import { useFriendsStore } from '@/stores/friends';
 import { toast } from 'vue-sonner';
 import { useNotifyStore } from '@/stores/notify';
 import PresenceDot from '../PresenceDot.vue';
+import { formatDate } from '@/lib/format';
 
 interface Props extends GetUserResponse {
   createdAt: string | Date | undefined;
@@ -50,9 +51,7 @@ async function handleDelete() {
     </ItemMedia>
     <ItemContent>
       <ItemTitle>{{ username }}</ItemTitle>
-      <ItemDescription v-if="createdAt">
-        Friend since {{ new Date(createdAt).toLocaleDateString() }}</ItemDescription
-      >
+      <ItemDescription v-if="createdAt"> Friend since {{ formatDate(createdAt) }}</ItemDescription>
     </ItemContent>
     <ItemActions>
       <DropdownMenu>

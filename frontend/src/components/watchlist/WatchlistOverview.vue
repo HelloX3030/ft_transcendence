@@ -3,6 +3,7 @@ import { ArrowUpRight, ChevronRight, Ellipsis, Pen, Trash } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { WatchlistResponse } from '@cinemates/shared';
+import { formatDate } from '@/lib/format';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,12 +26,7 @@ const posters = computed(() => {
 
 const formattedDate = computed(() => {
   if (!props.createdAt) return '';
-  return new Date(props.createdAt).toLocaleDateString('de-DE', {
-    //TODO: replace 'de-DE'
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDate(props.createdAt);
 });
 
 const router = useRouter();

@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { useNotificationsStore } from '@/stores/notifications';
 import { notificationText, notificationTitle } from '@/lib/notification-text';
+import { formatDateTime } from '@/lib/format';
 import type { NotificationItem } from '@cinemates/shared';
 
 const notifications = useNotificationsStore();
@@ -25,10 +26,6 @@ function linkOf(notification: NotificationItem): string | null {
   }
   if (notification.actorId !== null) return `/users/${notification.actorId}`;
   return null;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString();
 }
 </script>
 
@@ -92,7 +89,7 @@ function formatDate(iso: string) {
             {{ notificationText(notification.type, notification.params) }}
           </component>
           <p class="self-end text-xs text-muted-foreground">
-            {{ formatDate(notification.createdAt) }}
+            {{ formatDateTime(notification.createdAt) }}
           </p>
         </div>
 

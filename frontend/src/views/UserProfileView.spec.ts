@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
 import type { Friend } from '@cinemates/shared';
 import { ApiError } from '@/api/api-error';
+import { formatDate } from '@/lib/format';
 
 const getProfileById = vi.fn();
 vi.mock('@/api/endpoints/user', () => ({
@@ -236,9 +237,9 @@ describe('UserProfileView', () => {
 
       const dot = wrapper.get(PRESENCE_DOT);
       expect(dot.attributes('aria-label')).toBe('Online');
-      expect(wrapper.text()).toContain(
-        `Friends since ${new Date('2026-01-01T00:00:00.000Z').toLocaleDateString()}`,
-      );
+      // Through the helper, not `toLocaleDateString()`: the bare call reads the
+      // machine's locale, so the assertion would pass here and fail elsewhere.
+      expect(wrapper.text()).toContain(`Friends since ${formatDate('2026-01-01T00:00:00.000Z')}`);
     });
 
     it('shows neither on a stranger — an absent id is not a known-offline one', async () => {

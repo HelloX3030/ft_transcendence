@@ -8,6 +8,7 @@ import { Skeleton } from '../ui/skeleton';
 import EditListDialog from './EditListDialog.vue';
 import { useUserDetails } from '@/composables/useUserDetails.ts';
 import { Button } from '../ui/button/index.ts';
+import { formatDate } from '@/lib/format';
 
 interface PropsType {
   watchlist: WatchlistResponse;
@@ -20,12 +21,7 @@ const { state: userDetails, isLoading: usersLoading } = useUserDetails(props.wat
 
 const formattedDate = computed(() => {
   if (!props.watchlist.createdAt) return '';
-  return new Date(props.watchlist.createdAt).toLocaleDateString('de-DE', {
-    //TODO: replace 'de-DE'
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatDate(props.watchlist.createdAt);
 });
 
 const open = ref(false);

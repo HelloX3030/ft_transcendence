@@ -15,6 +15,7 @@ import { useChatStore } from '@/stores/chat';
 import { useFriendsStore } from '@/stores/friends';
 import { useNotifyStore } from '@/stores/notify';
 import { useUserStore } from '@/stores/user';
+import { formatDate } from '@/lib/format';
 import { toast } from 'vue-sonner';
 
 const route = useRoute();
@@ -88,7 +89,7 @@ const isOnline = computed(() => notify.isUserOnline(profileId.value));
 const friendsSince = computed(() => {
   const createdAt = friendship.value?.createdAt;
   if (relation.value !== 'friends' || createdAt === undefined) return null;
-  return new Date(createdAt).toLocaleDateString();
+  return formatDate(createdAt);
 });
 
 async function handleMessage() {
