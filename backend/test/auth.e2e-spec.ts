@@ -70,7 +70,7 @@ describe('Auth (e2e)', () => {
     it('answers 200 to a caller with no cookies', async () => {
       const response = await request(app.getHttpServer()).get('/auth/me').expect(200);
 
-      expect(response.body).toEqual({ authenticated: false });
+      expect(response.body).toMatchObject({ data: { authenticated: false } });
     });
 
     it('answers with the token payload once signed in', async () => {
@@ -78,7 +78,9 @@ describe('Auth (e2e)', () => {
       await login(agent, mockUser);
 
       const response = await agent.get('/auth/me').expect(200);
-      const body = response.body as { authenticated: boolean; sub: number; email: string };
+      const body = (
+        response.body as { data: { authenticated: boolean; sub: number; email: string } }
+      ).data;
 
       expect(body.authenticated).toBe(true);
       expect(typeof body.sub).toBe('number');

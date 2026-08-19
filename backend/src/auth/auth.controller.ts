@@ -21,7 +21,8 @@ import {
   Public,
 } from './guard';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
-import type { SessionResponse } from '@cinemates/shared';
+import type { apiResponse, SessionResponse } from '@cinemates/shared';
+import { successResponse } from 'src/utils';
 import { GoogleProfile, JwtAccessPayload, JwtRefreshPayload } from 'src/types';
 import { ApiOperation, ApiResponse, ApiTooManyRequestsResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -158,17 +159,17 @@ export class AuthController {
     status: 200,
     description: 'Answers { authenticated: false } or the token payload',
   })
-  me(@Request() req: ExpressRequest): SessionResponse {
+  me(@Request() req: ExpressRequest): apiResponse<SessionResponse> {
     const user = req.user as JwtAccessPayload | null | undefined;
-    if (!user) return { authenticated: false };
+    if (!user) return successResponse<SessionResponse>({ authenticated: false });
     // `exp` is in seconds; the client compares it against Date.now(). A token
     // without one cannot expire, so nothing is scheduled for it.
-    return {
+    return successResponse<SessionResponse>({
       authenticated: true,
       sub: user.sub,
       email: user.email,
       accessExpiresAt: (user.exp ?? 0) * 1000,
-    };
+    });
   }
 
   @Public()

@@ -140,11 +140,5 @@ export function unwrapEnvelope<T>(text: string): T {
   if (text === '') return undefined as T;
 
   const json: apiResponse<T> = JSON.parse(text) as apiResponse<T>;
-  // `in` throws a TypeError on null and on primitives, both of which are valid
-  // JSON bodies, so the envelope check has to be narrowed to objects first.
-  // TODO: remove the fallback once every backend endpoint returns { data: ... }
-  if (typeof json === 'object' && json !== null && 'data' in json) {
-    return json.data as T;
-  }
-  return json as T;
+  return json.data as T;
 }

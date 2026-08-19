@@ -461,7 +461,7 @@ describe('Watchlists (e2e)', () => {
 
   async function getCurrentUserId(agent: TestAgent) {
     const response = await agent.get('/auth/me').expect(200);
-    const body = response.body as { sub: number };
+    const body = (response.body as { data: { sub: number } }).data;
     return body.sub;
   }
 });

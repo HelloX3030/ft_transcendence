@@ -125,7 +125,7 @@ describe('Google OAuth (e2e)', () => {
         .get('/auth/me')
         .set('Cookie', cookies)
         .expect(200);
-      expect(session.body).toMatchObject({ authenticated: true });
+      expect(session.body).toMatchObject({ data: { authenticated: true } });
     });
 
     it('links a verified Google email onto an existing local account', async () => {
