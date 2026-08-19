@@ -38,4 +38,14 @@ export default defineConfigWithVueTs(
       ],
     },
   },
+  // src/lib/logger.ts is the only module allowed to reach the console. A bare
+  // console.* elsewhere bypasses the debug/error classification that keeps the
+  // console empty during an evaluation — which is how the last round of stray
+  // errors got in.
+  {
+    files: ['src/**/*.{ts,vue}'],
+    rules: {
+      'no-console': 'error',
+    },
+  },
 );
