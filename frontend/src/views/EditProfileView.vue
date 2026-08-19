@@ -4,7 +4,6 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 import { useUserEdit } from '@/composables/useUserEdit';
 import { useForm } from 'vee-validate';
@@ -23,7 +22,6 @@ const {
   hasAvatar,
   onFileChange,
   fileError,
-  languageOptions,
   update,
   updateError,
   isLoading,
@@ -47,12 +45,11 @@ const form = useForm({
   initialValues: {
     username: profile.value?.username ?? '',
     email: profile.value?.email ?? '',
-    language: profile.value?.language ?? 'en',
   },
 });
 
-const onSubmit = form.handleSubmit(({ username, email, language }) => {
-  update({ username, email, language });
+const onSubmit = form.handleSubmit(({ username, email }) => {
+  update({ username, email });
 });
 </script>
 
@@ -141,27 +138,6 @@ const onSubmit = form.handleSubmit(({ username, email, language }) => {
               <FormMessage />
             </FormItem>
           </FormField>
-
-          <!-- Language -->
-          <div class="flex flex-col gap-2">
-            <Label>Language</Label>
-            <div class="flex gap-2">
-              <Button
-                v-for="opt in languageOptions"
-                :key="opt.value"
-                type="button"
-                class="rounded-full px-3 py-0.5 text-xs font-medium transition-colors"
-                :class="
-                  form.values.language === opt.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-primary/10 text-primary hover:bg-primary/20'
-                "
-                @click="form.setFieldValue('language', opt.value)"
-              >
-                {{ opt.label }}
-              </Button>
-            </div>
-          </div>
 
           <!-- General error -->
           <p v-if="updateError" class="text-destructive text-sm">{{ updateError }}</p>

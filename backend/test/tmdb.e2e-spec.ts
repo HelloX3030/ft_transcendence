@@ -12,7 +12,6 @@ const viewerRegister: RegisterDto = {
   username: 'tmdbviewer',
   email: 'tmdbviewer@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 // The throttler buckets per user, so the limit test gets its own account and
@@ -21,7 +20,6 @@ const flooderRegister: RegisterDto = {
   username: 'tmdbflooder',
   email: 'tmdbflooder@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 // Swapped per test to script what "TMDB" returns for a given path.

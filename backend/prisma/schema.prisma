@@ -164,8 +164,7 @@ model users {
   // a captured one cannot be replayed for the rest of its acceptance window.
   totpLastCounter Int? @map("totp_last_counter")
 
-  language language_code
-  role     user_role
+  role user_role
 
   onboardingCompleted Boolean @default(false) @map("onboarding_completed")
 
@@ -283,12 +282,6 @@ enum notification_type {
   watchlist_movie_added
   watchlist_movie_removed
   watchlist_deleted
-}
-
-enum language_code {
-  de
-  en
-  es
 }
 
 enum reaction_type {

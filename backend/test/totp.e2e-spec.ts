@@ -416,6 +416,5 @@ function buildRegisterDto(prefix: string): RegisterDto {
     username: `${prefix}-${token}`.slice(0, 32),
     email: `${prefix}-${token}@example.com`,
     password: 'Test123!',
-    language: 'en',
   };
 }

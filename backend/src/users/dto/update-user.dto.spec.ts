@@ -13,9 +13,7 @@ function validate(body: Record<string, unknown>) {
 
 describe('UpdateUserDto', () => {
   it('accepts the writable profile fields', () => {
-    expect(
-      validate({ username: 'alice', email: 'alice@example.com', language: 'en' }),
-    ).toHaveLength(0);
+    expect(validate({ username: 'alice', email: 'alice@example.com' })).toHaveLength(0);
   });
 
   it('rejects an attempt to set the avatar directly — avatars come from POST /me/avatar', () => {

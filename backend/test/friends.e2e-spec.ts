@@ -11,21 +11,18 @@ const bobRegister: RegisterDto = {
   username: 'bob',
   email: 'bob@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 const aliceRegister: RegisterDto = {
   username: 'alice',
   email: 'alice@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 const malloryRegister: RegisterDto = {
   username: 'mallory',
   email: 'mallory@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 describe('Friends (e2e)', () => {

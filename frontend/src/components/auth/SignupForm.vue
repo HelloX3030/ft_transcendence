@@ -34,7 +34,7 @@ const onSubmit = form.handleSubmit(async ({ username, email, password }) => {
   passwordInput.value?.mask();
   confirmPasswordInput.value?.mask();
   try {
-    await auth.register({ username, email, password, language: 'de' }); //TODO: dynamic language
+    await auth.register({ username, email, password });
     await userStore.refetchUser();
     router.push('/');
   } catch (err: unknown) {

@@ -55,7 +55,6 @@ describe('Users (e2e)', () => {
         id: expect.any(Number),
         username: dto.username,
         email: dto.email,
-        language: 'en',
         avatarFileId: null,
         onboardingCompleted: false,
         totpActive: false,
@@ -71,14 +70,15 @@ describe('Users (e2e)', () => {
     it('updates the writable profile fields', async () => {
       const agent = await registerUser(app, buildRegisterDto('patch'));
       const newName = `renamed-${token()}`;
+      const newEmail = `${newName}@example.com`;
 
       const response = await agent
         .patch('/users/me')
-        .send({ username: newName, language: 'de' })
+        .send({ username: newName, email: newEmail })
         .expect(200);
 
       const body = response.body as apiResponse<UserMeResponse>;
-      expect(body.data).toMatchObject({ username: newName, language: 'de' });
+      expect(body.data).toMatchObject({ username: newName, email: newEmail });
     });
 
     it('returns 409 when the username is already taken', async () => {
@@ -120,7 +120,10 @@ describe('Users (e2e)', () => {
     });
 
     it('rejects an unauthenticated request', async () => {
-      await request(app.getHttpServer()).patch('/users/me').send({ language: 'de' }).expect(401);
+      await request(app.getHttpServer())
+        .patch('/users/me')
+        .send({ username: 'whatever' })
+        .expect(401);
     });
   });
 
@@ -417,7 +420,7 @@ describe('Users (e2e)', () => {
         directorIds: [],
       });
 
-      const leaked = ['email', 'role', 'totpActive', 'language', 'onboardingCompleted'];
+      const leaked = ['email', 'role', 'totpActive', 'onboardingCompleted'];
       for (const field of leaked) {
         expect(body.data).not.toHaveProperty(field);
       }
@@ -496,6 +499,5 @@ function buildRegisterDto(prefix: string): RegisterDto {
     username: `${prefix}-${suffix}`.slice(0, 32),
     email: `${prefix}-${suffix}@example.com`,
     password: 'Test123!',
-    language: 'en',
   };
 }

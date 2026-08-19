@@ -10,21 +10,18 @@ const ninaRegister: RegisterDto = {
   username: 'nina',
   email: 'nina@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 const noraRegister: RegisterDto = {
   username: 'nora',
   email: 'nora@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 const nedRegister: RegisterDto = {
   username: 'ned',
   email: 'ned@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 async function inbox(agent: TestAgent, query = ''): Promise<NotificationPage> {

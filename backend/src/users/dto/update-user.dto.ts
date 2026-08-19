@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { language_code } from '@prisma/client';
 import { UpdateUserRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
-import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateUserDto implements UpdateUserRequest {
   @ApiProperty({ example: 'alice', required: false })
@@ -17,11 +16,6 @@ export class UpdateUserDto implements UpdateUserRequest {
   @MaxLength(DEFAULT_MAX_LENGTH)
   @IsEmail()
   email?: string;
-
-  @ApiProperty({ description: 'User language', enum: language_code, required: false })
-  @IsOptional()
-  @IsEnum(language_code)
-  language?: language_code;
 
   // `avatarFileId` is deliberately not writable here: avatars come only from
   // POST /users/me/avatar, which validates the bytes and owns bucket cleanup,

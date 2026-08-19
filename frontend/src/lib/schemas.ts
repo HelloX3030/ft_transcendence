@@ -9,7 +9,6 @@ export const loginSchema = z.object({
 export const userEditSchema = z.object({
   username: z.string().min(6),
   email: z.string().email(),
-  language: z.enum(['de', 'en', 'es']),
 });
 
 // Exported so the reset form reuses it rather than becoming a third definition

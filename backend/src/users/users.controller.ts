@@ -126,7 +126,7 @@ export class UsersController {
   @ApiOperation({
     summary: "Get a user's profile page",
     description:
-      "The public fields plus the preferences onboarding derived. Never returns email, role, totpActive, language or onboardingCompleted — those belong to the owner's own read.",
+      "The public fields plus the preferences onboarding derived. Never returns email, role, totpActive or onboardingCompleted — those belong to the owner's own read.",
   })
   @ApiResponse({
     status: 200,

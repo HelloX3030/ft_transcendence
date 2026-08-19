@@ -143,7 +143,6 @@ const registerDto: RegisterDto = {
   username: 'testuser',
   email: 'test@example.com',
   password: 'pw-plaintext',
-  language: 'en',
 };
 
 const loginDto: LoginDto = { email: 'test@example.com', password: 'pw-plaintext' };
@@ -1057,7 +1056,6 @@ describe('AuthService', () => {
       googleId: 'google-sub-123',
       email: 'test@example.com',
       emailVerified: true,
-      locale: 'de-DE',
     };
     const plainUser = { ...mockUser, totpActive: false, totpSecret: null, googleId: null };
 
@@ -1138,27 +1136,9 @@ describe('AuthService', () => {
       expect(created.data.password).toBeNull();
       expect(created.data.googleId).toBe(googleProfile.googleId);
       expect(created.data.username).toBe('test00');
-      // Mapped from Google's locale prefix; the column is non-null with no default.
-      expect(created.data.language).toBe('de');
       // onboardingCompleted defaults to false, which is what routes the new user
       // through /onboarding exactly like a local signup.
       expect(created.data.onboardingCompleted).toBeUndefined();
-    });
-
-    it('defaults an unrecognised locale to English', async () => {
-      mockPrisma.users.findUnique.mockResolvedValue(null);
-      mockPrisma.users.create.mockResolvedValue(plainUser);
-
-      await service.googleLogin(
-        mockRequest(),
-        { ...googleProfile, locale: 'fr-FR' },
-        mockResponse().res,
-      );
-
-      const created = (mockPrisma.users.create.mock.calls as unknown[][])[0][0] as {
-        data: { language: string };
-      };
-      expect(created.data.language).toBe('en');
     });
 
     it('retries a username collision with a different suffix each time', async () => {

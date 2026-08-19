@@ -2,7 +2,6 @@ import type { apiResponse, UserMeResponse } from "@cinemates/shared";
 
 const BASE_URL = "http://localhost:3000/v1";
 const PASSWORD = "B8skxi!dk&";
-const LANGUAGE = "de";
 const COUNT = 30;
 const PREFIX = "hofmann";
 
@@ -22,7 +21,6 @@ async function createUser(username: string) {
     username,
     email: `${username}@example.com`,
     password: PASSWORD,
-    language: LANGUAGE,
   };
 
   const res = await fetch(BASE_URL + "/auth/register", {

@@ -24,7 +24,6 @@ const mockUser = {
   username: 'testuser',
   email: 'test@example.com',
   avatarFileId: null,
-  language: 'en',
   role: 'user',
 };
 
@@ -529,7 +528,7 @@ describe('UsersService', () => {
 
     // The select is the whole privacy boundary of this endpoint, so it is
     // asserted directly rather than only through what one fixture happens to hold.
-    it('never selects email, role, totpActive, language or onboardingCompleted', () => {
+    it('never selects email, role, totpActive or onboardingCompleted', () => {
       expect(Object.keys(PROFILE_SELECT).sort()).toEqual([
         'actorIds',
         'avatarFileId',

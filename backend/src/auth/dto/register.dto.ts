@@ -1,11 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { language_code } from '@prisma/client';
 import { RegisterRequest } from '@cinemates/shared';
 import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
 
 import {
   IsEmail,
-  IsEnum,
   IsNotEmpty,
   IsString,
   IsStrongPassword,
@@ -32,9 +30,4 @@ export class RegisterDto implements RegisterRequest {
   @IsStrongPassword()
   @MaxLength(DEFAULT_MAX_LENGTH)
   password!: string;
-
-  @ApiProperty({ description: 'User language', enum: language_code })
-  @IsNotEmpty()
-  @IsEnum(language_code)
-  language!: language_code;
 }

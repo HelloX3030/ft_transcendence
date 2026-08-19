@@ -11,8 +11,6 @@ import { storeToRefs } from 'pinia';
 const userStore = useUserStore();
 
 const { state: profile } = storeToRefs(userStore);
-
-const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español' };
 </script>
 
 <template>
@@ -34,9 +32,6 @@ const languageLabel: Record<string, string> = { de: 'Deutsch', en: 'English', es
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-3">
-            <span class="text-primary rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium">
-              {{ languageLabel[profile.language] }}
-            </span>
             <span
               v-if="profile.role === 'admin'"
               class="text-primary rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium"

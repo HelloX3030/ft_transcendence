@@ -12,6 +12,5 @@ export interface UserMeResponse {
   username: string;
   email: string;
   image: string | null;
-  language: string;
   role: string;
 }

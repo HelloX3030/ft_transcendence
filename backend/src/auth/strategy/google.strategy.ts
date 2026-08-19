@@ -58,7 +58,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       googleId: profile.id,
       email,
       emailVerified,
-      locale: (profile._json as { locale?: string }).locale,
     };
 
     done(null, user);

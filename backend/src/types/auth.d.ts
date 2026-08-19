@@ -31,7 +31,6 @@ export interface GoogleProfile {
   email: string;
   /** Gates account linking. Never assume Google only returns verified addresses. */
   emailVerified: boolean;
-  locale?: string;
 }
 
 declare module 'express' {

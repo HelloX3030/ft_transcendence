@@ -13,7 +13,6 @@ function user(name: string): RegisterDto {
     username: name,
     email: `${name}@example.com`,
     password: 'Test123!',
-    language: 'en',
   };
 }
 

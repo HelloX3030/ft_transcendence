@@ -34,7 +34,6 @@ function credentials(prefix: string) {
     username: `${prefix}${unique}`.slice(0, 32),
     email: `${prefix}-${unique}@example.com`,
     password: 'Str0ng!Password1',
-    language: 'en' as const,
   };
 }
 
@@ -162,7 +161,6 @@ describe('Password reset (e2e)', () => {
         email,
         password: null,
         googleId: `sub-${email}`,
-        language: 'en',
         role: 'user',
       },
     });

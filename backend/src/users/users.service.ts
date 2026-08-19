@@ -35,7 +35,6 @@ export const ME_SELECT = {
   username: true,
   email: true,
   avatarFileId: true,
-  language: true,
   role: true,
   onboardingCompleted: true,
   genreIds: true,

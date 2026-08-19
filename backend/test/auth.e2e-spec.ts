@@ -10,7 +10,6 @@ const mockUserRegister: RegisterDto = {
   username: 'testuser',
   email: 'test@example.com',
   password: 'Test123!',
-  language: 'en',
 };
 
 const mockUser: LoginDto = {
@@ -190,7 +189,6 @@ describe('Auth (e2e)', () => {
       username: `${prefix}-${token}`.slice(0, 32),
       email: `${prefix}-${token}@example.com`,
       password: 'Test123!',
-      language: 'en',
     };
 
     const agent = request.agent(app.getHttpServer());

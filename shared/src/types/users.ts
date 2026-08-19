@@ -1,11 +1,8 @@
-import type { LanguageCode } from "./auth";
-
 export type UserRole = "admin" | "user";
 
 export interface UpdateUserRequest {
   username?: string;
   email?: string;
-  language?: LanguageCode;
   /** No `image`: avatars are set only via POST /users/me/avatar. */
 }
 
@@ -18,7 +15,6 @@ export interface UserMeResponse {
   id: number;
   username: string;
   email: string;
-  language: LanguageCode;
   /** Id of the stored avatar; the client builds `/files/:id` from it. */
   avatarFileId: number | null;
   role: UserRole;

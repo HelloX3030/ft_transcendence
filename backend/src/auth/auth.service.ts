@@ -16,7 +16,6 @@ import { MailService } from 'src/mail/mail.service';
 import { RedisService } from 'src/redis/redis.service';
 import { DAY_MS, daysAgo, PASSWORD_RESET_RETENTION_DAYS } from 'src/retention.config';
 import { GoogleProfile, JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
-import { language_code } from '@prisma/client';
 import type { Response as ExpressResponse, Request as ExpressRequest } from 'express';
 import { Interval } from '@nestjs/schedule';
 import { successResponse } from 'src/utils';
@@ -206,16 +205,6 @@ function targetsUsername(error: PrismaClientKnownRequestError): boolean {
   return typeof target === 'string' && target.includes('username');
 }
 
-/**
- * `language_code` is non-null with no default, so a value is always required.
- * Google's locale is a BCP-47 tag ("de-DE"); only the prefix is of interest.
- */
-function mapLocale(locale: string | undefined): language_code {
-  const prefix = locale?.split('-')[0];
-  if (prefix === 'de' || prefix === 'es') return prefix;
-  return 'en';
-}
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -257,7 +246,6 @@ export class AuthService {
           username: dto.username,
           email: dto.email,
           password: hash,
-          language: dto.language,
           role: 'user',
           totpActive: false,
         },
@@ -705,7 +693,6 @@ export class AuthService {
             email: profile.email,
             password: null,
             googleId: profile.googleId,
-            language: mapLocale(profile.locale),
             role: 'user',
             totpActive: false,
           },

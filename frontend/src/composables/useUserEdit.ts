@@ -25,12 +25,6 @@ export function useUserEdit() {
   let uploadAbort: AbortController | null = null;
   const isUploading = computed(() => uploadProgress.value !== null);
 
-  const languageOptions: { value: 'de' | 'en' | 'es'; label: string }[] = [
-    { value: 'de', label: 'Deutsch' },
-    { value: 'en', label: 'English' },
-    { value: 'es', label: 'Español' },
-  ];
-
   function clearPreview() {
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
     previewUrl.value = null;
@@ -79,11 +73,7 @@ export function useUserEdit() {
     }
   }
 
-  async function update(newUser: {
-    username: string;
-    email: string;
-    language: 'de' | 'en' | 'es';
-  }) {
+  async function update(newUser: { username: string; email: string }) {
     updateError.value = '';
     isLoading.value = true;
 
@@ -106,13 +96,9 @@ export function useUserEdit() {
       const original = {
         username: userStore.state?.username ?? '',
         email: userStore.state?.email ?? '',
-        language: userStore.state?.language ?? 'en',
       };
 
-      const hasChanged =
-        newUser.username !== original.username ||
-        newUser.email !== original.email ||
-        newUser.language !== original.language;
+      const hasChanged = newUser.username !== original.username || newUser.email !== original.email;
 
       if (hasChanged) await userStore.updateUser(newUser);
 
@@ -135,7 +121,6 @@ export function useUserEdit() {
   });
 
   return {
-    languageOptions,
     selectedFile,
     previewUrl,
     fileInput,

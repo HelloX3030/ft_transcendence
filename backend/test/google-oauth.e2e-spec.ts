@@ -98,7 +98,6 @@ describe('Google OAuth (e2e)', () => {
         googleId: `sub-${email}`,
         email,
         emailVerified: true,
-        locale: 'en-GB',
       };
 
       const response = await request(app.getHttpServer()).get('/auth/google/callback').expect(302);
@@ -136,7 +135,6 @@ describe('Google OAuth (e2e)', () => {
         username: `link${Date.now().toString().slice(-8)}`,
         email,
         password: 'Str0ng!Password1',
-        language: 'en',
       });
 
       const before = await prisma.users.findUnique({ where: { email } });
@@ -160,7 +158,6 @@ describe('Google OAuth (e2e)', () => {
         username: `unver${Date.now().toString().slice(-8)}`,
         email,
         password: 'Str0ng!Password1',
-        language: 'en',
       });
 
       stubbedProfile = { googleId: `sub-${email}`, email, emailVerified: false };
