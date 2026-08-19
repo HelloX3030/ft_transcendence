@@ -32,7 +32,7 @@ export const useUserStore = defineStore('user', () => {
       // Without this vueuse falls through to globalThis.reportError, which
       // announces a failure already captured in `error` as though it were an
       // uncaught exception.
-      onError: (error) => logger.error('[user] failed to load', error),
+      onError: (error) => logger.debug('[user] failed to load', error),
     },
   );
 

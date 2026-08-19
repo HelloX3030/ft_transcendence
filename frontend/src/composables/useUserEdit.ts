@@ -1,4 +1,5 @@
 import { ApiError } from '@/api/api-error';
+import { isCancelledRequest } from '@/api/http';
 import { fileUrl, validateFile } from '@/lib/files';
 import { useUserStore } from '@/stores/user';
 import { computed, onUnmounted, ref } from 'vue';
@@ -105,7 +106,7 @@ export function useUserEdit() {
       await router.push('/profile');
     } catch (err: unknown) {
       // A cancelled upload is the user's own doing, not a failure to report.
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isCancelledRequest(err)) {
         updateError.value = '';
         return;
       }

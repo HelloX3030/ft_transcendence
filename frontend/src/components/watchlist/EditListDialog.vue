@@ -73,7 +73,7 @@ async function handleSubmit() {
       toast.success('Edit Successfully');
     }
   } catch (error) {
-    logger.error(error);
+    logger.debug(error);
     toast.error(error instanceof ApiError ? error.message : 'Something went wrong');
   }
 

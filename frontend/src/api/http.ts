@@ -112,6 +112,18 @@ export function cancelAccessRefresh() {
   refreshTimer = undefined;
 }
 
+/**
+ * Whether a rejection is the browser abandoning a request rather than a failure.
+ *
+ * Answered here, once, instead of at every catch that would otherwise have to
+ * tell an aborted upload or a fetch cancelled by navigation apart from a real
+ * fault — and report the second as if it were the first. A cancellation is not
+ * an error and is never worth logging or showing.
+ */
+export function isCancelledRequest(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
 /** Parses a JSON body without throwing, for error responses that may be empty. */
 export function parseJson(text: string): unknown {
   try {

@@ -47,7 +47,7 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
       return data;
     } catch (error) {
       if (gen !== generation) return undefined;
-      logger.error(error);
+      logger.debug(error);
       status.value = 'error';
       return undefined;
     }
@@ -70,7 +70,7 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
       status.value = 'ready';
     } catch (error) {
       if (gen !== generation) return;
-      logger.error(error);
+      logger.debug(error);
       status.value = 'error';
     }
   }

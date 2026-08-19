@@ -47,7 +47,7 @@ export const useFeedStore = defineStore('feed', () => {
       status.value = 'ready';
     } catch (error) {
       if (gen !== generation) return;
-      logger.error(error);
+      logger.debug(error);
       status.value = 'error';
     }
   }
@@ -68,7 +68,7 @@ export const useFeedStore = defineStore('feed', () => {
       status.value = 'ready';
     } catch (error) {
       if (gen !== generation) return;
-      logger.error(error);
+      logger.debug(error);
       // Not exhausted: a failure is retryable, and conflating the two would turn
       // a network blip into "you have seen everything".
       status.value = 'error';

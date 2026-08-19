@@ -78,7 +78,7 @@ const onSubmit = handleSubmit(async (values) => {
     // excludes the actor from their own events.
     watchlists.invalidate();
   } catch (error) {
-    logger.error(error);
+    logger.debug(error);
     toast.error(error instanceof ApiError ? error.message : 'Something went wrong');
   }
   isOpen.value = false;

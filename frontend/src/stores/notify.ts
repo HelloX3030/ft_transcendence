@@ -97,10 +97,13 @@ export const useNotifyStore = defineStore('notify', () => {
       failedAttempts += 1;
       connectionStatus.value =
         failedAttempts >= OFFLINE_AFTER_FAILED_ATTEMPTS ? 'offline' : 'connecting';
+      // Routine, and already visible: a backend restart or a network blip lands
+      // here repeatedly while socket.io backs off, and `connectionStatus` is what
+      // tells the user. The console is not the outlet for it.
       if (!isError(error)) {
-        logger.error('[notify] invalid connect_error payload ', error);
+        logger.debug('[notify] invalid connect_error payload ', error);
       } else {
-        logger.error('[notify] connect error: ', error.message);
+        logger.debug('[notify] connect error: ', error.message);
       }
       // The gateway drops sockets once their access cookie expires, and the
       // handshake then rejects the retry for the same reason. Renewing the

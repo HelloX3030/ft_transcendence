@@ -38,7 +38,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       unreadCount.value = page.unreadCount;
     } catch (cause) {
       error.value = cause as Error;
-      logger.error('[notifications] failed to load inbox', cause);
+      logger.debug('[notifications] failed to load inbox', cause);
     } finally {
       isLoading.value = false;
     }
@@ -58,7 +58,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
       unreadCount.value = page.unreadCount;
     } catch (cause) {
       error.value = cause as Error;
-      logger.error('[notifications] failed to load more', cause);
+      logger.debug('[notifications] failed to load more', cause);
     } finally {
       isLoadingMore.value = false;
     }

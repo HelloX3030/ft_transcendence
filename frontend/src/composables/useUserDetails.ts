@@ -13,7 +13,7 @@ export function useUserDetails(userIds: MaybeRefOrGetter<number[]>) {
   } = useAsyncState(() => Promise.all(toValue(userIds).map((id) => userApi.getById(id))), [], {
     // vueuse's default onError is globalThis.reportError, which announces a
     // failure already captured in `error` as though it were uncaught.
-    onError: (error) => logger.error('[user-details] failed to load', error),
+    onError: (error) => logger.debug('[user-details] failed to load', error),
   });
 
   watch(

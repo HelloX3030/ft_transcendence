@@ -51,7 +51,7 @@ export function useWatchProviders(movieId: Ref<number | undefined>) {
         providers.value = data.results?.[WATCH_PROVIDER_REGION]?.flatrate ?? [];
       } catch (error) {
         if (gen !== generation) return;
-        logger.error(error);
+        logger.debug(error);
       }
     },
     { immediate: true },

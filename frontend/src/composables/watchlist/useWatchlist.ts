@@ -17,7 +17,7 @@ export function useWatchlist(
     ...options,
     // Handled: `error` is rendered by the view. Without this vueuse also
     // reports it through globalThis.reportError, as an uncaught exception.
-    onError: (error) => logger.error('[watchlist] failed to load', error),
+    onError: (error) => logger.debug('[watchlist] failed to load', error),
   });
 
   const watchlists = useWatchlistsStore();

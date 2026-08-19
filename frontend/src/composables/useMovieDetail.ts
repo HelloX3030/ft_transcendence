@@ -34,7 +34,7 @@ export function useMovieDetail(movieId: Ref<number | undefined>) {
         status.value = 'ready';
       } catch (error) {
         if (gen !== generation) return;
-        logger.error(error);
+        logger.debug(error);
         status.value = 'error';
       }
     },

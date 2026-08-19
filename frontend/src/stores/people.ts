@@ -30,7 +30,7 @@ export const usePeopleStore = defineStore('people', () => {
           for (const person of data) people.value[person.id] = person;
         })
         .catch((error) => {
-          logger.error(error);
+          logger.debug(error);
         })
         .finally(() => {
           for (const id of toFetch) inFlight.delete(id);

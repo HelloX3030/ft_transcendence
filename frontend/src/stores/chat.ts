@@ -81,7 +81,7 @@ export const useChatStore = defineStore('chat', () => {
       order.value = conversations.map(({ peerUserId }) => peerUserId);
       isHydrated.value = true;
     } catch (error) {
-      logger.error('[chat] failed to hydrate conversations', error);
+      logger.debug('[chat] failed to hydrate conversations', error);
     }
   }
 
@@ -143,7 +143,7 @@ export const useChatStore = defineStore('chat', () => {
       chat.hasMore = page.nextCursor !== null;
     } catch (error) {
       chat.isLoaded = false;
-      logger.error('[chat] failed to load messages', error);
+      logger.debug('[chat] failed to load messages', error);
     }
   }
 
@@ -162,7 +162,7 @@ export const useChatStore = defineStore('chat', () => {
       chat.oldestCursor = page.nextCursor;
       chat.hasMore = page.nextCursor !== null;
     } catch (error) {
-      logger.error('[chat] failed to load older messages', error);
+      logger.debug('[chat] failed to load older messages', error);
     } finally {
       chat.isLoadingOlder = false;
     }
@@ -251,7 +251,7 @@ export const useChatStore = defineStore('chat', () => {
       }
     } catch (error) {
       chat.unreadCount = previous;
-      logger.error('[chat] failed to mark conversation read', error);
+      logger.debug('[chat] failed to mark conversation read', error);
     }
   }
 

@@ -36,7 +36,7 @@ export const useGenresStore = defineStore('genres', () => {
         status.value = 'ready';
       })
       .catch((error) => {
-        logger.error(error);
+        logger.debug(error);
         status.value = 'error';
       })
       .finally(() => {

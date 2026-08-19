@@ -38,7 +38,7 @@ export const useFriendsStore = defineStore('friends', () => {
       // Without this, vueuse falls through to globalThis.reportError, which
       // announces a failure the store has already captured in `error` as though
       // it were an uncaught exception.
-      onError: (error) => logger.error('[friends] failed to load', error),
+      onError: (error) => logger.debug('[friends] failed to load', error),
     },
   );
 

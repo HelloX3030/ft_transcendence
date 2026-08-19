@@ -13,7 +13,7 @@ export function useUserSearch() {
       searchData.value = data;
       searchStatus.value = 'ready';
     } catch (error) {
-      logger.error(error);
+      logger.debug(error);
       searchStatus.value = 'error';
     }
   }

@@ -14,7 +14,7 @@ export function useWatchlists() {
   } = useAsyncState(() => watchlistApi.getAll(), null, {
     // Handled: `error` is rendered by the view. Without this vueuse also
     // reports it through globalThis.reportError, as an uncaught exception.
-    onError: (error) => logger.error('[watchlists] failed to load', error),
+    onError: (error) => logger.debug('[watchlists] failed to load', error),
   });
 
   // A watchlist event raised by another member invalidates this list.

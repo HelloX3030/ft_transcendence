@@ -12,6 +12,9 @@ export async function backendClient<T>(
     ...options,
   });
 
+  // A cancelled fetch rejects before this point and is deliberately left to
+  // propagate untouched — `isCancelledRequest` is how callers recognise it,
+  // rather than each of them re-deriving it from a DOMException name.
   if (response.status === 401 && !retried) {
     try {
       await refreshSession();
