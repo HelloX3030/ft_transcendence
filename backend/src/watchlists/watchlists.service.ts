@@ -14,9 +14,7 @@ import { successResponse, UserUtils } from 'src/utils';
 import { MovieUtils } from 'src/utils/movie.utils';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 import { NotificationsService } from 'src/notifications/notifications.service';
-
-// Number of movie posters stitched into a watchlist's mosaic cover.
-export const WATCHLIST_COVER_LIMIT = 4;
+import { WATCHLIST_COVER_LIMIT, WatchlistResponse } from '@cinemates/shared';
 
 // Pulls just enough movie posters to build the mosaic cover. Ordered by movieId
 // (watchlist_movies has no timestamp) so the cover is stable between requests.
@@ -33,7 +31,6 @@ const COVER_INCLUDE = {
     select: { userId: true },
   },
 } as const;
-import { WatchlistResponse } from '@cinemates/shared';
 
 export const WATCHLIST_SELECT = {
   role: true,

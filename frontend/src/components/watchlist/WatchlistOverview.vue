@@ -2,7 +2,7 @@
 import { ArrowUpRight, ChevronRight, Ellipsis, Pen, Trash } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { WatchlistResponse } from '@cinemates/shared';
+import { WATCHLIST_COVER_LIMIT, type WatchlistResponse } from '@cinemates/shared';
 import { formatDate } from '@/lib/format';
 import {
   DropdownMenu,
@@ -19,8 +19,10 @@ const emit = defineEmits<{ delete: [id: number] }>();
 const props = defineProps<WatchlistResponse>();
 
 const posters = computed(() => {
-  //TODO: replace length : 4 with constant
-  const placeholders = Array.from({ length: 4 - props.posterPaths.length }, () => null);
+  const placeholders = Array.from(
+    { length: WATCHLIST_COVER_LIMIT - props.posterPaths.length },
+    () => null,
+  );
   return [...props.posterPaths, ...placeholders];
 });
 
