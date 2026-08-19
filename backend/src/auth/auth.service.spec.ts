@@ -183,11 +183,11 @@ describe('AuthService', () => {
 
       const result = await service.register(mockRequest(), registerDto, res);
 
-      expect(result).toEqual({
-        success: true,
-        message: 'User registered successfully',
-        data: null,
-      });
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('User registered successfully');
+      // Reported so the client can renew before the cookie lapses rather than
+      // after a 401 the browser prints to the console.
+      expect(result.data?.accessExpiresAt).toBeGreaterThan(Date.now());
       expect(cookie).toHaveBeenCalledWith('access_token', 'signed-token', expect.any(Object));
       expect(cookie).toHaveBeenCalledWith('refresh_token', 'signed-token', expect.any(Object));
     });
@@ -266,7 +266,9 @@ describe('AuthService', () => {
 
       const result = await service.login(mockRequest(), loginDto, res);
 
-      expect(result.data).toEqual({ mfaRequired: false, mfaType: 'none' });
+      const { accessExpiresAt, ...answer } = result.data!;
+      expect(answer).toEqual({ mfaRequired: false, mfaType: 'none' });
+      expect(accessExpiresAt).toBeGreaterThan(Date.now());
       expect(cookie).toHaveBeenCalledTimes(2);
     });
 
@@ -381,7 +383,9 @@ describe('AuthService', () => {
 
       const result = await service.verifyMfa(mockRequest(), dto, res);
 
-      expect(result.data).toEqual({ mfaRequired: false, mfaType: 'none' });
+      const { accessExpiresAt, ...answer } = result.data!;
+      expect(answer).toEqual({ mfaRequired: false, mfaType: 'none' });
+      expect(accessExpiresAt).toBeGreaterThan(Date.now());
       expect(cookie).toHaveBeenCalledTimes(2);
     });
 
@@ -403,7 +407,9 @@ describe('AuthService', () => {
       );
 
       expect(mockJwt.verifyAsync).toHaveBeenCalledWith('cookie-token', expect.any(Object));
-      expect(result.data).toEqual({ mfaRequired: false, mfaType: 'none' });
+      const { accessExpiresAt, ...answer } = result.data!;
+      expect(answer).toEqual({ mfaRequired: false, mfaType: 'none' });
+      expect(accessExpiresAt).toBeGreaterThan(Date.now());
       expect(cookie).toHaveBeenCalledTimes(2);
     });
 
@@ -525,7 +531,9 @@ describe('AuthService', () => {
 
       const result = await service.refresh(mockPayload, res);
 
-      expect(result).toEqual({ success: true, message: 'Token refreshed', data: null });
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Token refreshed');
+      expect(result.data?.accessExpiresAt).toBeGreaterThan(Date.now());
       expect(cookie).toHaveBeenCalledWith('access_token', 'signed-token', expect.any(Object));
       expect(cookie).toHaveBeenCalledWith('refresh_token', 'signed-token', expect.any(Object));
     });

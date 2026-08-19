@@ -11,6 +11,7 @@ import { useUserStore } from './user';
 import { useNotifyStore } from './notify';
 import { resetAllStores } from './plugins/resetPlugin';
 import { broadcastLogin, broadcastLogout } from '@/lib/session-signals';
+import { cancelAccessRefresh, scheduleAccessRefresh } from '@/api/http';
 
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
@@ -26,6 +27,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const session = await authApi.session();
       isLoggedIn.value = session.authenticated;
+      // A reload rebuilds the session from the cookie the browser still holds,
+      // so the schedule has to be rebuilt with it — otherwise the first tab
+      // reload of the day goes back to discovering expiry through a 401.
+      if (session.authenticated) scheduleAccessRefresh(session.accessExpiresAt);
     } catch {
       // A genuine network failure — the endpoint answers 200 either way now, so
       // "nobody is signed in" no longer arrives here. Stay logged out.
@@ -35,13 +40,20 @@ export const useAuthStore = defineStore('auth', () => {
   // Like register(), errors bubble: useLogin turns them into errorMessage.
   async function login(payload: LoginRequest): Promise<LoginResponse | null> {
     const result = await authApi.login(payload);
-    if (!result?.mfaRequired) await startSession();
+    if (!result?.mfaRequired) await startSession(result?.accessExpiresAt);
     return result;
   }
 
-  /** Shared tail of every path that ends up authenticated. */
-  async function startSession() {
+  /**
+   * Shared tail of every path that ends up authenticated.
+   *
+   * `accessExpiresAt` comes from whichever response issued the cookie. The
+   * Google path has none — it arrives by redirect and confirms the session
+   * through `init()`, which schedules from `/auth/me` instead.
+   */
+  async function startSession(accessExpiresAt?: number) {
     isLoggedIn.value = true;
+    scheduleAccessRefresh(accessExpiresAt);
     const userStore = useUserStore();
     await userStore.refetchUser();
     useNotifyStore().init();
@@ -60,8 +72,8 @@ export const useAuthStore = defineStore('auth', () => {
   // password — that is deliberately not kept around. On the Google path the
   // token is omitted entirely and the backend reads it from a cookie instead.
   async function verifyMfa(payload: MfaVerifyRequest) {
-    await authApi.verifyMfa(payload);
-    await startSession();
+    const result = await authApi.verifyMfa(payload);
+    await startSession(result?.accessExpiresAt);
   }
 
   /**
@@ -73,6 +85,8 @@ export const useAuthStore = defineStore('auth', () => {
    * silently dropped cookie from a successful sign-in.
    */
   async function completeOAuthLogin(): Promise<boolean> {
+    // init() already scheduled the refresh off /auth/me, so startSession() is
+    // called without an expiry rather than with a guess.
     await init();
     if (!isLoggedIn.value) return false;
     await startSession();
@@ -85,6 +99,9 @@ export const useAuthStore = defineStore('auth', () => {
    * of by the time it gets here.
    */
   function clearSession() {
+    // Before the stores go: a timer left running would keep renewing a session
+    // the user just ended, and would 401 forever once the cookie is gone.
+    cancelAccessRefresh();
     useNotifyStore().stop();
     // Drops isLoggedIn along with every other store's state, so nothing from
     // the old session survives into the next one.
@@ -110,8 +127,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Errors bubble to the caller: SignupForm needs them to render errorMessage.
   async function register(payload: RegisterRequest) {
-    await authApi.register(payload);
-    await startSession();
+    const result = await authApi.register(payload);
+    await startSession(result?.accessExpiresAt);
   }
 
   function $reset() {

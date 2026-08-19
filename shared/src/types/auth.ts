@@ -25,9 +25,24 @@ export interface RegisterRequest {
   password: string;
 }
 
+/**
+ * When the access cookie a response just issued stops being accepted, as epoch
+ * milliseconds. Reported by every endpoint that issues or renews one.
+ *
+ * Nothing secret: it is the `exp` claim of a token the client already holds. It
+ * exists so the client can renew *before* the expiry instead of discovering it
+ * through a 401 — a failed request the browser logs to the console from its own
+ * network stack, where no application code can reach it.
+ */
+export interface AccessTokenExpiry {
+  accessExpiresAt: number;
+}
+
 export interface LoginResponse {
   mfaRequired: boolean;
   mfaType: MfaType;
+  /** Absent when `mfaRequired`: no session exists until the OTP is verified. */
+  accessExpiresAt?: number;
   /**
    * Only set when mfaRequired. Short-lived, single-purpose, and useless on its
    * own — exchange it together with the OTP at POST /auth/mfa/verify.
@@ -50,7 +65,7 @@ export interface otp {
  */
 export type SessionResponse =
   | { authenticated: false }
-  | { authenticated: true; sub: number; email: string };
+  | { authenticated: true; sub: number; email: string; accessExpiresAt: number };
 
 export interface ForgotPasswordRequest {
   email: string;

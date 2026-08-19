@@ -161,7 +161,14 @@ export class AuthController {
   me(@Request() req: ExpressRequest): SessionResponse {
     const user = req.user as JwtAccessPayload | null | undefined;
     if (!user) return { authenticated: false };
-    return { authenticated: true, sub: user.sub, email: user.email };
+    // `exp` is in seconds; the client compares it against Date.now(). A token
+    // without one cannot expire, so nothing is scheduled for it.
+    return {
+      authenticated: true,
+      sub: user.sub,
+      email: user.email,
+      accessExpiresAt: (user.exp ?? 0) * 1000,
+    };
   }
 
   @Public()

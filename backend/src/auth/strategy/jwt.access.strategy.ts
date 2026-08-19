@@ -18,7 +18,9 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
     });
   }
 
+  // `exp` is carried through, not dropped: GET /auth/me reports it so the client
+  // can renew the cookie before it lapses rather than after a 401.
   validate(payload: JwtAccessPayload): JwtAccessPayload {
-    return { sub: payload.sub, email: payload.email };
+    return { sub: payload.sub, email: payload.email, exp: payload.exp };
   }
 }

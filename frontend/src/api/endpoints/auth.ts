@@ -1,4 +1,5 @@
 import type {
+  AccessTokenExpiry,
   ForgotPasswordRequest,
   LoginRequest,
   LoginResponse,
@@ -29,7 +30,7 @@ export const authApi = {
   logout: () => backendClient('/auth/logout', { method: 'POST' }),
 
   register: (payload: RegisterRequest) =>
-    backendClient('/auth/register', {
+    backendClient<AccessTokenExpiry>('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

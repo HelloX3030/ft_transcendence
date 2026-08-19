@@ -158,7 +158,7 @@ describe('uploadWithProgress', () => {
   });
 
   it('refreshes the session and retries once on a 401', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('') });
     vi.stubGlobal('fetch', fetchMock);
     vi.stubGlobal('XMLHttpRequest', FakeXhr);
 
@@ -177,7 +177,10 @@ describe('uploadWithProgress', () => {
   });
 
   it('gives up after one retry rather than looping', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve('') }),
+    );
     vi.stubGlobal('XMLHttpRequest', FakeXhr);
 
     const promise = uploadWithProgress('/users/me/avatar', form());

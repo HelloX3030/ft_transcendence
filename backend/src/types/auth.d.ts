@@ -1,6 +1,8 @@
 export interface JwtAccessPayload {
   sub: number;
   email: string;
+  /** Seconds since the epoch, set by the signer. Absent on a payload we build. */
+  exp?: number;
 }
 
 /**

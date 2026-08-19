@@ -252,7 +252,10 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res, tokens.refreshExpiresAt);
-      return successResponse(null, 'User registered successfully');
+      return successResponse(
+        { accessExpiresAt: this.accessExpiresAt() },
+        'User registered successfully',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -300,7 +303,10 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res, tokens.refreshExpiresAt);
-    return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
+    return successResponse(
+      { mfaRequired: false, mfaType: 'none', accessExpiresAt: this.accessExpiresAt() },
+      'Login successful',
+    );
   }
 
   /**
@@ -347,7 +353,10 @@ export class AuthService {
     // The Google path may have left this behind; the password path never sets
     // it. Either way the challenge has been spent.
     res.clearCookie(MFA_COOKIE);
-    return successResponse({ mfaRequired: false, mfaType: 'none' }, 'Login successful');
+    return successResponse(
+      { mfaRequired: false, mfaType: 'none', accessExpiresAt: this.accessExpiresAt() },
+      'Login successful',
+    );
   }
 
   /**
@@ -796,7 +805,7 @@ export class AuthService {
       refresh_token: refresh.refresh_token,
     };
     this.setCookies(tokens, res, refresh.expiresAt);
-    return successResponse(null, 'Token refreshed');
+    return successResponse({ accessExpiresAt: this.accessExpiresAt() }, 'Token refreshed');
   }
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
@@ -825,6 +834,17 @@ export class AuthService {
       refresh_token: refresh.refresh_token,
       refreshExpiresAt: refresh.expiresAt,
     };
+  }
+
+  /**
+   * When an access token signed right now stops being accepted, as epoch ms.
+   *
+   * Derived from the same constant `createAccessJwt` signs with, so the two
+   * cannot drift. Reported to the client so it can renew ahead of the expiry
+   * instead of finding out through a 401.
+   */
+  accessExpiresAt(): number {
+    return Date.now() + ACCESS_TTL_MS;
   }
 
   async createAccessJwt(userId: number, email: string): Promise<{ access_token: string }> {
