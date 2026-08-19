@@ -1,8 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as Joi from 'joi';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { FriendsModule } from './friends/friends.module';
 import { MoviesModule } from './movies/movies.module';
@@ -96,9 +94,7 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
     ChatModule,
     FilesModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: JwtAccessGuard,
