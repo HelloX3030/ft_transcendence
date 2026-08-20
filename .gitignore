@@ -1,13 +1,3 @@
 node_modules/
-# The recommender runs on a bind mount, so the interpreter writes its bytecode
-# cache back into the repository.
 __pycache__/
-secrets/*.txt
-notes.md
 .env
-
-# Working docs: keep the directory structure on GitHub, ignore the contents
-_meta/work/**
-!_meta/work/**/
-!_meta/work/**/.gitkeep
-en.subject.pdf
