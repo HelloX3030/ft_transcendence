@@ -5,10 +5,9 @@ import { GOOGLE_ENABLED, GOOGLE_LOGIN_URL } from '@/lib/constants';
 
 /**
  * The whole block, separator included, disappears when the server has no Google
- * credentials — leaving a lone "OR" above nothing would look broken.
- *
- * A full page navigation rather than a fetch: the endpoint answers with a
- * redirect to Google's consent screen, and an XHR cannot follow that.
+ * credentials: a lone "OR" above nothing would look broken. A full page
+ * navigation rather than a fetch, since an XHR cannot follow the redirect to
+ * Google's consent screen.
  */
 function signIn() {
   window.location.href = GOOGLE_LOGIN_URL;

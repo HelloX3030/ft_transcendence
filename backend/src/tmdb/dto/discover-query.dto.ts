@@ -18,13 +18,10 @@ export const DISCOVER_SORT_OPTIONS = [
   'release_date.desc',
 ];
 
-// Optional discover filters layered on top of pagination + the quality toggle.
-// All go straight into the TMDB /discover/movie request, so each is validated
-// to a strict shape (sort_by is whitelisted; genres/dates are format-checked).
-//
-// `implements DiscoverQuery` binds the parameter names to the shared contract
-// the frontend builds its URL from; the validators and the defaults stay here,
-// since `implements` only checks the members it also declares.
+// Optional discover filters layered on top of pagination and the quality toggle.
+// All go straight into the TMDB /discover/movie request, so each is validated to
+// a strict shape. `implements DiscoverQuery` binds the parameter names to the
+// shared contract the frontend builds its URL from.
 export class DiscoverQueryDto extends PaginationQueryDto implements DiscoverQuery {
   @ApiPropertyOptional({ description: 'Sort order', enum: DISCOVER_SORT_OPTIONS })
   @IsOptional()
@@ -43,7 +40,7 @@ export class DiscoverQueryDto extends PaginationQueryDto implements DiscoverQuer
 
   // The two decorators do different jobs: the regex pins the date-only shape
   // (@IsISO8601 alone would also accept a full timestamp), while @IsISO8601
-  // strict rejects dates that match the shape but aren't real days — 2026-99-99
+  // strict rejects dates that match the shape but aren't real days, 2026-99-99
   // and 2019-02-29 would otherwise reach TMDB, which silently returns nothing.
   @ApiPropertyOptional({ description: 'Earliest primary release date (YYYY-MM-DD)' })
   @IsOptional()

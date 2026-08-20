@@ -13,14 +13,6 @@ interface ApiResponse<T = unknown> {
   data: T;
 }
 
-// interface WatchlistResponse {
-//   id: number;
-//   name: string;
-//   posterPaths: string[];
-//   role: 'editor' | 'viewer';
-//   createdAt: string;
-// }
-
 interface MovieResponse {
   id: number;
   tmdbId: number;

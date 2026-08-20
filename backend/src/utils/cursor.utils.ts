@@ -1,15 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 
 /**
- * Keyset pagination cursor.
- *
- * `createdAt` alone is not a total order: two rows written in the same
- * millisecond tie, and a tie landing on a page boundary silently drops or
+ * Keyset pagination cursor. `createdAt` alone is not a total order: two rows
+ * written in the same millisecond tie, and a tie on a page boundary drops or
  * duplicates one of them. The `(createdAt, id)` tuple is total and matches the
  * `(…, created_at DESC, id DESC)` indexes, so a page is one index range scan.
- *
- * The wire format is `<epoch-ms>_<id>` and is opaque to the client — it only
- * ever hands back what the server gave it.
+ * The wire format is `<epoch-ms>_<id>` and is opaque to the client.
  */
 export interface Cursor {
   createdAt: Date;

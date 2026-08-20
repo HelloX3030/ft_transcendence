@@ -133,7 +133,7 @@ describe('NotifyService', () => {
       expect(mockNotifyGateway.sendDomainEvent).toHaveBeenCalledWith(5, event);
     });
 
-    it('emits for an offline user too — the inbox row is the source of truth', () => {
+    it('emits for an offline user too: the inbox row is the source of truth', () => {
       const event: DomainEvent = {
         type: 'friend.removed',
         actorId: 7,

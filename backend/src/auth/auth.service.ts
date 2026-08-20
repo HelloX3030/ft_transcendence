@@ -28,10 +28,9 @@ const MFA_TOKEN_TTL = '5m';
 const MFA_TOKEN_TTL_MS = 1000 * 60 * 5;
 
 /**
- * Production values for the four session timeouts. Exported so app.module.ts can
- * state the same numbers in its Joi schema without restating them: these are
- * read at module scope, which runs before ConfigModule applies its own defaults,
- * so the fallback has to live here.
+ * Production defaults for the four session timeouts. Read at module scope, which
+ * runs before ConfigModule applies its own defaults, so app.module.ts's Joi
+ * schema imports them rather than restating the numbers.
  */
 export const SESSION_TTL_DEFAULT_SECONDS = {
   ACCESS_TTL_SECONDS: 15 * 60,
@@ -41,13 +40,9 @@ export const SESSION_TTL_DEFAULT_SECONDS = {
 } as const;
 
 /**
- * The four timeouts are env-driven, but read **once**, here at module scope
- * rather than per request — each stays the single constant its consumers share,
- * so the cookie, the JWT and the database row cannot drift apart.
- *
- * The env vars exist because none of the four can be exercised by hand at the
- * production values, which is exactly why they went unverified. A tester opts
- * into short ones; an untouched checkout behaves as it always did.
+ * Reads the four timeouts once, at module scope, so the cookie, the JWT and the
+ * database row cannot drift apart. They are env-driven because none of them can
+ * be exercised by hand at the production values.
  */
 function ttlMs(name: keyof typeof SESSION_TTL_DEFAULT_SECONDS): number {
   const raw = process.env[name];
@@ -57,32 +52,21 @@ function ttlMs(name: keyof typeof SESSION_TTL_DEFAULT_SECONDS): number {
 
 /**
  * The idle timeout: how far `expiresAt`, the refresh JWT and the refresh cookie
- * are pushed out on each use. One constant so the three cannot disagree — they
- * used to be four separate "15 day" literals.
+ * are pushed out on each use.
  */
 const REFRESH_TTL_MS = ttlMs('REFRESH_TTL_SECONDS');
 
 /**
- * The hard stop, measured from `sessions.createdAt`. Without it the sliding
- * window alone means an actively used session never ends: every refresh pushes
- * `expiresAt` out again, and the frontend refreshes every few minutes while a
- * tab is open. "Sessions last 15 days" would describe only an *idle* timeout,
- * and a token stolen from a machine that stays in use would be valid forever.
+ * The hard stop, measured from `sessions.createdAt`. The sliding window alone
+ * never ends an actively used session: every refresh pushes `expiresAt` out, and
+ * an open tab refreshes every few minutes.
  */
 const ABSOLUTE_SESSION_LIFETIME_MS = ttlMs('SESSION_ABSOLUTE_TTL_SECONDS');
 
 /**
- * How long the pre-rotation key stays acceptable.
- *
- * Rotation and multi-tab browsing conflict: the in-flight refresh is coalesced
- * within one tab, but the cookie is shared across all of them, so two tabs
- * hitting a 401 at the same moment both present the same key and the slower one
- * would be refused while holding a perfectly good, freshly rotated cookie. Two
- * open tabs is not an edge case, so without this the rotation would introduce a
- * routine, unreproducible-looking logout.
- *
- * Generous next to a request that takes milliseconds, far short of anything
- * useful to an attacker who must also have stolen the cookie.
+ * How long the pre-rotation key stays acceptable. The cookie is shared across
+ * tabs, so two tabs hitting a 401 together present the same key; without the
+ * grace the slower one is refused while holding a freshly rotated cookie.
  */
 const REFRESH_GRACE_MS = ttlMs('REFRESH_GRACE_SECONDS');
 
@@ -90,20 +74,10 @@ const REFRESH_GRACE_MS = ttlMs('REFRESH_GRACE_SECONDS');
 const ACCESS_TTL_MS = ttlMs('ACCESS_TTL_SECONDS');
 
 /**
- * The cookie attributes that decide whether a `clearCookie` matches the
- * `cookie` that set it. Express only clears a cookie when they line up, and the
- * two used to be written out separately — `clearCookie` passed no options at
- * all. `path` and `domain` are what actually decide the match and both default
- * to `/` here, so it very probably worked; "very probably" is the wrong property
- * for the code path that ends a session.
- *
- * `req.secure` reads the X-Forwarded-Proto that Caddy sets (see `trust proxy` in
- * main.ts), so in the running app — where the browser only ever arrives over
- * HTTPS — both cookies are always Secure. Hardcoding `true` would be equivalent
- * there, but would make the cookies undeliverable over the plain-HTTP in-network
- * requests the e2e suite makes, hiding the whole auth flow from the tests.
- *
- * `sameSite: 'strict'` is now literally same-origin, not merely same-site.
+ * Express only clears a cookie when the options match the ones that set it, so
+ * both paths go through here. `req.secure` reads the X-Forwarded-Proto that
+ * Caddy sets (`trust proxy` in main.ts); hardcoding `true` would make the
+ * cookies undeliverable over the plain-HTTP requests the e2e suite makes.
  */
 function cookieOptions(res: ExpressResponse) {
   return { httpOnly: true, secure: res.req.secure, sameSite: 'strict' as const };
@@ -115,18 +89,14 @@ const MFA_COOKIE = 'mfa_token';
 const STATE_COOKIE = 'oauth_state';
 const STATE_TTL_MS = 1000 * 60 * 10;
 
-/**
- * Long enough to walk away from the machine, short enough that a link sitting
- * in an inbox is not a standing key.
- */
+/** Long enough to walk away from the machine, short enough not to be a standing key. */
 const RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 /** Per-email, so rotating addresses cannot flood one victim's inbox past the IP throttle. */
 const RESET_COOLDOWN_SECONDS = 60;
 
 /**
- * Generated usernames are padded well past `USERNAME_MIN_LENGTH`: a stem taken
- * from a two-letter email local part would collide with every other short
- * address and burn the retry attempts below on names a human is likely to hold.
+ * Generated usernames are padded well past `USERNAME_MIN_LENGTH`: a stem from a
+ * two-letter email local part would collide with every other short address.
  */
 const GENERATED_USERNAME_MIN = 6;
 /** Leaves room for a 4-digit collision suffix inside the column's 32 chars. */
@@ -159,12 +129,8 @@ export function hashResetToken(token: string): string {
 
 /**
  * Drops every session a user has, so their outstanding refresh tokens all fail
- * at `sessions.findUnique` and the frontend bounces them to /login.
- *
- * Takes a transaction client so it can be part of a larger atomic change. Kept
- * separate because three callers want exactly this: the password reset here, a
- * future `PATCH /users/me/password`, and any "log out everywhere" control — one
- * implementation, one place to be correct.
+ * at `sessions.findUnique` and the frontend bounces them to /login. Takes a
+ * transaction client so it can be part of a larger atomic change.
  */
 export function revokeAllSessions(
   tx: Pick<PrismaService, 'sessions'>,
@@ -182,17 +148,16 @@ export function generateUsernameStem(email: string): string {
   const local = email.split('@')[0] ?? '';
   const cleaned = local.toLowerCase().replace(/[^a-z0-9_]/g, '');
 
-  // An address whose local part is entirely stripped (all-unicode, say) would
-  // otherwise pad to "uuuuuu" for everyone; "user" keeps it recognisable and
-  // the suffix retry still separates them.
+  // An all-unicode local part strips to nothing and would pad to "000000" for
+  // everyone; "user" keeps it recognisable.
   const base = cleaned.length > 0 ? cleaned : 'user';
 
   return base.padEnd(GENERATED_USERNAME_MIN, '0').slice(0, GENERATED_USERNAME_STEM_MAX);
 }
 
 function randomSuffix(): string {
-  // randomInt over Math.random: the suffix is short, and a predictable one lets
-  // an attacker sit on the names the next signup will be offered.
+  // randomInt over Math.random: a predictable suffix lets an attacker sit on the
+  // names the next signup will be offered.
   return randomInt(1000, 10000).toString();
 }
 
@@ -208,20 +173,10 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   /**
-   * The token most recently issued for a session, keyed by session id and kept
-   * only for the grace window.
-   *
-   * This is what lets a racing sibling tab converge on the key the winner
-   * already holds. The tabs share one cookie, so the two responses race to write
-   * it — if the loser were handed a *different* key, the cookie could end up
-   * holding one that dies when the grace window closes, and the logout the grace
-   * window exists to prevent would simply arrive 15 minutes late. Answering with
-   * the winner's own token is the only way both writes leave the same value.
-   *
-   * The key's plaintext cannot come from the database (it is argon2-hashed), so
-   * it is remembered here instead of stored. In-process and short-lived by
-   * design: a restart inside the window just falls back to re-signing the key
-   * the caller presented, which is correct for the far commoner single-tab case.
+   * The token most recently issued for a session, kept only for the grace
+   * window, so a racing sibling tab converges on the key the winner holds rather
+   * than one that dies when the window closes. The plaintext cannot come from
+   * the database (argon2-hashed), so it is remembered here instead of stored.
    */
   private readonly recentRefresh = new Map<
     number,
@@ -258,7 +213,7 @@ export class AuthService {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           // Deliberately generic: does not reveal whether the email or the
-          // username collided. See A6 in _meta/reviews/CODE_REVIEW_AUTH_TOTP.md.
+          // username collided.
           throw new ConflictException('Credentials taken');
         }
       }
@@ -276,9 +231,8 @@ export class AuthService {
     });
     if (user === null) throw new ForbiddenException('Invalid credentials');
 
-    // Google-only accounts have no local password. argon2.verify on a null hash
-    // throws a raw error, which the global filter turns into a 500 — so this
-    // check is the difference between a clean 403 and a stack trace.
+    // Google-only accounts have no local password, and argon2.verify on a null
+    // hash throws, which the global filter would turn into a 500.
     if (user.password === null) throw new ForbiddenException('Invalid credentials');
 
     const isPwMatch = await argon2.verify(user.password, dto.password);
@@ -334,9 +288,8 @@ export class AuthService {
     if (counter === null) throw new ForbiddenException('Invalid TOTP');
 
     // A code stays valid across three time steps, so spending it has to be
-    // recorded or a captured one can be replayed for the rest of that span.
-    // updateMany with the counter in the filter makes the check and the write
-    // one atomic statement, so two racing logins cannot both consume it.
+    // recorded or a captured one can be replayed. The counter is both filter and
+    // payload, so two racing logins cannot both consume it.
     const { count } = await this.prisma.users.updateMany({
       where: {
         id: user.id,
@@ -358,12 +311,9 @@ export class AuthService {
   }
 
   /**
-   * Key for the MFA challenge tokens.
-   *
-   * Derived from the access secret rather than configured separately, so no new
+   * Key for the MFA challenge tokens. Derived from the access secret so no new
    * env var is needed, but domain-separated by the HMAC label: a challenge token
-   * can never validate as an access token, which matters because it is issued
-   * before the second factor has been supplied.
+   * can never validate as an access token.
    */
   private mfaTokenSecret(): string {
     return createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? '')
@@ -392,16 +342,11 @@ export class AuthService {
     }
   }
 
-  // --- Password reset -------------------------------------------------------
-
   /**
-   * Starts a reset. Answers the same 200 whatever happened, because a different
-   * response for a known and an unknown address turns this into an
-   * account-existence oracle — the same position `register` already takes with
-   * its deliberately vague "Credentials taken".
-   *
-   * The mail is sent *after* the response for the same reason: awaiting SMTP
-   * would leak through the response latency what the body refuses to say.
+   * Starts a reset. Answers the same 200 whatever happened, so it is not an
+   * account-existence oracle. The mail is sent after the response for the same
+   * reason: awaiting SMTP would leak through the latency what the body refuses
+   * to say.
    */
   async forgotPassword(dto: ForgotPasswordDto): Promise<apiResponse<null>> {
     const generic = successResponse(
@@ -413,8 +358,7 @@ export class AuthService {
     if (user === null) return generic;
 
     // The IP throttle does not stop someone flooding one inbox from rotating
-    // addresses, so the cooldown is per email. Fail-open when Redis is down:
-    // blocking password resets on a cache outage is worse than the flood.
+    // addresses, so the cooldown is per email. Fail-open when Redis is down.
     const cooldownKey = `pwreset:cooldown:${user.id}`;
     if ((await this.redis.get(cooldownKey)) !== null) return generic;
     await this.redis.set(cooldownKey, '1', RESET_COOLDOWN_SECONDS);
@@ -425,8 +369,8 @@ export class AuthService {
       this.mail.sendInBackground(
         user.email,
         'Signing in to CineMates',
-        'You asked to reset your password, but this account signs in with Google — ' +
-          'there is no password to reset.\n\n' +
+        'You asked to reset your password, but this account signs in with Google, ' +
+          'so there is no password to reset.\n\n' +
           'Use the "Continue with Google" button on the login page.',
       );
       return generic;
@@ -455,7 +399,7 @@ export class AuthService {
       'Reset your CineMates password',
       `Someone asked to reset the password for this account.\n\n${link}\n\n` +
         'The link is good for 30 minutes and can be used once. ' +
-        'If this was not you, ignore this mail — nothing has changed.',
+        'If this was not you, ignore this mail. Nothing has changed.',
     );
 
     return generic;
@@ -493,8 +437,8 @@ export class AuthService {
         where: { id: record.id },
         data: { usedAt: new Date() },
       });
-      // The security payload of the whole feature: a reset that leaves existing
-      // sessions alive does not evict whoever caused the reset.
+      // A reset that leaves existing sessions alive does not evict whoever
+      // caused the reset.
       await revokeAllSessions(tx, record.userId);
     });
 
@@ -504,9 +448,8 @@ export class AuthService {
   }
 
   /**
-   * The TOTP check for a reset. Without it a reset link turns email access into
-   * full account access, and the second factor — which exists precisely to
-   * survive a compromised password — is bypassed by password recovery.
+   * The TOTP check for a reset. Without it, email access alone becomes full
+   * account access and the second factor is bypassed by password recovery.
    */
   private async verifyResetOtp(
     user: { id: number; totpSecret: string | null },
@@ -550,18 +493,11 @@ export class AuthService {
     }
   }
 
-  // --- Google OAuth ---------------------------------------------------------
-
   /**
-   * Issues the CSRF `state` for an outgoing authorization request.
-   *
-   * passport-google-oauth20 can do this itself, but only by stashing the value
-   * in a server-side session, and this app is stateless JWT-in-cookie. Without
-   * it the callback would accept any `code`, which is the login-CSRF the
-   * parameter exists to prevent.
-   *
-   * `sameSite: 'lax'` because it has to survive the cross-site navigation back
-   * from Google — `strict` would withhold it exactly when it is needed.
+   * Issues the CSRF `state` for an outgoing authorization request. Without it the
+   * callback would accept any `code`. passport-google-oauth20 can only do this
+   * with a server-side session, and this app is stateless JWT-in-cookie.
+   * `sameSite: 'lax'` so it survives the cross-site navigation back from Google.
    */
   issueGoogleState(res: ExpressResponse): string {
     const state = randomBytes(32).toString('hex');
@@ -589,12 +525,9 @@ export class AuthService {
   }
 
   /**
-   * Resolves a Google identity to a session, in the order set by Spec 05 §2.3:
-   * known googleId → verified email match (link) → unverified email match
-   * (reject) → new account.
-   *
-   * Returns whether a second factor is still owed, so the caller can redirect
-   * to the OTP step rather than a finished session.
+   * Resolves a Google identity to a session, in order: known googleId, verified
+   * email match (link), unverified email match (reject), new account. Returns
+   * whether a second factor is still owed.
    */
   async googleLogin(
     req: ExpressRequest,
@@ -608,8 +541,7 @@ export class AuthService {
         this.logger.error('TOTP is enabled, but no totpSecret has been set.');
         throw new GoogleAuthException('provider_error');
       }
-      // A compromised Google account must not bypass the second factor. The
-      // challenge goes in a cookie, not the URL: a redirect target lands in
+      // The challenge goes in a cookie, not the URL: a redirect target lands in
       // browser history, in the Referer of anything the page loads, and in any
       // proxy log along the way.
       res.cookie(MFA_COOKIE, await this.createMfaToken(user.id), {
@@ -628,14 +560,9 @@ export class AuthService {
 
   /**
    * Terminates the callback. Every outcome is a redirect to the frontend's
-   * `/auth/callback`, because a redirect has no JSON body for a client to read.
-   *
-   * That landing route needs no authentication, which is what makes the session
-   * cookies work: they are `sameSite: 'strict'`, so they may not ride along on
-   * the cross-site navigation that arrives here. The SPA renders from the Vite
-   * shell and then calls `/auth/me` — a same-origin fetch, where the cookies are
-   * sent normally. Redirecting straight to `/` appears to work in some browsers
-   * and fails in others.
+   * `/auth/callback`, which needs no authentication: the session cookies are
+   * `sameSite: 'strict'` and so do not ride along on the cross-site navigation
+   * that arrives here. The SPA then calls `/auth/me`, which is same-origin.
    */
   async googleCallback(
     req: ExpressRequest,
@@ -648,9 +575,9 @@ export class AuthService {
       const { mfaRequired } = await this.googleLogin(req, profile, res);
       res.redirect(mfaRequired ? `${base}?mfa=1` : base);
     } catch (error) {
-      // GoogleAuthException already names a cause the frontend can render, and
-      // GoogleAuthExceptionFilter redirects it. Anything else is ours to log and
-      // to reduce to a generic code, so no provider detail reaches the URL.
+      // GoogleAuthExceptionFilter redirects a GoogleAuthException. Anything else
+      // is ours to log and reduce to a generic code, so no provider detail
+      // reaches the URL.
       if (error instanceof GoogleAuthException) throw error;
       this.logger.error('Google callback failed', error as Error);
       throw new GoogleAuthException('provider_error');
@@ -668,9 +595,8 @@ export class AuthService {
       // Already linked to a different Google account: never overwrite that.
       if (byEmail.googleId !== null) throw new GoogleAuthException('email_taken');
 
-      // Linking on an unverified address is an account-takeover primitive —
-      // anyone able to set an arbitrary unverified email on a provider profile
-      // could otherwise claim someone else's account here.
+      // Linking on an unverified address is an account-takeover primitive: a
+      // provider profile can carry an arbitrary unverified email.
       if (!profile.emailVerified) throw new GoogleAuthException('unverified_email');
 
       return this.prisma.users.update({
@@ -686,11 +612,10 @@ export class AuthService {
     const stem = generateUsernameStem(profile.email);
 
     for (let attempt = 0; attempt < USERNAME_ATTEMPTS; attempt++) {
-      // The clean stem first, so the large majority of signups never see a
-      // digit. Each retry draws a fresh random suffix rather than deriving one
-      // from a count: a count is not a high-water mark (deleted accounts, and
-      // usernames set by hand, both push it out of step with what is free) and
-      // recomputing it yields the same name, so the loop would never progress.
+      // The clean stem first, so most signups never see a digit. A fresh random
+      // suffix per retry rather than one derived from a count: a count is not a
+      // high-water mark, and recomputing it yields the same name, so the loop
+      // would never progress.
       const username = attempt === 0 ? stem : `${stem}${randomSuffix()}`;
 
       try {
@@ -721,15 +646,9 @@ export class AuthService {
   }
 
   /**
-   * Exchanges a refresh token for a new pair, rotating the session key.
-   *
-   * The key is rotated on *every* use. Without that, a captured refresh token
-   * stayed valid for its full lifetime no matter how many times the legitimate
-   * user refreshed — using it did not consume it — and the theft was
-   * undetectable, because both parties could keep refreshing forever with
-   * nothing ever looking anomalous. It also made the argon2 hashing of the key
-   * largely decorative: the value protected at rest was one the client kept
-   * handing back in a long-lived cookie.
+   * Exchanges a refresh token for a new pair, rotating the session key on every
+   * use. Without rotation a captured token stays valid for its full lifetime and
+   * the theft is undetectable, since both parties can keep refreshing.
    */
   async refresh(payload: JwtRefreshPayload, res: ExpressResponse) {
     const session = await this.prisma.sessions.findUnique({
@@ -747,27 +666,24 @@ export class AuthService {
       throw new ForbiddenException('Invalid session id');
     }
 
-    // Enforced here, not left to the 5-minute sweep: the sweep is garbage
-    // collection, and a row past its expiry that has not been collected yet
-    // would otherwise still mint a fresh pair of tokens.
+    // Enforced here, not left to the 5-minute sweep: a row past its expiry that
+    // has not been collected yet would otherwise still mint fresh tokens.
     if (session.expiresAt.getTime() <= Date.now()) {
       throw new ForbiddenException('Invalid session id');
     }
 
     const isCurrent = await argon2.verify(session.sessionHash, payload.session);
 
-    // A racing sibling tab, not a replay: answer with the key that already won
-    // the race so both tabs converge, without rotating again or extending
-    // expiresAt a second time — otherwise two tabs can ping-pong rotations.
+    // A racing sibling tab, not a replay: answer with the key that already won,
+    // without rotating again or extending expiresAt. Otherwise two tabs can
+    // ping-pong rotations.
     const isGraced = !isCurrent && (await this.matchesGracedKey(session, payload.session));
 
     if (!isCurrent && !isGraced) {
-      // Deliberately not deleting the session. Reuse detection is what rotation
-      // buys, but the blast radius of a false positive is logging a legitimate
-      // user out of every device, and the false-positive sources are the hard
-      // ones to enumerate: a tab restored from bfcache with a stale in-flight
-      // request, a browser replaying after sleep, a mobile network retrying.
-      // The warning is free and is the data needed before turning it on.
+      // Deliberately not deleting the session: a false positive would log a
+      // legitimate user out of every device, and the sources are hard to
+      // enumerate (bfcache, sleep, network retries). The warning is the data
+      // needed before turning reuse detection on.
       this.logger.warn(`stale refresh key presented for session ${session.id}`);
       throw new ForbiddenException('Invalid session id');
     }
@@ -782,20 +698,15 @@ export class AuthService {
       throw new InternalServerErrorException();
     }
 
-    // Returns null when a sibling tab rotated this same key first. The graced
-    // branch deliberately neither rotates again nor extends expiresAt: doing
-    // either would let two tabs ping-pong rotations, and the point is to
-    // converge on one key, not to issue a second.
+    // Returns null when a sibling tab rotated this same key first.
     let refresh = isCurrent ? await this.updateRefreshJwt(user.id, session, payload.session) : null;
 
-    // Either this caller lost the rotation race or it arrived on the key that
-    // was just superseded. Both are the same situation seen from different
-    // sides, and both are answered with the token the winner received.
+    // Lost the rotation race, or arrived on the key that was just superseded:
+    // both are answered with the token the winner received.
     refresh ??= this.replayRecentRefresh(session.id, payload.session);
 
     // Only reachable if the process restarted inside the grace window, so the
-    // winner's token is no longer in memory. Re-signing the presented key beats
-    // logging the user out: it is still accepted, just until the window closes.
+    // winner's token is gone. Re-signing the presented key beats a logout.
     refresh ??= await this.signRefreshJwt(user.id, session.id, payload.session, session.expiresAt);
 
     const tokens = {
@@ -808,9 +719,7 @@ export class AuthService {
 
   async logout(payload: JwtRefreshPayload, res: ExpressResponse) {
     // deleteMany, not delete: `delete` on a missing row throws P2025, which the
-    // Prisma filter turns into a 404 — and a second logout is entirely normal
-    // (the session was swept, another tab logged out, the request was retried).
-    // Logging out is the operation that should above all be safe to repeat.
+    // Prisma filter turns into a 404, and a second logout is entirely normal.
     await this.prisma.sessions.deleteMany({
       where: {
         id: payload.sessionId,
@@ -836,10 +745,8 @@ export class AuthService {
 
   /**
    * When an access token signed right now stops being accepted, as epoch ms.
-   *
-   * Derived from the same constant `createAccessJwt` signs with, so the two
-   * cannot drift. Reported to the client so it can renew ahead of the expiry
-   * instead of finding out through a 401.
+   * Reported to the client so it can renew ahead of the expiry instead of
+   * finding out through a 401.
    */
   accessExpiresAt(): number {
     return Date.now() + ACCESS_TTL_MS;
@@ -911,10 +818,9 @@ export class AuthService {
     }
 
     // Conditional on the hash that was read, which makes the read-modify-write
-    // atomic. Two tabs refreshing at once genuinely do read the same row —
-    // argon2 is deliberately slow, so the window is wide — and if both wrote,
-    // the second would overwrite previousHash with the first's *new* hash and
-    // strand the first tab on a key that is neither current nor previous.
+    // atomic. Two tabs refreshing at once genuinely do read the same row, and if
+    // both wrote, the second would strand the first on a key that is neither
+    // current nor previous.
     const { count } = await this.prisma.sessions.updateMany({
       where: {
         id: session.id,
@@ -984,8 +890,8 @@ export class AuthService {
 
   /**
    * Signs the JWT around a key that is already stored. `expiresIn` comes from the
-   * row's own expiry rather than a literal, so the token, the cookie and the row
-   * always agree — including when the absolute cap has clamped the window.
+   * row's own expiry, so the token, the cookie and the row agree even when the
+   * absolute cap has clamped the window.
    */
   private async signRefreshJwt(
     userId: number,

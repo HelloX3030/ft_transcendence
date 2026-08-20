@@ -12,8 +12,7 @@ export interface LoginRequest {
 export interface MfaVerifyRequest {
   /**
    * Omitted on the Google path: that login ends in a redirect, so the challenge
-   * token travels in an httpOnly cookie the browser sends automatically rather
-   * than in a body the client never saw.
+   * token travels in an httpOnly cookie rather than in a body.
    */
   mfaToken?: string;
   otp: string;
@@ -27,12 +26,9 @@ export interface RegisterRequest {
 
 /**
  * When the access cookie a response just issued stops being accepted, as epoch
- * milliseconds. Reported by every endpoint that issues or renews one.
- *
- * Nothing secret: it is the `exp` claim of a token the client already holds. It
- * exists so the client can renew *before* the expiry instead of discovering it
- * through a 401 — a failed request the browser logs to the console from its own
- * network stack, where no application code can reach it.
+ * milliseconds. Nothing secret: it is the `exp` claim of a token the client
+ * already holds. It lets the client renew before the expiry rather than discover
+ * it through a 401, which the browser logs from its own network stack.
  */
 export interface AccessTokenExpiry {
   accessExpiresAt: number;
@@ -44,8 +40,8 @@ export interface LoginResponse {
   /** Absent when `mfaRequired`: no session exists until the OTP is verified. */
   accessExpiresAt?: number;
   /**
-   * Only set when mfaRequired. Short-lived, single-purpose, and useless on its
-   * own — exchange it together with the OTP at POST /auth/mfa/verify.
+   * Only set when mfaRequired. Short-lived and useless on its own: exchange it
+   * together with the OTP at POST /auth/mfa/verify.
    */
   mfaToken?: string;
 }
@@ -55,13 +51,10 @@ export interface otp {
 }
 
 /**
- * What GET /auth/me answers with: the access token's payload, not a user row.
- * The profile lives behind GET /users/me — this endpoint exists to say whether
- * there is a session at all.
- *
- * Both answers are 200, because both are true answers to the question asked.
- * Answering "nobody is signed in" with a 401 made every logged-out page load
- * print a red line the client could handle but not unprint.
+ * What GET /auth/me answers with: the access token's payload, not a user row. The
+ * profile lives behind GET /users/me; this only says whether there is a session.
+ * Both answers are 200, because both are true answers to the question asked, and
+ * a 401 would print a console error on every logged-out page load.
  */
 export type SessionResponse =
   | { authenticated: false }

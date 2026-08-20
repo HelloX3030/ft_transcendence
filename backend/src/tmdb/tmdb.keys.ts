@@ -1,11 +1,8 @@
 // Every Redis key this module writes is built here, so the conventions stay in
-// one place instead of being reassembled inline at each call site.
-//
-// The version segment is the invalidation lever: cached payloads are reshaped
-// DTOs, not raw TMDB bodies, so changing one of those shapes (say, adding a
-// field to TmdbMovieDetail) would otherwise leave old-shape JSON to be parsed
-// into the new type and served until its TTL runs out. Bump CACHE_VERSION in the
-// same commit as such a change and the old entries are orphaned instead.
+// one place. The version segment is the invalidation lever: cached payloads are
+// reshaped DTOs, not raw TMDB bodies, so reshaping one would otherwise leave
+// old-shape JSON to be served until its TTL runs out. Bump CACHE_VERSION in the
+// same commit and the old entries are orphaned instead.
 const CACHE_VERSION = 'v1';
 const PREFIX = `tmdb:${CACHE_VERSION}`;
 

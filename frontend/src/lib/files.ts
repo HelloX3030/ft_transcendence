@@ -3,11 +3,8 @@ import { API_BASE } from '@/api/http';
 
 /**
  * Builds the URL for a stored file. Backend records carry an id, never a storage
- * URL — the bucket is private, so every read goes through the authenticated
- * `GET /files/:id`.
- *
- * `undefined` rather than `null` so it drops straight into `<img :src>` without
- * rendering an empty `src`.
+ * URL: the bucket is private, so every read goes through `GET /files/:id`.
+ * `undefined` rather than `null` so it drops straight into `<img :src>`.
  */
 export function fileUrl(fileId: number): string;
 export function fileUrl(fileId: number | null | undefined): string | undefined;
@@ -16,12 +13,9 @@ export function fileUrl(fileId: number | null | undefined): string | undefined {
 }
 
 /**
- * Checks a picked file against the same rules the server enforces.
- *
- * This is **UX only, never security**: it exists so a 12 MB photo fails in 5 ms
- * instead of after a 30-second upload. The server's magic-byte sniff stays
- * authoritative and is not relaxed — anyone can bypass this.
- *
+ * Checks a picked file against the same rules the server enforces. UX only, never
+ * security: it exists so a 12 MB photo fails in 5 ms rather than after a
+ * 30-second upload, and the server's magic-byte sniff stays authoritative.
  * Returns an error message, or `null` if the file passes.
  */
 export function validateFile(file: File, kind: FileKind): string | null {

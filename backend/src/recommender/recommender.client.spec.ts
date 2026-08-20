@@ -98,7 +98,7 @@ describe('RecommenderClient', () => {
       expect(warn).toHaveBeenCalled();
     });
 
-    // A 204 carries no body, and res.json() throws on an empty one — which would
+    // A 204 carries no body, and res.json() throws on an empty one, which would
     // be logged as a failure that never happened.
     it('treats the 204 answer as success', async () => {
       mockFetchWith(null, true, 204);

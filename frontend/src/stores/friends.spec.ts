@@ -26,7 +26,7 @@ describe('friends store', () => {
 
   /**
    * The store is built transitively by useAuthStore() on main.ts's first line,
-   * before auth.init() has run — so a fetch here is an authenticated request
+   * before auth.init() has run, so a fetch here is an authenticated request
    * issued before anyone could know whether there is a session, and a
    * guaranteed 401 for every logged-out visitor.
    */

@@ -99,8 +99,8 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
 
   const submit = handleSubmit(async (values) => {
     // Settled like the other two rather than a bare `await`: a rejected rename
-    // used to propagate past invalidate(), so a 403 on a read-only list reported
-    // "Something went wrong" over stale data while the movie changes had landed.
+    // would propagate past invalidate(), reporting "Something went wrong" over
+    // stale data while the movie changes had already landed.
     const rename =
       values.name && values.name !== name.value
         ? [watchlistApi.update(watchlistId, { name: values.name })]
@@ -119,7 +119,7 @@ export function useEditWatchlist(options: UseEditWatchlistDialogOptions) {
 
     // The backend excludes the actor from their own events, so nothing else
     // will. Invalidating here covers the overview, the detail page and the
-    // movie grid at once — all three watch `version`. Also on a partial
+    // movie grid at once, all three watch `version`. Also on a partial
     // failure: whatever did land still has to be shown.
     watchlists.invalidate();
 

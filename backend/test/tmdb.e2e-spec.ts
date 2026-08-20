@@ -49,7 +49,7 @@ describe('Tmdb (e2e)', () => {
     app = await createTestApp((builder) =>
       builder
         // Stub the one edge that would otherwise hit the network. Everything
-        // else — guards, pipes, DTOs, filters, throttler — is the real thing.
+        // else, guards, pipes, DTOs, filters, throttler, is the real thing.
         .overrideProvider(TmdbClient)
         .useValue({
           get: (path: string): Promise<unknown> => {

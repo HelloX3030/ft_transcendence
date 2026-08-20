@@ -29,7 +29,7 @@ const token = computed(() => (typeof route.query.token === 'string' ? route.quer
 
 const loading = ref(false);
 const errorMessage = ref<string | null>(null);
-/** Set once the backend answers 403 mfaRequired — never guessed up front, because
+/** Set once the backend answers 403 mfaRequired, never guessed up front, because
  *  that would mean asking the server whether an account has 2FA before the token
  *  has been shown to be valid. */
 const mfaRequired = ref(false);
@@ -64,8 +64,8 @@ const onSubmit = form.handleSubmit(async ({ password }) => {
     // using it. Only the session cookies would say otherwise.
     //
     // The backend has just revoked every session, so a signed-in visitor's
-    // isLoggedIn is now stale — left alone, guestOnly on /login would bounce
-    // them straight back into a session that no longer exists.
+    // isLoggedIn is stale; left alone, guestOnly on /login would bounce them
+    // straight back into a session that no longer exists.
     auth.clearSession();
     await router.replace('/login');
   } catch (err: unknown) {

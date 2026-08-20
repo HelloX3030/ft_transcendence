@@ -9,7 +9,7 @@ interface Props {
   img: string | null;
   selected?: boolean;
   loading?: boolean;
-  /** `sm` shrinks the chrome only — the poster keeps its 2:3 ratio at every size. */
+  /** `sm` shrinks the chrome only, the poster keeps its 2:3 ratio at every size. */
   size?: 'default' | 'sm';
 }
 
@@ -17,12 +17,9 @@ const props = withDefaults(defineProps<Props>(), { size: 'default' });
 
 // Whole class strings rather than a radius spliced into fragments: Tailwind's
 // scanner only emits CSS for classes it can read verbatim in the source. Keeping
-// each size's five corner-carrying strings together in one object is also what
-// stops the wrapper, the hover layer, the image, the fallback and the title strip
-// drifting to different radii.
-//
-// `default` reproduces the previous markup character for character — that is what
-// guarantees DiscoverView, OnboardingView and ListView are untouched by this prop.
+// each size's five corner-carrying strings in one object is also what stops the
+// wrapper, the hover layer, the image, the fallback and the title strip drifting
+// to different radii.
 const SIZES = {
   default: {
     frame: 'rounded-2xl overflow-hidden',

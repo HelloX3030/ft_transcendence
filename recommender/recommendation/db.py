@@ -1,31 +1,22 @@
 """
-db.py — persistence against the shared Prisma-managed PostgreSQL schema.
+Persistence against the shared Prisma-managed PostgreSQL schema.
 
-The backend team put the recommendation fields directly on existing tables
-(migration 20260624115724_add_recommendation_fields) instead of the separate
-tables requested in DB_REQUEST.md:
+The recommendation fields sit on existing tables: users.feature_vector,
+users.feat_vec_updated_at, users.genre_ids / actor_ids / director_ids, and
+ratings.watch_time.
 
-    users.feature_vector      DOUBLE PRECISION[]   learned taste profile
-    users.feat_vec_updated_at TIMESTAMP(3)         last profile write
-    users.genre_ids /
-          actor_ids /
-          director_ids        INTEGER[]            onboarding cold-start prefs
-    ratings.watch_time        SMALLINT             seconds watched (nullable)
+Two ID systems meet here: this service is TMDB-id-native, while ratings.movie_id
+references movies.id, so every history query joins movies to reach movies.tmdb_id.
+User ids are Int in the DB and str at the service boundary.
 
-Two ID systems meet here: the service is TMDB-id-native, while ratings.movie_id
-references the internal movies.id — every history query joins movies to map to
-movies.tmdb_id. User IDs are Int in the DB and str at the service boundary.
-
-Profile wire format (encode_profile / decode_feature_vector): the sparse weight
-dicts are flattened into one self-describing float array —
+Profile wire format (encode_profile / decode_feature_vector):
 
     [VERSION, interaction_count, avg_vote,
      n_genre, n_actor, n_director, n_keyword,
      <genre id/weight pairs>, <actor pairs>, <director pairs>, <keyword pairs>]
 
-Doubles represent both TMDB ids and counts exactly (all < 2^53). liked_overviews
-cannot live in a float array — the overview-TF-IDF component rebuilds from new
-likes after a restart (known, accepted gap; see PROGRESS.md).
+liked_overviews cannot live in a float array, so the overview-TF-IDF component
+rebuilds from new likes after a restart.
 """
 
 import logging
@@ -42,11 +33,6 @@ _FORMAT_VERSION = 1.0
 # Header layout: version, interaction_count, avg_vote, then one length per section.
 _HEADER_LEN = 7
 _SECTIONS = ("genre_weights", "actor_weights", "director_weights", "keyword_weights")
-
-
-# ---------------------------------------------------------------------------
-# Profile <-> feature_vector encoding (pure, unit-testable)
-# ---------------------------------------------------------------------------
 
 
 def encode_profile(profile: UserProfile) -> list[float]:
@@ -97,7 +83,7 @@ def apply_onboarding_prefs(
 ) -> UserProfile:
     """
     Seed the profile with explicit onboarding selections (architecture 1.5).
-    Only fills ids the profile has no learned weight for yet — interaction-derived
+    Only fills ids the profile has no learned weight for yet, interaction-derived
     weights (including negative ones from dislikes) always win.
     """
     for gid in genre_ids:
@@ -121,11 +107,6 @@ def _row_to_profile(user_id: str, row) -> UserProfile:
     )
 
 
-# ---------------------------------------------------------------------------
-# Connection / queries
-# ---------------------------------------------------------------------------
-
-
 def _clean_dsn(dsn: str) -> str:
     """Strip Prisma-only query params (e.g. ?schema=public) that asyncpg rejects."""
     parts = urlsplit(dsn)
@@ -138,7 +119,7 @@ def _db_user_id(user_id: str) -> int | None:
     try:
         return int(user_id)
     except ValueError:
-        logger.warning("non-numeric user_id %r — skipping DB access", user_id)
+        logger.warning("non-numeric user_id %r, skipping DB access", user_id)
         return None
 
 
@@ -160,7 +141,6 @@ class Database:
             await self._pool.close()
             self._pool = None
 
-    # -- profiles -------------------------------------------------------
 
     async def load_all_profiles(self) -> list[UserProfile]:
         """Startup bulk load: every user with a stored vector or onboarding prefs."""
@@ -195,7 +175,7 @@ class Database:
         uid = _db_user_id(profile.user_id)
         if uid is None:
             return
-        # feat_vec_updated_at is TIMESTAMP without time zone — asyncpg wants naive UTC.
+        # feat_vec_updated_at is TIMESTAMP without time zone, asyncpg wants naive UTC.
         updated_at = profile.last_updated.replace(tzinfo=None)
         await self._pool.execute(
             "UPDATE users SET feature_vector = $2, feat_vec_updated_at = $3 WHERE id = $1",
@@ -204,10 +184,9 @@ class Database:
             updated_at,
         )
 
-    # -- interaction history ---------------------------------------------
 
     async def fetch_seen_tmdb_ids(self, user_id: str) -> list[int]:
-        """TMDB ids of every movie the user has rated — feed deduplication."""
+        """TMDB ids of every movie the user has rated, feed deduplication."""
         assert self._pool is not None
         uid = _db_user_id(user_id)
         if uid is None:
@@ -224,7 +203,7 @@ class Database:
         return [row["tmdb_id"] for row in rows]
 
     async def fetch_interactions(self) -> list[tuple[str, int, float]]:
-        """All (user_id, tmdb_id, ±1.0) rows — the SVD training matrix (retrain.py)."""
+        """All (user_id, tmdb_id, ±1.0) rows, the SVD training matrix (retrain.py)."""
         assert self._pool is not None
         rows = await self._pool.fetch(
             """

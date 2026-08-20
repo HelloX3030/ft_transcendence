@@ -14,9 +14,9 @@ from .engine import RecommenderEngine
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
 from .tmdb_bridge import TMDBBridgeImpl, profile_to_params
 
-# uvicorn only configures its own loggers — without this, the service's INFO
+# uvicorn only configures its own loggers, without this, the service's INFO
 # lines (profile-load count, DB fallback warnings) never reach the console.
-logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s — %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -25,14 +25,11 @@ class _SkipHealthChecks(logging.Filter):
     Drop the access-log line for /health.
 
     The container health check polls it every ten seconds, which is a few hundred
-    identical lines an hour — enough to push anything worth reading out of a
-    scrollback. The other routes keep their access logs, since /feed and /signal
-    are how you tell what the service is actually doing.
+    identical lines an hour. The other routes keep their access logs.
 
-    uvicorn logs access records with args
-    (client_addr, method, path, http_version, status), so the path is matched
-    positionally rather than by searching the formatted line, which would also
-    swallow a genuine request that happened to mention "/health".
+    uvicorn logs access records with args (client_addr, method, path,
+    http_version, status), so the path is matched positionally rather than by
+    searching the formatted line.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -42,15 +39,11 @@ class _SkipHealthChecks(logging.Filter):
 
 logging.getLogger("uvicorn.access").addFilter(_SkipHealthChecks())
 
-# ---------------------------------------------------------------------------
-# Inline stubs — replaced module by module as real implementations land.
-# ---------------------------------------------------------------------------
-
 
 class _TMDBStub:
     """
     Real parameter translation (tmdb_bridge.profile_to_params), but candidates
-    come from a fixed pool of 10 real TMDB movies — the params are computed and
+    come from a fixed pool of 10 real TMDB movies, the params are computed and
     then ignored. Replaced by TMDBBridgeImpl once TMDB_API_KEY is wired in Docker.
 
     IDs: Dark Knight, Inception, Fight Club, Forrest Gump, The Avengers,
@@ -80,14 +73,10 @@ class _TMDBStub:
         return [m for m in self._POOL if m.tmdb_id not in exclude_set]
 
     async def fetch_movie_detail(self, movie_id: int) -> MovieMetadata:
-        # Return the pool entry as-is — cast/keyword fields stay empty in the stub.
+        # Return the pool entry as-is, cast/keyword fields stay empty in the stub.
         pool_map = {m.tmdb_id: m for m in self._POOL}
         return pool_map.get(movie_id, MovieMetadata(tmdb_id=movie_id))
 
-
-# ---------------------------------------------------------------------------
-# Engine — single instance, created at startup.
-# ---------------------------------------------------------------------------
 
 _engine: RecommenderEngine | None = None
 _content: ContentBasedFilter | None = None
@@ -110,9 +99,9 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
             _content.load_profiles(profiles)
             logger.info("loaded %d user profiles from DB", len(profiles))
         except Exception:
-            logger.exception("DB unavailable — running in-RAM only, no persistence")
+            logger.exception("DB unavailable, running in-RAM only, no persistence")
     else:
-        logger.warning("DATABASE_URL not set — running in-RAM only, no persistence")
+        logger.warning("DATABASE_URL not set, running in-RAM only, no persistence")
 
     # TMDB_API_KEY present → real Discover/detail calls; otherwise fixed stub pool.
     tmdb = TMDBBridgeImpl() if os.environ.get("TMDB_API_KEY") else _TMDBStub()
@@ -142,7 +131,7 @@ def _get_engine() -> RecommenderEngine:
 
 
 async def _ensure_profile(user_id: str) -> None:
-    """Users who registered after startup miss the bulk load — fetch their row
+    """Users who registered after startup miss the bulk load, fetch their row
     (stored vector and/or onboarding prefs) on first contact."""
     if _db is None or _content is None or _content.has_profile(user_id):
         return
@@ -153,11 +142,6 @@ async def _ensure_profile(user_id: str) -> None:
         return
     if profile is not None:
         _content.load_profiles([profile])
-
-
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -174,7 +158,7 @@ async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
         try:
             seen_ids = await _db.fetch_seen_tmdb_ids(request.user_id)
         except Exception:
-            logger.exception("seen-ids query failed for user %s — feed served undeduplicated", request.user_id)
+            logger.exception("seen-ids query failed for user %s, feed served undeduplicated", request.user_id)
 
     return await _get_engine().get_feed(
         user_id=request.user_id, limit=request.limit, seen_ids=seen_ids
@@ -190,7 +174,7 @@ async def record_signal(payload: EngagementSignal) -> None:
         action=payload.action,
         watch_time=payload.watch_time,
     )
-    # Persist the updated profile — a DB blip must not fail the swipe itself.
+    # Persist the updated profile, a DB blip must not fail the swipe itself.
     if _db is not None and _content is not None:
         try:
             await _db.save_profile(_content.get_profile(payload.user_id))

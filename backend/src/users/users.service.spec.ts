@@ -210,7 +210,7 @@ describe('UsersService', () => {
     });
 
     // The ids come from our own browse UI seconds earlier, so a 404 means TMDB
-    // retired the entry — deriving from the rest beats failing a signup.
+    // retired the entry, deriving from the rest beats failing a signup.
     it('drops a movie TMDB no longer knows and completes on the rest', async () => {
       readsThen(onboarded);
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });
@@ -582,7 +582,6 @@ describe('UsersService', () => {
       expect(result.data).toContain('<svg');
     });
 
-    // A3 — the plaintext secret is deliberately never sent to the client.
     it('never returns the plaintext secret', async () => {
       const result = await service.createTOTP(1);
 
@@ -723,7 +722,7 @@ describe('UsersService', () => {
     });
 
     // Active with no secret can never clear MFA at login either, so there is no
-    // code that could be demanded — clearing the flag is the only way out.
+    // code that could be demanded, clearing the flag is the only way out.
     it('repairs an active row whose secret is missing instead of crashing', async () => {
       mockPrisma.users.findUnique.mockResolvedValue({ totpSecret: null, totpActive: true });
       mockPrisma.users.updateMany.mockResolvedValue({ count: 1 });

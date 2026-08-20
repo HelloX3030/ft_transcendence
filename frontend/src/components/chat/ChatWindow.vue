@@ -29,7 +29,7 @@ const { inputMsg, sendMessage } = useSendMessage();
 
 /**
  * Shown only once the limit is within reach. `maxlength` alone stops the typing
- * and silently drops the tail of a paste, which is its own small mystery — this
+ * and silently drops the tail of a paste, which is its own small mystery, this
  * says what happened while there is still something to do about it.
  */
 const HINT_REMAINING = 100;
@@ -67,7 +67,7 @@ function onScroll() {
  * Loads the next older page without moving the viewport.
  *
  * Prepending content grows `scrollHeight` above the current position, so
- * `scrollTop` has to grow by exactly the same amount — otherwise the user is
+ * `scrollTop` has to grow by exactly the same amount, otherwise the user is
  * thrown backwards through the history they were reading, which makes correct
  * data feel broken.
  */

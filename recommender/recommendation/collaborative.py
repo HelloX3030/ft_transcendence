@@ -21,7 +21,7 @@ class CollaborativeFilter:
     so the live predict() path is never interrupted.
 
     The checkpoint stores U_k·Σ_k^½ and V_k·Σ_k^½ pre-multiplied, so predict() is a
-    single dot product at call time — no decomposition at runtime.
+    single dot product at call time, with no decomposition at runtime.
     """
 
     def __init__(
@@ -32,19 +32,15 @@ class CollaborativeFilter:
         self._cfg = config
         self._checkpoint_path = Path(model_dir) / _CHECKPOINT_FILE
 
-        # shape (n_users, k) — U_k · Σ_k^½
+        # shape (n_users, k), U_k · Σ_k^½
         self._user_factors: np.ndarray | None = None
-        # shape (n_movies, k) — V_k · Σ_k^½
+        # shape (n_movies, k), V_k · Σ_k^½
         self._movie_factors: np.ndarray | None = None
 
         self._user_index: dict[str, int] = {}
         self._movie_index: dict[int, int] = {}
 
         self._load_checkpoint()
-
-    # ------------------------------------------------------------------
-    # CollaborativeFilter Protocol
-    # ------------------------------------------------------------------
 
     def predict(self, user_id: str, candidate_ids: list[int]) -> np.ndarray:
         """
@@ -62,10 +58,6 @@ class CollaborativeFilter:
                 scores[i] = float(u @ self._movie_factors[self._movie_index[mid]])
         return scores
 
-    # ------------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------------
-
     def train(self, interactions: list[tuple[str, int, float]]) -> None:
         """
         Fit SVD and atomically replace the on-disk checkpoint.
@@ -74,9 +66,9 @@ class CollaborativeFilter:
             interactions: (user_id, tmdb_id, rating) rows.
                           rating +1 = positive interaction, -1 = dislike.
 
-        Called by retrain.py on a nightly schedule. Safe to call while the
-        service is live — the checkpoint swap is atomic and predict() keeps
-        using the old factors until _load_checkpoint() is called again.
+        Called by retrain.py nightly. Safe while the service is live: the swap
+        is atomic and predict() keeps the old factors until _load_checkpoint()
+        runs again.
         """
         if not interactions:
             return
@@ -117,17 +109,13 @@ class CollaborativeFilter:
         self._save_checkpoint(checkpoint)
         self._apply_checkpoint(checkpoint)
 
-    # ------------------------------------------------------------------
-    # Checkpoint I/O
-    # ------------------------------------------------------------------
-
     def _load_checkpoint(self) -> None:
         if not self._checkpoint_path.exists():
             return
         try:
             self._apply_checkpoint(joblib.load(self._checkpoint_path))
         except Exception:
-            # Corrupt or incompatible checkpoint — service starts with zero scores.
+            # Corrupt or incompatible checkpoint, service starts with zero scores.
             pass
 
     def _save_checkpoint(self, checkpoint: dict) -> None:

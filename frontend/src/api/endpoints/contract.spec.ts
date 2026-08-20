@@ -11,13 +11,10 @@ const { userApi } = await import('./user');
 const { watchlistApi } = await import('./watchlist');
 
 /**
- * These helpers are where paths live now that nothing in the app is allowed to
- * call `fetch` directly. A typo in one of them is invisible to the compiler —
- * `backendClient<T>` casts the response and asks no questions — so the path and
- * the method are asserted here instead.
- *
- * The bodies and the response types are deliberately *not* asserted: those the
- * compiler does check, against the shared contract.
+ * These helpers are where paths live, now that nothing in the app calls `fetch`
+ * directly. A typo in one is invisible to the compiler, since `backendClient<T>`
+ * casts the response, so the path and the method are asserted here. The bodies
+ * and response types are not: the compiler checks those against the contract.
  */
 function lastCall() {
   const [path, options] = backendClient.mock.calls.at(-1) as [string, RequestInit | undefined];
@@ -47,7 +44,7 @@ describe('endpoint contract', () => {
   });
 
   describe('users', () => {
-    it('reads another user by id — under /users, which is where the API serves them', () => {
+    it('reads another user by id: under /users, which is where the API serves them', () => {
       userApi.getById(7);
       expect(lastCall()).toMatchObject({ path: '/users/7', method: 'GET' });
     });

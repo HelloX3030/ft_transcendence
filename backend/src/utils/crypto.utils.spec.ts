@@ -46,7 +46,7 @@ describe('crypto.utils', () => {
   });
 
   // Rows written before the switch to GCM are still in the database and must
-  // stay readable — this reproduces exactly how they were built.
+  // stay readable, so this reproduces exactly how they were built.
   describe('backwards compatibility with CBC-era stored secrets', () => {
     function legacyEncrypt(text: string): string {
       const iv = crypto.randomBytes(CRYPTO_FORMAT.LEGACY_IV_BYTES);

@@ -5,13 +5,11 @@ import { TmdbListResponse } from './tmdb.types';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TIMEOUT_MS = 5000;
 
-// The ceiling below is one we impose on ourselves, so it can be observed here
-// rather than arriving as 429s from TMDB. TMDB's own limit is soft: they retired
-// the published 40-per-10s figure in December 2019 and now describe an upper
-// bound "in the 40 requests per second range", enforced per IP and liable to
-// change at any time. That is why the two numbers live in the environment
-// (TMDB_RATE_LIMIT, TMDB_RATE_WINDOW_SECONDS) — turning them down needs no
-// rebuild. Callers wait up to BUDGET_MAX_WAIT_MS for capacity, then get a 503.
+// A ceiling we impose on ourselves, so it is observed here rather than arriving
+// as 429s from TMDB, whose own limit is soft and undocumented since 2019. Both
+// numbers live in the environment (TMDB_RATE_LIMIT, TMDB_RATE_WINDOW_SECONDS) so
+// turning them down needs no rebuild. Callers wait up to BUDGET_MAX_WAIT_MS for
+// capacity, then get a 503.
 const BUDGET_MAX_WAIT_MS = 2000;
 
 @Injectable()
@@ -49,8 +47,8 @@ export class TmdbClient {
     }
 
     // A 404 is a definitive answer about one resource ("no such id"), not an
-    // upstream failure — it gets its own exception so callers that can tolerate a
-    // missing resource catch it specifically, without also swallowing outages.
+    // upstream failure, so it gets its own exception: callers that can tolerate a
+    // missing resource catch it specifically, without swallowing outages.
     if (res.status === 404) {
       this.logger.warn(`TMDB responded 404 for ${path}`);
       throw new NotFoundException('TMDB resource not found');

@@ -7,7 +7,7 @@ function build(query: Record<string, unknown>): SearchQueryDto {
   return plainToInstance(SearchQueryDto, query);
 }
 
-describe('SearchQueryDto — query normalization', () => {
+describe('SearchQueryDto: query normalization', () => {
   it('trims surrounding whitespace off the search term', () => {
     const dto = build({ query: '  batman ' });
 

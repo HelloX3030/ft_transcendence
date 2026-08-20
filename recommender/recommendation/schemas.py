@@ -4,11 +4,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-# ---------------------------------------------------------------------------
-# Internal data types
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class MovieMetadata:
     """
@@ -30,11 +25,6 @@ class MovieMetadata:
     cast_ids: list[int] = field(default_factory=list)
     director_ids: list[int] = field(default_factory=list)
     keyword_ids: list[int] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# API request / response models
-# ---------------------------------------------------------------------------
 
 
 class FeedRequest(BaseModel):

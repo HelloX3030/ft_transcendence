@@ -6,7 +6,7 @@ import TestAgent from 'supertest/lib/agent';
 import { apiResponse, UserMeResponse } from '@cinemates/shared';
 import { checkCookies, createTestApp } from './utils';
 
-// A real 1x1 PNG — the upload path sniffs magic bytes, so the fixture must
+// A real 1x1 PNG, the upload path sniffs magic bytes, so the fixture must
 // actually be the format it claims to be.
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -49,7 +49,7 @@ describe('Files (e2e)', () => {
 
     it('lets another signed-in user read an avatar', async () => {
       // Avatars appear on profiles, friend lists and chat headers, so this is
-      // the intended rule for this kind — not an accident of a blanket policy.
+      // the intended rule for this kind, not an accident of a blanket policy.
       const owner = await registerUser(app, buildRegisterDto('file-owner'));
       const other = await registerUser(app, buildRegisterDto('file-other'));
       const fileId = await uploadAvatar(owner);

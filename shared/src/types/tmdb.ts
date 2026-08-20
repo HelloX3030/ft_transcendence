@@ -1,8 +1,7 @@
 /**
  * Query for GET /tmdb/discover. `DiscoverQueryDto` implements this, so a rename
- * on either side is a type error rather than a 400 at runtime — the global
- * ValidationPipe runs with `forbidNonWhitelisted`, which turns an unrecognised
- * parameter into a rejected request.
+ * on either side is a type error rather than a 400: the global ValidationPipe
+ * runs with `forbidNonWhitelisted`.
  */
 export interface DiscoverQuery {
   page?: number;
@@ -33,7 +32,7 @@ export interface TmdbMovie {
 export interface PaginatedMovies {
   results: TmdbMovie[];
   hasMore: boolean;
-  // TMDB's total match count for the query (unfiltered — see TmdbService).
+  // TMDB's total match count for the query (unfiltered, see TmdbService).
   totalResults: number;
 }
 

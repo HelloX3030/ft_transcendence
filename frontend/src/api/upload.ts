@@ -9,13 +9,10 @@ export interface UploadOptions {
 }
 
 /**
- * POSTs a multipart body and reports real upload progress.
- *
- * `fetch` cannot do this: reporting progress means streaming the request body,
- * which requires `duplex: 'half'` and is not broadly supported. `XMLHttpRequest`
- * has exposed `upload.onprogress` forever, so uploads — and only uploads — use
- * it. Everything else about the call matches `backendClient`, via the shared
- * primitives in `http.ts`.
+ * POSTs a multipart body and reports real upload progress. `fetch` cannot: that
+ * means streaming the request body, which requires `duplex: 'half'` and is not
+ * broadly supported, while `XMLHttpRequest` has always exposed
+ * `upload.onprogress`. Everything else matches `backendClient`, via `http.ts`.
  */
 export function uploadWithProgress<T>(
   path: string,
@@ -39,7 +36,7 @@ export function uploadWithProgress<T>(
 
     xhr.upload.onprogress = (event) => {
       // Without a Content-Length there is no total to divide by, so there is
-      // nothing honest to report — better no movement than a fabricated bar.
+      // nothing honest to report, better no movement than a fabricated bar.
       if (!event.lengthComputable) return;
       opts.onProgress?.((event.loaded / event.total) * 100);
     };
@@ -72,7 +69,7 @@ export function uploadWithProgress<T>(
       }
     };
 
-    // Transport failure — offline, DNS, TLS. Left as a plain Error, matching
+    // Transport failure, offline, DNS, TLS. Left as a plain Error, matching
     // backendClient, where `instanceof ApiError` means "the backend answered".
     xhr.onerror = () => {
       cleanup();

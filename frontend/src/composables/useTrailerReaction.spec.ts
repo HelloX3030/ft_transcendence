@@ -70,7 +70,7 @@ describe('useTrailerReaction', () => {
     expect(error).toHaveBeenCalledWith('Network down');
   });
 
-  // 409 means the server already holds the state we asked for — desired, not an error.
+  // 409 means the server already holds the state we asked for, desired, not an error.
   it('absorbs a 409 without unlocking or toasting', async () => {
     setReaction.mockRejectedValue(new ApiError(409, 'You have already reacted to this movie.'));
 

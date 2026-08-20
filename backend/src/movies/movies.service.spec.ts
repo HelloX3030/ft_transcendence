@@ -133,7 +133,7 @@ describe('MoviesService', () => {
       expect(mockPrisma.ratings.delete).not.toHaveBeenCalled();
     });
 
-    // The TMDB id, not movies.id — the recommender keys its metadata on TMDB's,
+    // The TMDB id, not movies.id, the recommender keys its metadata on TMDB's,
     // so the internal id would silently train the profile on the wrong films.
     it('signals the recommender once, with the TMDB id', async () => {
       await service.setReaction(640146, 'like', 7);
@@ -153,12 +153,12 @@ describe('MoviesService', () => {
 
     // Fire-and-forget: the response must not wait on a second service, so a
     // recommender that is down or slow cannot turn a recorded reaction into a
-    // failed — or merely sluggish — request.
+    // failed, or merely sluggish, request.
     it('does not wait on the signal', async () => {
       let settled = false;
       mockRecommender.signal.mockImplementation(() => {
-        // Mirrors the real client: returns void, and its request — here a slow
-        // one, as an unreachable recommender would be — settles later.
+        // Mirrors the real client: returns void, and its request, here a slow
+        // one, as an unreachable recommender would be, settles later.
         void new Promise((resolve) => setTimeout(resolve, 50)).then(() => {
           settled = true;
         });

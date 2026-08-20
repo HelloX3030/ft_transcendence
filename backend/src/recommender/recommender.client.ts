@@ -32,7 +32,7 @@ export class RecommenderClient {
   /**
    * Fire-and-forget by design: a swipe must never wait on, or be failed by, the
    * recommendation service. Returns void rather than a promise so no caller can
-   * accidentally await it — and the .catch is mandatory, since an unhandled
+   * accidentally await it, and the .catch is mandatory, since an unhandled
    * rejection would take the process down.
    *
    * `movieId` is the TMDB id, not our internal movies.id.
@@ -70,7 +70,7 @@ export class RecommenderClient {
       throw new ServiceUnavailableException('Recommendations are temporarily unavailable');
     }
 
-    // /signal answers 204 with no body, and res.json() throws on an empty one —
+    // /signal answers 204 with no body, and res.json() throws on an empty one,
     // which the caller's .catch would then log as a failure that did not happen.
     if (res.status === 204) return undefined as T;
 

@@ -5,7 +5,7 @@ import { registerDecorator, ValidationArguments, ValidationOptions } from 'class
  * `otherProperty`. Both sides are YYYY-MM-DD strings of equal width, so a
  * lexicographic compare is also a chronological one and no parsing is needed.
  *
- * Passes when either side is missing or not a string — those cases belong to the
+ * Passes when either side is missing or not a string, those cases belong to the
  * per-field validators, and reporting them twice would only muddy the 400.
  */
 export function IsNotAfter(

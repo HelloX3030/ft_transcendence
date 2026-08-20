@@ -10,11 +10,8 @@ export class otpDto implements otp {
 }
 
 /**
- * Same code, same validation, same Swagger example — derived from `otpDto` rather
- * than restated so the two cannot drift.
- *
- * `otp` is optional only because disabling an *inactive* TOTP takes no code (an
- * abandoned setup has nothing to protect and no scanned QR to read one from).
- * When 2FA is actually on, `deleteTOTP` requires it.
+ * Derived from `otpDto` rather than restated, so the two cannot drift. `otp` is
+ * optional only because disabling an inactive TOTP takes no code; when 2FA is on,
+ * `deleteTOTP` requires it.
  */
 export class disableTotpDto extends PartialType(otpDto) {}

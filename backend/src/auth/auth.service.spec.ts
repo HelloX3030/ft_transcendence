@@ -222,7 +222,7 @@ describe('AuthService', () => {
     });
 
     // A duplicate email/username is a state conflict (409), not a permissions
-    // failure (403) — see the register status-code change alongside A6.
+    // failure (403).
     it('throws ConflictException on a unique-constraint violation', async () => {
       mockPrisma.users.create.mockRejectedValue(prismaError('P2002'));
       const { res, cookie } = mockResponse();
@@ -282,7 +282,7 @@ describe('AuthService', () => {
 
     // A Google-only account has no local password. argon2.verify on a null hash
     // throws a raw error the global filter turns into a 500, so this has to be
-    // caught before the call — a clean 403, not a stack trace.
+    // caught before the call, a clean 403, not a stack trace.
     it('rejects a password login against a password-less account without calling argon2', async () => {
       mockPrisma.users.findUnique.mockResolvedValue({ ...plainUser, password: null });
       const { res, cookie } = mockResponse();
@@ -348,7 +348,7 @@ describe('AuthService', () => {
       await service.login(mockRequest(), loginDto, mockResponse().res);
 
       const [, options] = mockJwt.signAsync.mock.calls.at(-1) as [unknown, { secret: string }];
-      // Derived, so a challenge token can never validate as an access token —
+      // Derived, so a challenge token can never validate as an access token:
       // it is issued before the second factor and carries no authority.
       expect(options.secret).not.toBe(process.env.JWT_ACCESS_SECRET);
       expect(options.secret).toEqual(expect.any(String));
@@ -396,7 +396,7 @@ describe('AuthService', () => {
     });
 
     // The Google flow ends in a redirect, so the client never sees a body to
-    // hold the challenge token in — the backend leaves it in a cookie instead.
+    // hold the challenge token in, so the backend leaves it in a cookie.
     it('falls back to the mfa_token cookie when the body omits it', async () => {
       const { res, cookie } = mockResponse();
 
@@ -555,7 +555,6 @@ describe('AuthService', () => {
       expect(cookie).not.toHaveBeenCalled();
     });
 
-    // A5 — the session must belong to the subject the refresh token claims to be.
     it('throws when the session belongs to a different user than the token subject', async () => {
       mockPrisma.sessions.findUnique.mockResolvedValue({ ...mockSession, userId: 2 });
       const { res, cookie } = mockResponse();
@@ -752,7 +751,7 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     // `delete` throws P2025 on a missing row, which the Prisma filter turns into
-    // a 404. A second logout is entirely normal — the session may have been
+    // a 404. A second logout is entirely normal: the session may have been
     // swept, or another tab may have logged out already.
     it('is idempotent when the session row is already gone', async () => {
       mockPrisma.sessions.deleteMany.mockResolvedValue({ count: 0 });
@@ -1035,8 +1034,8 @@ describe('AuthService', () => {
 
   describe('generateUsernameStem', () => {
     it('lowercases and strips the local part to [a-z0-9_]', () => {
-      // Separators go, the characters around them stay — plus-addressing is not
-      // unwrapped, it is simply stripped like any other punctuation.
+      // Separators go, the characters around them stay. Plus-addressing is not
+      // unwrapped; the '+' is stripped like any other punctuation.
       expect(generateUsernameStem('Alice.Smith+tag@example.com')).toBe('alicesmithtag');
       expect(generateUsernameStem('a_b-c.d@example.com')).toBe('a_bcd0');
     });
@@ -1262,7 +1261,8 @@ describe('AuthService', () => {
     });
 
     // Without the cookie there is nothing to compare against, so the callback
-    // would otherwise accept any code — the login-CSRF the parameter prevents.
+    // would otherwise accept any code, which is the login-CSRF the parameter
+    // exists to prevent.
     it('rejects a missing state cookie', () => {
       expect(() =>
         service.verifyGoogleState(mockRequest({}, { state: 'abc' }), mockResponse().res),

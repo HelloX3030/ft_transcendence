@@ -1,11 +1,7 @@
 /**
- * A backend call that came back with a non-2xx status.
- *
- * Callers need to tell a 409 from a 403 from "the request never reached the
- * server", and a plain `Error` carries none of that. Everything `backendClient`
- * rejects with is an `ApiError` except transport failures (offline, DNS, CORS),
- * which stay as whatever `fetch` threw — so `err instanceof ApiError` is the
- * check for "the backend answered, and it said no".
+ * A backend call that came back with a non-2xx status. Transport failures
+ * (offline, DNS, CORS) stay as whatever `fetch` threw, so `err instanceof
+ * ApiError` means the backend answered and said no.
  */
 export class ApiError extends Error {
   constructor(

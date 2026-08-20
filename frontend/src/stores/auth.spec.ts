@@ -36,7 +36,7 @@ vi.mock('./user', () => ({
 
 const { useAuthStore } = await import('./auth');
 
-describe('auth store — init', () => {
+describe('auth store: init', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -72,7 +72,7 @@ describe('auth store — init', () => {
   });
 });
 
-describe('auth store — logout', () => {
+describe('auth store: logout', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -99,7 +99,7 @@ describe('auth store — logout', () => {
   });
 
   // A password reset ends the session server-side too, but from a context that
-  // never had one here — broadcasting from it would be a message about nothing.
+  // never had one here, broadcasting from it would be a message about nothing.
   it('does not broadcast from clearSession alone', () => {
     useAuthStore().clearSession();
 
@@ -108,7 +108,7 @@ describe('auth store — logout', () => {
   });
 });
 
-describe('auth store — starting a session', () => {
+describe('auth store: starting a session', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();

@@ -16,7 +16,7 @@ function respond(status: number, body = '') {
   return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) };
 }
 
-describe('backendClient — 401 handling', () => {
+describe('backendClient: 401 handling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

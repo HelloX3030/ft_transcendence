@@ -37,7 +37,7 @@ export const authApi = {
     }),
 
   // Always resolves for a well-formed address, whether or not the account
-  // exists — the caller must not branch on it, or the UI leaks what the API
+  // exists, the caller must not branch on it, or the UI leaks what the API
   // deliberately withholds.
   forgotPassword: (payload: ForgotPasswordRequest) =>
     backendClient('/auth/password/forgot', {

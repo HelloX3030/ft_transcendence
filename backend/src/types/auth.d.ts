@@ -28,7 +28,7 @@ export interface JwtRefreshPayload {
  * exchange, and never stored.
  */
 export interface GoogleProfile {
-  /** Google's `sub` claim — stable per account, unlike the email. */
+  /** Google's `sub` claim, stable per account, unlike the email. */
   googleId: string;
   email: string;
   /** Gates account linking. Never assume Google only returns verified addresses. */

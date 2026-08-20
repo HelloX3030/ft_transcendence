@@ -7,17 +7,16 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), debug: vi.fn() } }));
 const { resetPlugin, resetAllStores } = await import('./resetPlugin');
 
 /**
- * Logging out clears every store in one pass. A store that cannot reset used to
- * abort that pass: Pinia gives a setup store a $reset stub that *throws*, so the
- * `?.` call did not skip it, the throw escaped logout(), the caller never
- * navigated, and every store registered after the bad one kept its state. The
- * app then rendered a signed-in shell over a session the server had ended.
+ * Logging out clears every store in one pass, and a store that cannot reset must
+ * not abort it: Pinia gives a setup store a $reset stub that throws, which a `?.`
+ * call does not skip, so an unguarded throw would escape logout() and leave every
+ * later store holding the previous session's state.
  */
 describe('resetAllStores', () => {
   beforeEach(() => {
     const pinia = createPinia();
     pinia.use(resetPlugin);
-    // Pinia only runs plugins once the instance is installed on an app —
+    // Pinia only runs plugins once the instance is installed on an app:
     // pinia.use() alone leaves them queued and every store resets to nothing.
     createApp({}).use(pinia);
     setActivePinia(pinia);
@@ -46,7 +45,7 @@ describe('resetAllStores', () => {
   });
 
   it('keeps going when one store cannot reset', () => {
-    // A setup store with no $reset of its own — Pinia's stub throws on call.
+    // A setup store with no $reset of its own, Pinia's stub throws on call.
     defineStore('broken', () => ({ value: ref(1) }))();
     const later = defineStore('later', () => {
       const value = ref(2);

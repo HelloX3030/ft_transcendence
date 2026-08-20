@@ -7,7 +7,7 @@ interface Options {
   minDuration?: number;
   /**
    * Evaluate the source once on creation instead of waiting for a change. Needed
-   * when the source can already be true before this composable exists — without
+   * when the source can already be true before this composable exists, without
    * it there is no transition to react to and the loader never appears.
    */
   immediate?: boolean;

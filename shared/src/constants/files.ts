@@ -1,9 +1,6 @@
 /**
- * Upload limits, shared so the client and the server cannot drift.
- *
- * The client check is UX only — it fails a 12 MB photo in 5 ms instead of after
- * a 30-second upload. The server's magic-byte sniff stays authoritative; anyone
- * can bypass the client.
+ * Upload limits, shared so the client and the server cannot drift. The client
+ * check is UX only; the server's magic-byte sniff stays authoritative.
  */
 
 export const FILE_RULES = {

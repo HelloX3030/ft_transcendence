@@ -28,10 +28,6 @@ class Diversifier:
         # Set by should_diversify(), consumed (and cleared) by apply().
         self._pending: dict[str, bool] = {}
 
-    # ------------------------------------------------------------------
-    # Diversifier Protocol
-    # ------------------------------------------------------------------
-
     def should_diversify(self, user_id: str) -> bool:
         """
         Return True if one genre makes up >= _DOMINANCE_RATIO of recently served genres.
@@ -91,10 +87,6 @@ class Diversifier:
             updated[idx] = ScoredMovie(movie_id=m.movie_id, score=m.score + self._cfg.gamma)
 
         return updated
-
-    # ------------------------------------------------------------------
-    # Feed tracking
-    # ------------------------------------------------------------------
 
     def record_served(self, user_id: str, genre_ids: list[int]) -> None:
         """

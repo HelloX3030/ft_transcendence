@@ -13,7 +13,7 @@ import {
 } from '@cinemates/shared';
 import { checkCookies, createTestApp } from './utils';
 
-// A real 1x1 PNG and a real 1x1 JPEG — the upload path sniffs magic bytes, so the
+// A real 1x1 PNG and a real 1x1 JPEG, the upload path sniffs magic bytes, so the
 // fixtures must actually be the formats they claim to be.
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -104,7 +104,7 @@ describe('Users (e2e)', () => {
       expect((response.body as apiResponse<null>).message).toBe('Email already taken');
     });
 
-    it('refuses to set the avatar directly — avatars come only from the upload route', async () => {
+    it('refuses to set the avatar directly: avatars come only from the upload route', async () => {
       const agent = await registerUser(app, buildRegisterDto('patch-image'));
 
       await agent.patch('/users/me').send({ avatarFileId: 1 }).expect(400);
@@ -241,7 +241,7 @@ describe('Users (e2e)', () => {
 
       // A real PNG header followed by enough padding to clear FILE_RULES.avatar.maxBytes.
       // 413, not 400: multer's own limit trips before the handler runs, which is
-      // the point — this is the backstop for a client that skipped its own check.
+      // the point: this is the backstop for a client that skipped its own check.
       const oversize = Buffer.concat([PNG_1X1, Buffer.alloc(FILE_RULES.avatar.maxBytes)]);
       await agent
         .post('/users/me/avatar')
@@ -273,7 +273,7 @@ describe('Users (e2e)', () => {
         .expect(201);
       const secondId = (second.body as apiResponse<UserMeResponse>).data!.avatarFileId!;
 
-      // Ids are immutable — a replacement is a new row, which is what makes the
+      // Ids are immutable, a replacement is a new row, which is what makes the
       // long immutable Cache-Control on /files/:id safe.
       expect(secondId).not.toBe(firstId);
       await agent.get(`/files/${firstId}`).expect(404);
@@ -457,7 +457,7 @@ describe('Users (e2e)', () => {
 
       await agent.delete('/users/me').expect(200);
 
-      // The token is still valid — the row behind it is gone.
+      // The token is still valid, the row behind it is gone.
       await agent.get('/users/me').expect(404);
       // Checked from another session: the owner's own token would 404 anyway.
       await viewer.get(`/files/${fileId}`).expect(404);

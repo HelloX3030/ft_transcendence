@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Whether the movie has a playable trailer — drives the trailer button's state.
+// Whether the movie has a playable trailer, drives the trailer button's state.
 defineProps<{ hasTrailer: boolean }>();
 </script>
 

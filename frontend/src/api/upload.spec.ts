@@ -5,8 +5,8 @@ import { userApi } from './endpoints/user';
 
 /**
  * Minimal XMLHttpRequest stand-in. Node has no XHR, and the point of these tests
- * is the state machine around it — which callbacks fire, in what order, and what
- * the returned promise does — not the transport itself.
+ * is the state machine around it, which callbacks fire, in what order, and what
+ * the returned promise does, not the transport itself.
  */
 class FakeXhr {
   static instances: FakeXhr[] = [];
@@ -203,9 +203,9 @@ describe('userApi.uploadAvatar', () => {
     vi.unstubAllGlobals();
   });
 
-  // Regression: this used to have a block body with no `return`, so the promise
-  // was dropped. Callers awaited nothing, upload failures became unhandled
-  // rejections, and the UI navigated away as though the upload had worked.
+  // A block body with no `return` drops the promise: callers await nothing,
+  // upload failures become unhandled rejections, and the UI navigates away as
+  // though the upload had worked.
   it('returns its promise, so a rejection reaches the caller', async () => {
     const promise = userApi.uploadAvatar(form());
     expect(promise).toBeInstanceOf(Promise);

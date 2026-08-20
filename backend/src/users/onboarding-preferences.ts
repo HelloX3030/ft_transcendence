@@ -6,8 +6,8 @@ import { TmdbMovieDetail } from '@cinemates/shared';
 const TOP_BILLED_CAST = 5;
 
 // A person has to recur across the picks to count. Ten films yield roughly forty
-// distinct actors, nearly all appearing once — that is an artefact of having
-// picked a film, not a preference. Genres have no such threshold: they always
+// distinct actors, nearly all appearing once, which is an artefact of having
+// picked a film rather than a preference. Genres have no such threshold: they always
 // recur, and they are the dimension the recommender's query actually needs.
 const MIN_PERSON_OCCURRENCES = 2;
 
@@ -24,7 +24,7 @@ export interface DerivedPreferences {
 }
 
 /** Count descending, ties broken by ascending TMDB id so two users with identical
- *  picks get identical profiles — an unstable order would change which genres
+ *  picks get identical profiles, an unstable order would change which genres
  *  reach the Discover query. */
 function rank(counts: Map<number, number>, limit: number, minCount = 1): number[] {
   return [...counts.entries()]
@@ -34,7 +34,7 @@ function rank(counts: Map<number, number>, limit: number, minCount = 1): number[
     .map(([id]) => id);
 }
 
-/** Tallies ids across movies, counting each id at most once per movie — a person
+/** Tallies ids across movies, counting each id at most once per movie, a person
  *  credited twice on one film (two crew roles) is still one pick. */
 function tally(movies: TmdbMovieDetail[], idsOf: (movie: TmdbMovieDetail) => number[]) {
   const counts = new Map<number, number>();
@@ -48,13 +48,9 @@ function tally(movies: TmdbMovieDetail[], idsOf: (movie: TmdbMovieDetail) => num
 
 /**
  * Turns the movies a user picked during onboarding into the three preference
- * arrays the recommendation service seeds its profile from.
- *
- * Order is significant and is frequency-descending: the service gives every
- * onboarding id the same weight and then takes a fixed-size slice with a stable
- * sort, so the order written here is the precedence it consumes.
- *
- * The limits only truncate; every dimension is always counted in full.
+ * arrays the recommendation service seeds its profile from. Order is significant
+ * and frequency-descending: the service weights every onboarding id equally and
+ * then takes a fixed-size slice with a stable sort. The limits only truncate.
  */
 export function derivePreferences(
   movies: TmdbMovieDetail[],

@@ -1,14 +1,11 @@
 import type { DomainEventType } from '@cinemates/shared';
 
 /**
- * Rendering lives here, not in the database.
- *
- * The backend stores a type plus the values that were true at event time; this
- * file turns that pair into a sentence. Storing the rendered sentence instead
- * would freeze the wording into the data: changing a phrase would need a
- * migration, and a row would keep whatever text was current when it was written.
- * It also means a notification about a deleted watchlist still renders — the
- * name came along in `params`, so nothing has to be looked up after the fact.
+ * Rendering lives here, not in the database. The backend stores a type plus the
+ * values that were true at event time, and this file turns that pair into a
+ * sentence. Storing the sentence instead would freeze the wording into the data
+ * and need a migration to change a phrase. It also means a notification about a
+ * deleted watchlist still renders, since the name came along in `params`.
  */
 export type NotificationParams = Record<string, string>;
 

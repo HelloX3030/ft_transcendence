@@ -76,8 +76,8 @@ describe('Notifications (e2e)', () => {
   });
 
   it('persists a notification raised while the recipient has no socket open', async () => {
-    // No websocket is ever opened in this suite, so nora is offline throughout —
-    // exactly the case the old `if (isOnline)` guard used to drop on the floor.
+    // No websocket is ever opened in this suite, so nora is offline throughout,
+    // which is exactly the case a presence-gated write would drop.
     await ninaAgent.post(`/friends/${noraId}`).expect(201);
 
     const page = await inbox(noraAgent);
@@ -180,7 +180,7 @@ describe('Notifications (e2e)', () => {
     const ids = seen.map(({ id }) => id);
     expect(ids).toHaveLength(26);
     expect(new Set(ids).size).toBe(26);
-    // Newest first, strictly descending — the ordering the cursor relies on.
+    // Newest first, strictly descending, the ordering the cursor relies on.
     expect([...ids].sort((a, b) => b - a)).toEqual(ids);
   });
 

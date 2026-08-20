@@ -10,9 +10,8 @@ import { MovieUtils } from 'src/utils/movie.utils';
 export const FEED_DEFAULT_LIMIT = 20;
 // The recommendation service's own ceiling, from its request schema.
 export const FEED_MAX_LIMIT = 50;
-// An empty feed has two causes that need telling apart. Nothing about the
-// response shape distinguished them, so a profile too thin to query against
-// looked exactly like TMDB dropping every candidate on the floor.
+// An empty feed has two causes that need telling apart: a profile too thin to
+// query against, and TMDB dropping every candidate.
 export const FEED_EMPTY_NO_CANDIDATES = 'The recommender has nothing new for this user.';
 export const FEED_EMPTY_NONE_PLAYABLE = 'Recommended films were found, but none had a trailer.';
 // One TMDB detail call per candidate. Well under the per-IP connection ceiling
@@ -49,9 +48,8 @@ export class MoviesService {
     // Ids already enriched, so a widened window re-fetches nothing.
     const seen = new Set<number>();
     let window = limit;
-    // Films the recommender put forward that we had not already ruled out. The
-    // only thing that separates "nothing was recommended" from "everything
-    // recommended turned out to be unplayable".
+    // Films the recommender put forward that were not already ruled out. This is
+    // what separates "nothing was recommended" from "nothing was playable".
     let candidates = 0;
 
     while (cards.length < limit) {
@@ -63,8 +61,7 @@ export class MoviesService {
       cards.push(...enriched.filter((card): card is FeedMovie => card !== null));
 
       // The recommender's /feed has no cursor, so a wider window is the only
-      // "more" available. At its ceiling there is nothing left to widen to —
-      // return a short page rather than spinning forever.
+      // "more" available. At the ceiling, return a short page rather than spin.
       if (window >= FEED_MAX_LIMIT) break;
       window = Math.min(window * 2, FEED_MAX_LIMIT);
     }
@@ -72,9 +69,8 @@ export class MoviesService {
     const page = cards.slice(0, limit);
     if (page.length > 0) return successResponse(page);
 
-    // Both of these used to be a bare empty array, which left the caller — and
-    // anyone reading the logs — unable to tell a cold profile apart from a TMDB
-    // problem, when only one of the two is worth acting on.
+    // Named rather than a bare empty array: only one of the two causes is worth
+    // acting on, and the caller cannot tell them apart otherwise.
     if (candidates === 0) {
       this.logger.warn(`Empty feed for user ${userId}: the recommender returned no new films`);
       return successResponse(page, FEED_EMPTY_NO_CANDIDATES);
@@ -89,14 +85,14 @@ export class MoviesService {
   private async enrich(tmdbId: number): Promise<FeedMovie | null> {
     try {
       const { data } = await this.tmdb.getMovieDetail(tmdbId);
-      // No YouTube trailer means nothing to play. Not an error — just not for
+      // No YouTube trailer means nothing to play. Not an error, just not for
       // this feed.
       if (!data?.trailerKey) return null;
       return toFeedMovie(data, data.trailerKey);
     } catch (error) {
       // A 404 is a definitive answer about one id: drop that movie and keep the
       // page. Anything else is TMDB unreachable or over budget, and has to
-      // surface as a failed request rather than be disguised as a short feed.
+      // surface as a failed request rather than a short feed.
       if (error instanceof NotFoundException) return null;
       throw error;
     }
@@ -107,9 +103,8 @@ export class MoviesService {
 
     try {
       // create, not upsert: a reaction is written once and never replaced. The
-      // composite PK is what enforces that, so the race is decided by the
-      // database rather than by a read-then-write that two requests could both
-      // pass.
+      // composite PK enforces it, so the race is decided by the database rather
+      // than a read-then-write two requests could both pass.
       await this.prisma.ratings.create({
         data: { userId, movieId: movie.id, trailerRating: reaction },
       });
@@ -122,11 +117,10 @@ export class MoviesService {
       throw error;
     }
 
-    // Fire-and-forget, and only here: after the row is committed, so a signal is
-    // never sent for a reaction that was not recorded — and never on the 409
-    // path, since that reaction's signal was sent when the row was first
-    // written. Signals accumulate into the taste profile, so a second send would
-    // double a preference the user expressed once.
+    // Fire-and-forget, and only after the row is committed, so no signal is sent
+    // for a reaction that was not recorded. Never on the 409 path either: signals
+    // accumulate into the taste profile, so a second send would double a
+    // preference the user expressed once.
     this.recommender.signal(userId, tmdbId, reaction);
 
     return successResponse({ tmdbId, reaction });

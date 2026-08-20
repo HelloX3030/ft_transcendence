@@ -183,7 +183,7 @@ describe('chat store', () => {
   });
 
   describe('$reset', () => {
-    it('drops the cache only — the server keeps the transcripts', async () => {
+    it('drops the cache only: the server keeps the transcripts', async () => {
       chatApi.conversations.mockResolvedValue([
         { peerUserId: PEER, lastMessage: message(), unreadCount: 1 },
       ]);

@@ -2,7 +2,7 @@
 import type { Component } from 'vue';
 import { SearchX } from '@lucide/vue';
 
-// Informational empty state (no action) — the counterpart to ErrorState, which
+// Informational empty state (no action), the counterpart to ErrorState, which
 // is for retryable failures. Pass an icon to fit the context (search, watchlist…).
 withDefaults(defineProps<{ message?: string; icon?: Component }>(), {
   message: 'Nothing here yet.',

@@ -20,7 +20,7 @@ const mockMovies: TmdbMovie[] = [makeMovie()];
 // A movie the quality filter always rejects (no poster, zero popularity).
 const junkMovie: TmdbMovie = makeMovie({ id: 99, poster_path: null, popularity: 0 });
 
-// page 1 of 5 — more pages available, so hasMore is true.
+// page 1 of 5, more pages available, so hasMore is true.
 const multiPageResponse = makeListResponse({
   results: mockMovies,
   total_pages: 5,
@@ -32,7 +32,7 @@ const expectedMultiPage: PaginatedMovies = {
   totalResults: 100,
 };
 
-// page 1 of 1 — no more pages, so hasMore is false.
+// page 1 of 1, no more pages, so hasMore is false.
 const lastPageResponse = makeListResponse({ results: mockMovies });
 const expectedLastPage: PaginatedMovies = { results: mockMovies, hasMore: false, totalResults: 1 };
 
@@ -75,7 +75,7 @@ describe('TmdbService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('discoverMovies — cache miss', () => {
+  describe('discoverMovies: cache miss', () => {
     it('calls client.get with the discover endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
@@ -149,7 +149,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('discoverMovies — cache hit', () => {
+  describe('discoverMovies: cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedMultiPage));
 
@@ -160,7 +160,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('discoverMovies — filters', () => {
+  describe('discoverMovies: filters', () => {
     it('appends with_genres, sort_by and the release-date bounds when provided', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
@@ -240,7 +240,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('searchMovies — cache miss', () => {
+  describe('searchMovies: cache miss', () => {
     it('calls client.get with a path containing the encoded query params', async () => {
       mockTmdbClient.get.mockResolvedValue(emptyResponse);
 
@@ -330,7 +330,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('searchMovies — cache hit', () => {
+  describe('searchMovies: cache hit', () => {
     it('returns the cached value without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedLastPage));
 
@@ -344,7 +344,7 @@ describe('TmdbService', () => {
   // Two genres so the "returns the array" assertion is meaningful (order + count).
   const genres: TmdbGenre[] = [makeGenre(), makeGenre({ id: 18, name: 'Drama' })];
 
-  describe('getGenres — cache miss', () => {
+  describe('getGenres: cache miss', () => {
     it('calls client.get with the genre-list endpoint path', async () => {
       mockTmdbClient.get.mockResolvedValue(makeGenreListResponse({ genres }));
 
@@ -377,7 +377,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getGenres — cache hit', () => {
+  describe('getGenres: cache hit', () => {
     it('returns the cached genres without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(genres));
 
@@ -392,7 +392,7 @@ describe('TmdbService', () => {
   // interpolated into the request path and cache key.
   const providers = makeWatchProviders();
 
-  describe('getWatchProviders — cache miss', () => {
+  describe('getWatchProviders: cache miss', () => {
     it('calls client.get with the movie watch-providers path', async () => {
       mockTmdbClient.get.mockResolvedValue(providers);
 
@@ -425,7 +425,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getWatchProviders — cache hit', () => {
+  describe('getWatchProviders: cache hit', () => {
     it('returns the cached payload without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(providers));
 
@@ -436,7 +436,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getMovieDetail — cache miss', () => {
+  describe('getMovieDetail: cache miss', () => {
     it('requests the detail with credits, videos and similar appended', async () => {
       mockTmdbClient.get.mockResolvedValue(makeMovieDetailResponse());
 
@@ -517,7 +517,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getMovieDetail — cache hit', () => {
+  describe('getMovieDetail: cache hit', () => {
     it('returns the cached detail without calling client.get', async () => {
       const cached = { id: 1, title: 'Cached', trailerKey: null, similar: [] };
       mockRedisClient.get.mockResolvedValue(JSON.stringify(cached));
@@ -529,7 +529,7 @@ describe('TmdbService', () => {
     });
   });
 
-  // The public projection of makePersonResponse() — biography/birthday/popularity
+  // The public projection of makePersonResponse(), biography/birthday/popularity
   // are dropped by the service.
   const expectedPerson: TmdbPerson = {
     id: 287,
@@ -547,7 +547,7 @@ describe('TmdbService', () => {
     });
   }
 
-  describe('getPeople — cache miss', () => {
+  describe('getPeople: cache miss', () => {
     it('calls client.get with the person endpoint path for each id', async () => {
       mockPeopleByPath();
 
@@ -637,7 +637,7 @@ describe('TmdbService', () => {
     });
   });
 
-  describe('getPeople — cache hit', () => {
+  describe('getPeople: cache hit', () => {
     it('returns the cached person without calling client.get', async () => {
       mockRedisClient.get.mockResolvedValue(JSON.stringify(expectedPerson));
 

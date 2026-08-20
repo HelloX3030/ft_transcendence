@@ -29,7 +29,7 @@ export class ChatMsgDto implements ChatMsgSend {
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   // Both carry the same sentence the service throws, so the sender reads one
-  // wording whichever layer stopped the message — and never the field name,
+  // wording whichever layer stopped the message, and never the field name,
   // which is what class-validator's defaults would put in front of them.
   @IsNotEmpty({ message: 'A message cannot be empty.' })
   @MaxLength(MESSAGE_MAX_LENGTH, {

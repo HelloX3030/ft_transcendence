@@ -2,15 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
 
 /**
- * Sends the few transactional mails the app produces.
- *
- * In development this points at Mailpit, which captures mail and shows it at
- * http://localhost:8025 rather than delivering it. Switching to a real provider
- * is three environment values and no code here.
- *
- * Bodies are plain text on purpose: an HTML template needs a templating engine
- * and a second rendering path to keep in sync, for mail that is three sentences
- * long.
+ * Sends the few transactional mails the app produces. In development this points
+ * at Mailpit, which captures mail at http://localhost:8025 rather than delivering
+ * it; switching to a real provider is three environment values. Bodies are plain
+ * text on purpose: an HTML template would need a templating engine and a second
+ * rendering path for mail that is three sentences long.
  */
 @Injectable()
 export class MailService {
@@ -19,7 +15,7 @@ export class MailService {
 
   /**
    * Built lazily so a missing or unreachable SMTP host cannot stop the app from
-   * booting — mail is not on the critical path for anything but this feature.
+   * booting, mail is not on the critical path for anything but this feature.
    */
   private getTransporter(): Transporter {
     this.transporter ??= createTransport({

@@ -3,21 +3,14 @@ import chatMessageSource from './ChatMessage.vue?raw';
 import { LONG_MESSAGE_FIXTURES } from '@/lib/chat-fixtures';
 
 /**
- * The layout itself is not testable here. jsdom does no layout — every width is
- * zero and overflow cannot be observed — and this suite runs in plain node, so
- * there is not even a DOM to mount into. Wrapping, the sidebar gap and the
- * conversation list are verified in a real browser engine at 1280 and 375 px.
- *
- * This file used to assert three exact class strings across two components. It
- * guarded a fix that turned out to be at the wrong layer: the app shell, not
- * the chat column, was what collapsed. Those assertions are gone.
- *
- * One guard is worth keeping, because it is the single property everything else
- * rests on and no ordinary test message would ever reveal its absence.
+ * The layout itself is not testable here: jsdom does no layout, and this suite
+ * runs in plain node with no DOM to mount into. Wrapping, the sidebar gap and the
+ * conversation list are verified in a real browser engine at 1280 and 375 px. The
+ * one guard kept here is the property all of that rests on.
  */
 describe('chat message wrapping', () => {
   it('breaks inside an unbreakable token', () => {
-    // overflow-wrap: break-word — what the vendored BubbleContent applies — does
+    // overflow-wrap: break-word, what the vendored BubbleContent applies, does
     // not reduce min-content width, so a 2000-character token keeps its full
     // width in layout and is merely clipped. Only `anywhere` actually wraps it.
     expect(chatMessageSource).toContain('wrap-anywhere');

@@ -16,7 +16,7 @@ const isReconnecting = computed(() => notify.connectionStatus === 'connecting');
 const isDisconnected = computed(() => notify.connectionStatus === 'offline');
 
 // `immediate` because notify.init() runs from main.ts before the app mounts, so
-// the status is usually already 'connecting' by the time this component exists —
+// the status is usually already 'connecting' by the time this component exists;
 // there would be no transition left for the watcher to see. The long delay keeps
 // an ordinary handshake, which takes a few hundred ms, entirely silent.
 const showReconnecting = useDelayedLoading(isReconnecting, {
@@ -53,8 +53,8 @@ const showReconnecting = useDelayedLoading(isReconnecting, {
               aria-live="polite"
               :aria-label="
                 isDisconnected
-                  ? 'Disconnected — live updates are paused'
-                  : 'Reconnecting — live updates are paused'
+                  ? 'Disconnected, live updates are paused'
+                  : 'Reconnecting, live updates are paused'
               "
               class="flex items-center"
             >
@@ -68,7 +68,7 @@ const showReconnecting = useDelayedLoading(isReconnecting, {
           <TooltipContent>
             {{
               isDisconnected
-                ? 'Disconnected. Live updates are paused — try reloading.'
+                ? 'Disconnected. Live updates are paused. Try reloading.'
                 : 'Reconnecting… live updates are paused.'
             }}
           </TooltipContent>

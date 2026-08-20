@@ -1,26 +1,16 @@
 /**
  * Fails if using the app produces a single console error or warning.
  *
- * Browsing by hand and glancing at the console is what let a permanently dead
- * notify socket ship: the defect only appears *between* states, and nobody sits
- * on a page long enough for an access token to expire. So this walks
- * transitions, not routes — expiry, resume, a second tab, a backend restart —
- * and asserts two things at each step:
- *
- *   1. nothing was written to console.error / console.warn, and no page error;
- *   2. the app still works afterwards. That is the half a log grep cannot see.
- *      The console line was the symptom; the dead socket was the defect, and a
- *      run that only counted log lines would have called it fixed.
+ * Walks transitions rather than routes (token expiry, resume, a second tab, a
+ * backend restart) and asserts at each step that nothing reached console.error or
+ * console.warn, and that the app still works afterwards.
  *
  * Usage:
  *   docker compose up -d
  *   node scripts/console-check.mjs
  *
- * Requires `playwright` and a Chromium: `npx playwright install chromium`.
- * Judge on a current browser. Chromium 108 invents an
- * `Unrecognized feature: 'compute-pressure'` warning from our deliberate (and
- * correct) `allow` attribute, and a `ch-ua-form-factors` warning that comes from
- * YouTube's own response header — neither appears in Chrome 151.
+ * Requires `playwright` and a Chromium: `npx playwright install chromium`. Judge
+ * on a current browser; Chromium 108 invents warnings that Chrome 151 does not.
  */
 import { execFileSync } from 'node:child_process';
 import { chromium } from 'playwright';
@@ -31,7 +21,7 @@ const PASSWORD = 'B8skxi!dk&';
 
 /**
  * The access-token lifetime the stack is running with. The idle stretch has to
- * outlast it or the expiry transition — the whole reason this script exists —
+ * outlast it or the expiry transition, the whole reason this script exists,
  * is never reached. `.env.example` documents the short values to swap in.
  */
 const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TTL_SECONDS ?? 900);
@@ -48,10 +38,10 @@ function watchConsole(page, label) {
   page.on('console', (message) => {
     const type = message.type();
     if (type === 'error' || type === 'warning') {
-      fail(label, `console.${type} — ${message.text()}`);
+      fail(label, `console.${type}: ${message.text()}`);
     }
   });
-  page.on('pageerror', (error) => fail(label, `uncaught — ${error.message}`));
+  page.on('pageerror', (error) => fail(label, `uncaught: ${error.message}`));
 }
 
 async function api(path, options = {}) {
@@ -91,7 +81,7 @@ async function main() {
   if (ACCESS_TTL_SECONDS > MAX_IDLE_SECONDS) {
     console.error(
       `ACCESS_TTL_SECONDS is ${ACCESS_TTL_SECONDS}s. Restart the stack with the short\n` +
-        `session values documented in .env.example (ACCESS_TTL_SECONDS=30) — otherwise\n` +
+        `session values documented in .env.example (ACCESS_TTL_SECONDS=30); otherwise\n` +
         `the expiry transition this script exists to cover is never reached.`,
     );
     process.exit(2);
@@ -140,7 +130,7 @@ async function main() {
 
     step('backend restart');
     execFileSync('docker', ['compose', 'restart', 'backend'], { stdio: 'inherit' });
-    // Long enough for socket.io to give up, back off and come back — the window
+    // Long enough for socket.io to give up, back off and come back, the window
     // where a wrong `connect_error` classification would surface.
     await page.waitForTimeout(45_000);
     await page.waitForFunction(() => !document.body.innerText.match(/offline/i), {

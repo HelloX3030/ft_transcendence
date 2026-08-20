@@ -11,11 +11,8 @@ import { register } from './utils';
 /**
  * The Google exchange itself is never performed here: the callback guard is
  * replaced with one that hands the controller a profile directly. Everything
- * downstream of that — resolution order, session cookies, the sessions row and
- * /auth/me — is the real implementation.
- *
- * Calling Google from a test would make the suite depend on a third party, on
- * network access, and on credentials that cannot be committed.
+ * downstream of that (resolution order, session cookies, the sessions row and
+ * /auth/me) is the real implementation.
  */
 let stubbedProfile: GoogleProfile | null = null;
 
@@ -34,14 +31,11 @@ function uniqueEmail(prefix: string): string {
 const GOOGLE_ENV = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CALLBACK_URL'] as const;
 
 /**
- * Runs `body` with the Google credentials taken out of the environment.
- *
- * The unconfigured branch cannot be asserted against whatever the developer
- * happens to have in `.env`: with credentials set, the start route reaches
- * passport and redirects, and the test read that 302 as a regression. The guard
- * re-reads process.env per request, so clearing the three variables is enough —
- * AuthModule's strategy registration is decided at import time and is not what
- * the 503 hangs on.
+ * Runs `body` with the Google credentials taken out of the environment. The
+ * unconfigured branch cannot be asserted against whatever is in the developer's
+ * `.env`: with credentials set, the start route reaches passport and redirects.
+ * The guard re-reads process.env per request, so clearing the three variables is
+ * enough.
  */
 async function withoutGoogleCredentials(body: () => Promise<void>): Promise<void> {
   const saved = GOOGLE_ENV.map((key) => [key, process.env[key]] as const);
@@ -120,7 +114,7 @@ describe('Google OAuth (e2e)', () => {
       expect(sessions).toHaveLength(1);
 
       // The cookies are Strict, so this is the same-origin request the landing
-      // route makes — the whole reason the callback redirects to the SPA first.
+      // route makes, the whole reason the callback redirects to the SPA first.
       const session = await request(app.getHttpServer())
         .get('/auth/me')
         .set('Cookie', cookies)
@@ -146,7 +140,7 @@ describe('Google OAuth (e2e)', () => {
       expect(after?.id).toBe(before?.id);
       expect(after?.googleId).toBe(stubbedProfile.googleId);
       // Linked, not duplicated: the email is unique, so a second row is impossible
-      // anyway — this asserts the local password and username survived untouched.
+      // anyway. This asserts the local password and username survived untouched.
       expect(after?.password).toBe(before?.password);
       expect(after?.username).toBe(before?.username);
     });
@@ -175,7 +169,7 @@ describe('Google OAuth (e2e)', () => {
       const response = await request(app.getHttpServer()).get('/auth/google/callback');
 
       // The stub guard denies, which is passport's own 401 path rather than a
-      // GoogleAuthException — the point is that nothing leaks a provider detail.
+      // GoogleAuthException, the point is that nothing leaks a provider detail.
       expect(response.text).not.toContain('googleapis');
       expect(response.text).not.toContain('client_secret');
     });

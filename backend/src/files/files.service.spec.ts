@@ -126,7 +126,7 @@ describe('FilesService', () => {
       expect(mockPrisma.files.deleteMany).not.toHaveBeenCalled();
     });
 
-    it('swallows failures — a broken sweep must not take down the scheduler', async () => {
+    it('swallows failures: a broken sweep must not take down the scheduler', async () => {
       mockPrisma.files.findMany.mockRejectedValue(new Error('db down'));
 
       await expect(service.purgeOrphans()).resolves.toBeUndefined();

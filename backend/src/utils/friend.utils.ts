@@ -26,7 +26,7 @@ export class FriendUtils {
   /**
    * All friendships of `userId` (both directions of the canonical pair),
    * normalized so `friendId` is always the *other* party. Single source of the
-   * `friendsA`/`friendsB` unpacking — project from this instead of re-querying.
+   * `friendsA`/`friendsB` unpacking, project from this instead of re-querying.
    */
   async listFriends(userId: number): Promise<Friend[]> {
     const user = await this.prisma.users.findUnique({
@@ -63,7 +63,7 @@ export class FriendUtils {
     return friends;
   }
 
-  /** Accepted friends' user IDs — used to wire up presence rooms. */
+  /** Accepted friends' user IDs, used to wire up presence rooms. */
   async getFriends(userId: number): Promise<number[]> {
     const friends = await this.listFriends(userId);
     return friends

@@ -7,11 +7,8 @@ from .config import DEFAULT_CONFIG, RecommenderConfig
 from .schemas import MovieMetadata, ScoredMovie
 
 
-# ---------------------------------------------------------------------------
-# Module interfaces
-# Each concrete module must structurally satisfy its Protocol — no inheritance
+# Each concrete module must structurally satisfy its Protocol, no inheritance
 # required. Swap implementations freely as long as the shape matches.
-# ---------------------------------------------------------------------------
 
 
 class UserProfile(Protocol):
@@ -68,11 +65,6 @@ class TMDBBridge(Protocol):
 _DETAIL_ACTIONS: frozenset[str] = frozenset({"like", "watchlist_add", "rewatch", "watched_long", "share"})
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _compute_movie_ages(candidates: list[MovieMetadata]) -> dict[int, float]:
     """Days since release for each candidate that has a valid release_date."""
     today = date.today()
@@ -85,11 +77,6 @@ def _compute_movie_ages(candidates: list[MovieMetadata]) -> dict[int, float]:
             except ValueError:
                 pass
     return ages
-
-
-# ---------------------------------------------------------------------------
-# Engine
-# ---------------------------------------------------------------------------
 
 
 class RecommenderEngine:
@@ -167,7 +154,7 @@ class RecommenderEngine:
         metadata = self._movie_cache.get(movie_id)
 
         # For positive signals, enrich the cached metadata with cast/director/keyword
-        # data from the TMDB detail endpoint — but only once per movie per process lifetime.
+        # data from the TMDB detail endpoint, but only once per movie per process lifetime.
         if action in _DETAIL_ACTIONS and movie_id not in self._detail_fetched:
             self._detail_fetched.add(movie_id)
             try:
@@ -175,12 +162,10 @@ class RecommenderEngine:
                 self._movie_cache[movie_id] = detailed
                 metadata = detailed
             except Exception:
-                pass  # detail fetch failed — fall back to genre-only profile update
+                pass  # detail fetch failed, fall back to genre-only profile update
 
         self._content.update_profile(user_id, movie_id, action, self._cfg.lambda_decay, metadata)
         self._engagement.record_action(user_id, movie_id, action, watch_time)
-
-    # ------------------------------------------------------------------
 
     def _hybrid_score(
         self,

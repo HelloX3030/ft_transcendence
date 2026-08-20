@@ -18,9 +18,7 @@ export class UpdateUserDto implements UpdateUserRequest {
   email?: string;
 
   // `avatarFileId` is deliberately not writable here: avatars come only from
-  // POST /users/me/avatar, which validates the bytes and owns bucket cleanup,
-  // and go away via DELETE /users/me/avatar. Writable, it would let a client
-  // point their profile at someone else's file row. A client sending it gets a
-  // 400 from the global ValidationPipe (forbidNonWhitelisted). It is still
-  // returned by ME_SELECT/PUBLIC_SELECT.
+  // POST /users/me/avatar, which validates the bytes and owns bucket cleanup.
+  // Writable, it would let a client point their profile at someone else's file
+  // row. Sending it gets a 400 from the global ValidationPipe.
 }

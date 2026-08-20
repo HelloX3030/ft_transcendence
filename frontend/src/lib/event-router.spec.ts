@@ -39,7 +39,7 @@ describe('invalidationMap', () => {
     expect(targets.refetchFriends).not.toHaveBeenCalled();
   });
 
-  it('is idempotent — a duplicate event just refetches again', () => {
+  it('is idempotent: a duplicate event just refetches again', () => {
     const targets = stubTargets();
     const routes = invalidationMap(targets);
 

@@ -13,7 +13,7 @@ describe('TMDB API smoke test', () => {
   });
 
   if (skip) {
-    it('skipped — TMDB_API_KEY is not set in the environment', () => {
+    it('skipped: TMDB_API_KEY is not set in the environment', () => {
       console.warn('TMDB_API_KEY not set; skipping TMDB smoke test');
     });
   }

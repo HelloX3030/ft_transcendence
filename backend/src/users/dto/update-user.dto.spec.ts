@@ -16,7 +16,7 @@ describe('UpdateUserDto', () => {
     expect(validate({ username: 'alice', email: 'alice@example.com' })).toHaveLength(0);
   });
 
-  it('rejects an attempt to set the avatar directly — avatars come from POST /me/avatar', () => {
+  it('rejects an attempt to set the avatar directly: avatars come from POST /me/avatar', () => {
     expect(validate({ avatarFileId: 7 })).not.toHaveLength(0);
   });
 });

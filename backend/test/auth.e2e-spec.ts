@@ -95,7 +95,7 @@ describe('Auth (e2e)', () => {
   it('marks both session cookies Secure when the request arrived over HTTPS', async () => {
     // In the running app the browser only ever reaches this service through
     // Caddy, which terminates TLS and forwards this header. Setting it here is
-    // what the deployed request actually looks like — the plain-HTTP requests
+    // what the deployed request actually looks like, the plain-HTTP requests
     // the rest of this suite makes are an artefact of testing in-network.
     const response = await request(app.getHttpServer())
       .post('/auth/login')
@@ -145,7 +145,7 @@ describe('Auth (e2e)', () => {
 
     // The multi-tab race. Two tabs share a cookie but coalesce their in-flight
     // refresh only within themselves, so both can legitimately present the same
-    // key — and neither may be logged out for it.
+    // key, and neither may be logged out for it.
     it('answers two refreshes on the same token back to back', async () => {
       const { registration } = await freshUser('rotate-race');
       const shared = refreshCookie(registration);
@@ -163,12 +163,12 @@ describe('Auth (e2e)', () => {
     });
 
     // `delete` on a missing row throws P2025, which the Prisma filter turned
-    // into a 404 — reachable whenever the session was swept, another tab logged
+    // into a 404, reachable whenever the session was swept, another tab logged
     // out, or the request was simply retried.
     it('logs out twice without a 404', async () => {
       const { registration } = await freshUser('rotate-logout');
       // Replayed by hand: logging out clears the cookie, so an agent would send
-      // nothing the second time and be turned away by the guard at 401 — never
+      // nothing the second time and be turned away by the guard at 401, never
       // reaching the delete this is about.
       const cookie = refreshCookie(registration);
 

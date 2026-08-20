@@ -7,7 +7,7 @@ function build(query: Record<string, unknown>): PeopleQueryDto {
   return plainToInstance(PeopleQueryDto, query);
 }
 
-describe('PeopleQueryDto — ids parsing', () => {
+describe('PeopleQueryDto: ids parsing', () => {
   it('splits a comma-separated list into numbers', () => {
     const dto = build({ ids: '287,500,1245' });
 

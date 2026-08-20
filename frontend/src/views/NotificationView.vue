@@ -14,7 +14,7 @@ const notifications = useNotificationsStore();
 const { items, unreadCount, hasMore, isLoading, isLoadingMore, error } = storeToRefs(notifications);
 
 // The socket seeds the inbox on connect, but a direct navigation to this route
-// can land before that — and a hard reload has no socket yet at all.
+// can land before that, and a hard reload has no socket yet at all.
 onMounted(() => {
   if (items.value.length === 0) void notifications.load();
 });

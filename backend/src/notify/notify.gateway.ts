@@ -49,8 +49,7 @@ const TOKEN_EXPIRY_SWEEP_MS = 60_000;
 )
 // The pipe above rejects before the handler body, where the try/catch that turns
 // an error into an acknowledgement lives. Global filters do not reach a gateway,
-// so this one has to be declared here or a rejected payload is answered by
-// nothing at all.
+// so this one is declared here.
 @UseFilters(new WsAckExceptionFilter())
 export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisconnect<Socket> {
   private readonly logger = new Logger(NotifyGateway.name);
@@ -93,10 +92,9 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       this.notifyService.setUserAsActive(payload.sub, client);
       this.publishPresence(payload.sub, true);
 
-      // Reconcile this socket's presence rooms from the DB on every (re)connect.
-      // Rooms are per-socket, so a fresh socket (initial load or a silent
-      // socket.io reconnect) is in no status rooms until seeded. A failure here
-      // must not tear down an otherwise-valid connection.
+      // Reconcile this socket's presence rooms from the DB on every (re)connect:
+      // rooms are per-socket, so a fresh socket is in none until seeded. A failure
+      // here must not tear down an otherwise-valid connection.
       try {
         await this.seedFriendStatusRooms(client);
       } catch (error) {
@@ -124,12 +122,9 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   }
 
   /**
-   * Drops sockets whose access token has run out.
-   *
-   * The token is only checked during the handshake, so without this a socket
-   * opened with a valid token keeps its authorisation for as long as it stays
-   * connected — indefinitely. Disconnecting lets the client reconnect, which
-   * re-runs the handshake against whatever cookie it holds by then.
+   * Drops sockets whose access token has run out. The token is only checked during
+   * the handshake, so without this a socket keeps its authorisation for as long as
+   * it stays connected. Disconnecting lets the client reconnect and re-handshake.
    */
   @Interval(TOKEN_EXPIRY_SWEEP_MS)
   disconnectExpiredSockets() {
@@ -148,10 +143,9 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
   }
 
   /**
-   * Publishes a presence transition to the watchers of `userId` only. The room
-   * and the event share a name, so the emit reaches exactly the sockets that
-   * `seedFriendStatusRooms` subscribed — a plain `server.emit` would put every
-   * user's presence on the wire for every connected socket.
+   * Publishes a presence transition to the watchers of `userId` only. The room and
+   * the event share a name, so the emit reaches exactly the sockets that
+   * `seedFriendStatusRooms` subscribed.
    */
   private publishPresence(userId: number, isOnline: boolean) {
     this.server
@@ -159,9 +153,6 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       .emit(onlineStatusRoom(userId), { id: userId, isOnline });
   }
 
-  // -------------------------
-  // User online Status
-  // -------------------------
   @SubscribeMessage('watch-friends-status')
   async userStatus(@ConnectedSocket() client: Socket) {
     try {
@@ -174,9 +165,8 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
 
   /**
    * Joins `client` to the presence room of every accepted friend and pushes the
-   * current online/offline snapshot back to that socket. Runs both on connect
-   * (server-driven, covers reconnects) and on the `watch-friends-status`
-   * subscribe. Callers decide how a failure surfaces to the client.
+   * current snapshot back to that socket. Runs on connect (covering reconnects)
+   * and on the `watch-friends-status` subscribe.
    */
   private async seedFriendStatusRooms(client: Socket) {
     const friendIds = await this.friendUtils.getFriends(client.data.user);
@@ -205,9 +195,6 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     this.logger.debug(`Removed user from online-status:${userId}`);
   }
 
-  // -------------------------
-  // Send Notifications
-  // -------------------------
   /**
    * One channel for every domain change. The client routes on `event.type`, so
    * a new feature becomes live-updating by registering a type rather than by
@@ -225,15 +212,10 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     this.server.to(userRoom(userId)).emit('chat.read', event);
   }
 
-  // -------------------------
-  // User Chat
-  // -------------------------
   /**
-   * Persists first, then broadcasts, then acknowledges.
-   *
-   * The handler returns a socket.io acknowledgement rather than emitting a
-   * failure into the transcript: an error is not a chat message, and the client
-   * needs to be able to render it as one.
+   * Persists first, then broadcasts, then acknowledges. The handler returns a
+   * socket.io acknowledgement rather than emitting a failure into the transcript:
+   * an error is not a chat message.
    */
   @SubscribeMessage('chat')
   async chat(@MessageBody() data: ChatMsgDto, @ConnectedSocket() client: Socket): Promise<ChatAck> {
@@ -246,8 +228,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       // `peerUserId` is "the other party", so each side gets its own view of it.
       this.sendChatMessage(peerUserId, { ...message, peerUserId: meUserId });
       // The sender's own tabs are included so every tab renders the same
-      // transcript; `clientMsgId` is what keeps the optimistic copy from
-      // double-rendering in the tab that sent it.
+      // transcript; `clientMsgId` stops the optimistic copy double-rendering.
       this.sendChatMessage(meUserId, message);
 
       return { ok: true, message };

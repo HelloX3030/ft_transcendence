@@ -113,7 +113,7 @@ describe('ChatService', () => {
 
     it('rejects while the friendship is still pending', async () => {
       // Sending a request must not grant the ability to message before it is
-      // accepted — otherwise strangers can DM anyone they add.
+      // accepted, otherwise strangers can DM anyone they add.
       friendship('pending');
 
       await expect(

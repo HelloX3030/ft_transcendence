@@ -1,16 +1,8 @@
 /**
- * Server-side image type detection.
- *
- * Both the multipart `mimetype` header and `originalname` are client-controlled, so
- * neither may decide what we store or how we serve it. The bucket is private and
- * every read goes through `GET /files/:id`, but that endpoint still has to send a
- * `Content-Type`, and a stored `image/svg+xml` containing `<script>` would execute
- * in the browser that receives it. Sniffing the leading bytes is what guarantees
- * the type we serve matches the bytes, and what keeps scriptable formats out of
- * the store in the first place.
- *
- * The set of accepted types lives in `FILE_RULES` in `shared/`, so the client can
- * pre-validate against exactly what the server accepts.
+ * Server-side image type detection. `mimetype` and `originalname` are
+ * client-controlled, so the stored type comes from sniffing the leading bytes.
+ * That keeps the served `Content-Type` honest and scriptable formats out of the
+ * store. Accepted types: `FILE_RULES` in `shared/`.
  */
 
 export interface DetectedImage {

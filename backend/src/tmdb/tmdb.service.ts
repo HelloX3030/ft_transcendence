@@ -31,8 +31,7 @@ const PERSON_CACHE_TTL_SECONDS = 604_800;
 
 // A people lookup can ask for up to MAX_IDS ids at once. On a cold cache those
 // would all fan out simultaneously, so they run through a fixed-size worker pool
-// instead — well under the per-IP connection ceiling TMDB's CDN is reported to
-// apply (the request budget itself lives in tmdb.client.ts).
+// instead (the request budget itself lives in tmdb.client.ts).
 const PERSON_CONCURRENCY = 5;
 
 // Inputs for the discover feed. Structurally matched by DiscoverQueryDto, so the
@@ -63,8 +62,8 @@ export class TmdbService {
   private readonly logger = new Logger(TmdbService.name);
 
   // Upstream fetches currently in flight, keyed by their cache key. See
-  // singleFlight() — this is what keeps a cold cache (or a Redis outage, where
-  // every request is a miss) from multiplying load onto TMDB.
+  // singleFlight(): this keeps a cold cache, or a Redis outage where every
+  // request is a miss, from multiplying load onto TMDB.
   private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(
@@ -88,15 +87,13 @@ export class TmdbService {
     const params = new URLSearchParams({
       include_adult: 'false',
       language: 'en-US',
-      // `release_date.*` is the UI's name for TMDB's `primary_release_date.*`.
       sort_by: (sortBy ?? 'popularity.desc').replace(/^release_date\./, 'primary_release_date.'),
       page: String(page),
     });
-    // Enforce the quality floor server-side so it runs BEFORE TMDB sorts and
-    // paginates. Otherwise sorts that surface low-quality entries (e.g.
-    // vote_average.desc returns films with a single 10/10 vote) hand back pages
-    // that filterMovies strips almost empty, breaking the feed. filterMovies
-    // still runs to drop posterless results, which TMDB can't filter on.
+    // Enforce the quality floor server-side so it runs before TMDB sorts and
+    // paginates; otherwise a sort like vote_average.desc hands back pages that
+    // filterMovies strips almost empty. filterMovies still runs to drop
+    // posterless results, which TMDB cannot filter on.
     if (filtered) {
       params.set('vote_count.gte', String(MIN_VOTE_COUNT));
       params.set('vote_average.gte', String(MIN_VOTE_AVERAGE));
@@ -118,7 +115,7 @@ export class TmdbService {
     page = 1,
     filtered = true,
   ): Promise<apiResponse<PaginatedMovies>> {
-    // Normalized so 'Batman', 'batman' and ' batman ' share one cache entry —
+    // Normalized so 'Batman', 'batman' and ' batman ' share one cache entry.
     // TMDB search is case-insensitive, so the results are identical anyway.
     const normalized = query.trim().toLowerCase();
     const params = new URLSearchParams({
@@ -140,13 +137,10 @@ export class TmdbService {
     const cached = await this.redis.get(key);
     if (cached) return successResponse(JSON.parse(cached) as MovieWatchProviders);
 
-    // TMDB returns { id, results: { <country>: { link, flatrate, rent, buy } } }
-    // which already matches MovieWatchProviders, so it's cached and returned as-is.
-    //
-    // Deliberately fetched with no `watch_region`: one cache entry per movie then
-    // serves every country, and the server stays free of a product decision the
-    // client already owns (`WATCH_PROVIDER_REGION`). Narrowing it server-side
-    // would multiply cache entries by region for a few kilobytes of payload.
+    // TMDB returns { id, results: { <country>: { link, flatrate, rent, buy } } },
+    // which already matches MovieWatchProviders, so it is cached and returned
+    // as-is. Fetched with no `watch_region`: one cache entry per movie then serves
+    // every country, and the region is a product decision the client owns.
     const response = await this.client.get<MovieWatchProviders>(
       `/movie/${movieId}/watch/providers`,
     );
@@ -155,9 +149,9 @@ export class TmdbService {
   }
 
   // Full detail for one movie. A single TMDB request bundles credits, videos and
-  // similar via append_to_response; we reshape it to TmdbMovieDetail — picking a
-  // single trailer key and flattening the paginated similar list — so the client
-  // doesn't have to. Similar movies pass through filterMovies for consistency.
+  // similar via append_to_response; the reshape to TmdbMovieDetail picks one
+  // trailer key and flattens the paginated similar list, which also runs through
+  // filterMovies.
   async getMovieDetail(movieId: number): Promise<apiResponse<TmdbMovieDetail>> {
     const key = cacheKeys.movie(movieId);
     const cached = await this.redis.get(key);
@@ -208,11 +202,9 @@ export class TmdbService {
     return successResponse(response.genres);
   }
 
-  // Resolves TMDB person ids (e.g. a user's favorite actors/directors) to names.
-  // There's no batch person endpoint, so each id is fetched and cached on its own
-  // key — that way popular people are shared across users and callers get partial
-  // cache hits. Unresolvable ids (stale/404) are skipped rather than failing the
-  // whole batch.
+  // Resolves TMDB person ids to names. There is no batch person endpoint, so each
+  // id is fetched and cached on its own key, which shares popular people across
+  // users. Unresolvable ids are skipped rather than failing the whole batch.
   async getPeople(ids: number[]): Promise<apiResponse<TmdbPerson[]>> {
     const uniqueIds = [...new Set(ids)];
     const people = await mapWithConcurrency(uniqueIds, PERSON_CONCURRENCY, (id) =>
@@ -240,18 +232,16 @@ export class TmdbService {
       });
     } catch (error) {
       // Only "no such person" is skippable. Anything else (5xx, timeout, TMDB
-      // unreachable) has to propagate — swallowing it would turn a total outage
-      // into an empty 200 that callers can't tell from "none of these exist".
+      // unreachable) has to propagate: swallowing it would turn an outage into an
+      // empty 200 indistinguishable from "none of these exist".
       if (!(error instanceof NotFoundException)) throw error;
       this.logger.warn(`Skipping unresolvable TMDB person ${id}`);
       return null;
     }
   }
 
-  // Cache-through fetch shared by every TMDB endpoint: serve the cached page
-  // if present, otherwise fetch from TMDB, optionally filter, cache, and return.
-  // `filtered` is part of the cache key (see callers) so the two variants never
-  // collide.
+  // Cache-through fetch shared by every TMDB endpoint. `filtered` is part of the
+  // cache key (see callers) so the two variants never collide.
   private async getCachedMovies(
     key: string,
     path: string,
@@ -273,9 +263,8 @@ export class TmdbService {
   }
 
   // Collapses concurrent misses on the same key into a single upstream call: the
-  // first caller runs `fetch`, everyone else awaits its promise (including its
-  // rejection, so one outage error fans out instead of N more TMDB requests).
-  // Per-process only — it bounds one instance's fan-out, not the whole cluster.
+  // first caller runs `fetch`, everyone else awaits its promise, including its
+  // rejection. Per-process only, so it bounds one instance's fan-out.
   private singleFlight<T>(key: string, fetch: () => Promise<T>): Promise<T> {
     const existing = this.inFlight.get(key) as Promise<T> | undefined;
     if (existing) return existing;

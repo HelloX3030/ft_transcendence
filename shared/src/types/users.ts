@@ -37,7 +37,7 @@ export interface GetUserResponse {
 
 /**
  * The profile page's read. Everything in GetUserResponse, plus the taste the
- * onboarding derived — deliberately not email, role or totpActive.
+ * onboarding derived, deliberately not email, role or totpActive.
  */
 export interface UserProfileResponse extends GetUserResponse {
   genreIds: number[];

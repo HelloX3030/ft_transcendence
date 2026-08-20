@@ -8,7 +8,7 @@ import { logger } from '@/lib/logger';
  * How long the id has to hold still before it is worth a request.
  *
  * The feed changes this on every swipe, and a request per swipe is a request
- * per card skimmed past — enough of them in a row to trip the API throttler,
+ * per card skimmed past, enough of them in a row to trip the API throttler,
  * after which the providers stop appearing on the cards the user does stop on.
  * Cards passed through in under this are never asked about.
  */
@@ -18,7 +18,7 @@ const SETTLE_MS = 300;
  * Fetches the WATCH_PROVIDER_REGION flatrate (subscription) providers for a
  * movie, refetching once the id has settled. Returns an empty list on error or
  * when the region/flatrate is missing, so callers can simply hide the section
- * when empty — which is what a user outside that region sees.
+ * when empty, which is what a user outside that region sees.
  */
 export function useWatchProviders(movieId: Ref<number | undefined>) {
   const providers = ref<WatchProvider[]>([]);

@@ -20,7 +20,7 @@ class EngagementTracker:
     Accumulates real-time engagement deltas in RAM and applies them to candidate scores.
 
     Deltas persist for the lifetime of the service process. They represent recency signals
-    that haven't yet been fully absorbed into the persisted profile vector — on restart the
+    that haven't yet been fully absorbed into the persisted profile vector, on restart the
     profile vector (loaded from DB) already captures past interactions, so nothing is lost.
     """
 
@@ -29,16 +29,12 @@ class EngagementTracker:
         # {user_id: {movie_id: accumulated_delta}}
         self._deltas: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
 
-    # ------------------------------------------------------------------
-    # EngagementTracker Protocol
-    # ------------------------------------------------------------------
-
     def record_action(
         self,
         user_id: str,
         movie_id: int,
         action: str,
-        watch_time: float | None = None,  # noqa: ARG002 — passed through, classification is upstream
+        watch_time: float | None = None,  # noqa: ARG002  (passed through; classification is upstream)
     ) -> None:
         """Accumulate the delta score for an interaction. Unknown actions are silently ignored."""
         field = _ACTION_TO_FIELD.get(action)

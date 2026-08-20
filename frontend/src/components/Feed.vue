@@ -20,15 +20,10 @@ import { useFeedStore } from '@/stores/feed';
 const { isFullscreen } = useGlobalVideoPlayer();
 
 /**
- * An explicit height, not h-full: the app shell gives the wrapper `min-h-svh`
- * and no height at all, so `height: 100%` here has nothing to resolve against
- * and falls back to auto. The only element in the subtree with an intrinsic
- * size is then the YouTube <iframe>, which ends up sizing the layout instead of
- * being sized by it — every slide inherited the iframe's height, the page grew
- * to 20 times the viewport, and the overlays pinned to the slide box (reactions,
- * fullscreen) landed hundreds of pixels below the fold.
- *
- * Same expression as ChatView and WatchlistsView, which need it for the reason.
+ * An explicit height, not h-full: the app shell gives the wrapper `min-h-svh` and
+ * no height, so `height: 100%` has nothing to resolve against and falls back to
+ * auto. The only element in the subtree with an intrinsic size is then the
+ * YouTube iframe, which would size the layout instead of being sized by it.
  */
 const FEED_HEIGHT = 'h-[calc(100vh-var(--header-height))]';
 
@@ -41,16 +36,14 @@ onMounted(() => {
 });
 
 // immediate: the store outlives the component, so a remount can land on a load
-// that is already running. Without it there is no transition left for the
-// watcher to see and the first screen stays blank until the request returns.
+// already running, leaving no transition for the watcher to see.
 const showLoading = useDelayedLoading(
   computed(() => status.value === 'loading'),
   { immediate: true },
 );
 
 // Reaching the end refetches, and that is a recommender round trip plus TMDB
-// enrichment for every card — seconds, spent on the card the user is already
-// sitting on. Nothing marked it as busy, so the feed simply looked stuck.
+// enrichment for every card. Without a busy marker the feed looks stuck.
 const showLoadingMore = useDelayedLoading(
   computed(() => status.value === 'loading' && cards.value.length > 0),
 );
@@ -62,17 +55,11 @@ const setApi = (val: CarouselApi) => {
 };
 
 /**
- * How many cards around the active one keep a mounted player.
- *
- * Every VideoPlayer builds a YouTube iframe embed on mount, and the feed is
- * twenty cards long, so mounting them all is not an option — but one either
- * side gave the next card only a single dwell to load in. An embed needs a
- * second or more, a feed is swiped in a few hundred milliseconds, so the card
- * being landed on was routinely still loading and showed nothing.
- *
- * Asymmetric because a feed is watched forwards: cards behind the active one
- * are kept only so a correction swipe finds a live player, while the budget
- * for lookahead goes where the user is actually heading.
+ * How many cards around the active one keep a mounted player. Every VideoPlayer
+ * builds a YouTube iframe on mount and the feed is twenty cards long, so mounting
+ * them all is not an option; one either side gives the next card a single dwell to
+ * load in, which an embed rarely finishes. Asymmetric because a feed is watched
+ * forwards, so the lookahead budget goes where the user is heading.
  */
 const PLAYERS_AHEAD = 2;
 const PLAYERS_BEHIND = 1;
@@ -82,15 +69,14 @@ const isMounted = (index: number) => {
   return offset >= -PLAYERS_BEHIND && offset <= PLAYERS_AHEAD;
 };
 
-// One TMDB call per card actually watched, rather than per card loaded — which
-// is why the feed payload carries no providers.
+// One TMDB call per card actually watched, rather than per card loaded, which is
+// why the feed payload carries no providers.
 const activeTmdbId = computed(() => cards.value[currentIndex.value]?.tmdbId);
 const { providers } = useWatchProviders(activeTmdbId);
 
 // watch, not watchOnce: the carousel is unmounted whenever the feed has no cards
 // (first load, logout) and emits a fresh api when it comes back. Wiring only the
-// first one leaves currentIndex frozen at 0 — no active card, no provider
-// lookup, no end-of-feed refetch.
+// first one would leave currentIndex frozen at 0.
 watch(api, (embla) => {
   if (!embla) return;
 
@@ -100,9 +86,9 @@ watch(api, (embla) => {
   });
 });
 
-// Fires on the last card, not one earlier: with no pagination a refetch is a
-// full recommender round-trip plus enrichment, and prefetching would pay it for
-// everyone who merely scrolls to the end to see what is there.
+// Fires on the last card, not one earlier: with no pagination a refetch is a full
+// recommender round trip, and prefetching would pay it for everyone who merely
+// scrolls to the end.
 watch(currentIndex, (index) => {
   if (index === cards.value.length - 1 && !exhausted.value) void feed.loadMore();
 });

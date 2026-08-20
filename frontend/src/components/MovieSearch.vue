@@ -12,7 +12,7 @@ const { searchStatus, searchTotal } = storeToRefs(store);
 
 const inputQuery = ref('');
 
-// A freshly mounted search box (empty input) starts a fresh session — results
+// A freshly mounted search box (empty input) starts a fresh session, results
 // from a previous view must not leak into this one.
 onMounted(store.resetSearch);
 </script>

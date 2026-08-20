@@ -118,7 +118,7 @@ export class AuthController {
   }
 
   // Both legs can fail with a GoogleAuthException, which has to leave as a
-  // redirect rather than JSON — the browser arrives here by navigation.
+  // redirect rather than JSON: the browser arrives here by navigation.
   @UseFilters(GoogleAuthExceptionFilter)
   @Public()
   @Get('google')
@@ -133,7 +133,7 @@ export class AuthController {
   @UseFilters(GoogleAuthExceptionFilter)
   @Public()
   @Get('google/callback')
-  @ApiOperation({ summary: 'Google OAuth 2.0 callback — establishes the session' })
+  @ApiOperation({ summary: 'Google OAuth 2.0 callback that establishes the session' })
   @ApiResponse({ status: 302, description: 'Redirect to the frontend /auth/callback route' })
   @ApiResponse({ status: 503, description: 'Google sign-in is not configured on this server' })
   // No `passthrough`: this handler owns the response because every outcome,
@@ -149,7 +149,7 @@ export class AuthController {
   @SkipThrottle(SKIP_AUTH_THROTTLE)
   // Public so the global guard steps aside, then optional-auth so the token is
   // still validated and attached when there is one. This endpoint is a
-  // question, and "nobody is signed in" is one of its two correct answers — not
+  // question, and "nobody is signed in" is one of its two correct answers, not
   // an error. The profile stays behind GET /users/me, which is still guarded.
   @Public()
   @UseGuards(JwtOptionalGuard)

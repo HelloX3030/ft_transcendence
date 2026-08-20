@@ -17,7 +17,7 @@ function isCompleteYear(year: number | undefined): year is number {
 const yearFrom = ref<number | undefined>(undefined);
 const yearTo = ref<number | undefined>(currentYear);
 
-// TMDB genre ids (not names) — `with_genres` expects ids. Names for display are
+// TMDB genre ids (not names), `with_genres` expects ids. Names for display are
 // resolved from the genres store at render time.
 const selectedGenres = ref<number[]>([]);
 

@@ -11,7 +11,7 @@ import { RedisService } from './redis.service';
       useFactory: (): RedisClient => {
         const logger = new Logger(RedisModule.name);
         // disableOfflineQueue: commands fail fast while Redis is unreachable
-        // instead of queueing forever — RedisService turns that into a cache miss.
+        // instead of queueing forever, RedisService turns that into a cache miss.
         const client = createClient({ url: process.env.REDIS_URL, disableOfflineQueue: true });
         client.on('error', (err: Error) => logger.warn(`Redis error: ${err.message}`));
         // Connect in the background so the app boots (and serves uncached
@@ -32,7 +32,7 @@ export class RedisModule implements OnModuleDestroy {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: RedisClient) {}
 
   // Close the connection on shutdown so the socket doesn't keep the process
-  // alive — otherwise Jest reports a worker that fails to exit gracefully.
+  // alive, otherwise Jest reports a worker that fails to exit gracefully.
   async onModuleDestroy() {
     try {
       await this.redis.quit();

@@ -46,10 +46,6 @@ export class WatchlistsService {
     private movieUtils: MovieUtils,
   ) {}
 
-  // -------------------------
-  // WATCHLIST
-  // -------------------------
-
   async findAll(userId: number) {
     const watchlistUsers = await this.prisma.watchlist_users.findMany({
       where: {
@@ -161,7 +157,7 @@ export class WatchlistsService {
         type: 'watchlist_deleted',
         actorId: currentUserId,
         exceptUserId: currentUserId,
-        // The watchlist is gone, so entityId would dangle — the name lives in
+        // The watchlist is gone, so entityId would dangle, the name lives in
         // params, which is exactly why the snapshot exists.
         params: { actorUsername, watchlist: watchlistUser.watchlist.name },
       },
@@ -169,10 +165,6 @@ export class WatchlistsService {
 
     return successResponse(null);
   }
-
-  // -------------------------
-  // MOVIES
-  // -------------------------
 
   async getMovies(id: number, currentUserId: number) {
     await this.checkUserAccess(id, currentUserId, false);
@@ -243,10 +235,6 @@ export class WatchlistsService {
 
     return successResponse(null);
   }
-
-  // -------------------------
-  // USERS
-  // -------------------------
 
   async getUsers(id: number, currentUserId: number) {
     await this.checkUserAccess(id, currentUserId, false);

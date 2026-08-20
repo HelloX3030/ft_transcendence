@@ -5,7 +5,7 @@ import { GoogleProfile } from 'src/types';
 
 /**
  * True when all three Google variables are set. The module registers the
- * strategy only in that case, so a checkout without credentials still boots —
+ * strategy only in that case, so a checkout without credentials still boots:
  * passport would otherwise throw at construction time for a missing clientID.
  */
 export function isGoogleConfigured(): boolean {

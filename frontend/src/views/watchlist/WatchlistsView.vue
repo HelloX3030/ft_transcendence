@@ -25,7 +25,7 @@ async function deleteWatchlist(watchlistId: number) {
       </div>
 
       <!-- One chain, not two: the loading branch used to be its own v-if, so
-           while loading — isReady false, error null — the v-else below matched
+           while loading, isReady false, error null, the v-else below matched
            as well and the spinner rendered on top of an empty list. -->
       <div v-if="isLoading" class="flex items-center justify-center h-full">
         <Spinner class="size-16" />

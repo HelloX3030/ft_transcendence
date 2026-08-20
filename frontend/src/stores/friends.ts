@@ -29,11 +29,10 @@ export const useFriendsStore = defineStore('friends', () => {
     },
     [],
     {
-      // Nothing is signed in when this store is built. It is created transitively
-      // by useAuthStore() in main.ts, three lines before auth.init() runs, so a
-      // fetch here is an authenticated request made before anyone could know
-      // whether there is a session — a guaranteed 401 for every logged-out
-      // visitor. ensureLoaded() is how the list is first populated instead.
+      // Nothing is signed in when this store is built: it is created transitively
+      // by useAuthStore() in main.ts, before auth.init() runs, so a fetch here is
+      // a guaranteed 401 for every logged-out visitor. ensureLoaded() populates
+      // the list instead.
       immediate: false,
       // Without this, vueuse falls through to globalThis.reportError, which
       // announces a failure the store has already captured in `error` as though

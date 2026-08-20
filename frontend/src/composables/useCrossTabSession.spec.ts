@@ -38,7 +38,7 @@ vi.mock('@/stores/user', () => ({
 
 const { useCrossTabSession } = await import('./useCrossTabSession');
 
-describe('useCrossTabSession — another tab signed in', () => {
+describe('useCrossTabSession: another tab signed in', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('window', { location: { reload } });

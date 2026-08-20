@@ -29,7 +29,7 @@ export function useLogin() {
         errorMessage.value = 'Could not reach the server.';
       } else {
         // The backend answers a wrong email and a wrong password identically,
-        // on purpose — do not narrow this message down to one of the two.
+        // on purpose, do not narrow this message down to one of the two.
         errorMessage.value =
           err.status === 403
             ? 'Invalid email or password.'

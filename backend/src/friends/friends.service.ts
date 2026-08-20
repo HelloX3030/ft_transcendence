@@ -117,9 +117,9 @@ export class FriendsService {
   /**
    * Records the event in the peer's inbox and pushes it to their open tabs.
    *
-   * Unconditional on purpose — the row is persisted whether or not they are
-   * connected, so the username lookup that the old presence guard used to skip
-   * now always runs. It feeds `params`, which is what the client renders.
+   * Unconditional on purpose: the row is persisted whether or not they are
+   * connected, so the username lookup always runs. It feeds `params`, which is
+   * what the client renders.
    */
   private async notifyPeer(actorId: number, peerId: number, type: notification_type) {
     const actorUsername = (await this.userUtils.getUser(actorId)).username;

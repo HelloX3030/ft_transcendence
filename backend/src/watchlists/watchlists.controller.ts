@@ -31,10 +31,6 @@ import { WATCHLIST_NAME_MAX_LENGTH } from '@cinemates/shared';
 export class WatchlistsController {
   constructor(private readonly watchlistsService: WatchlistsService) {}
 
-  // -------------------------
-  // WATCHLIST
-  // -------------------------
-
   @Get()
   @ApiOperation({ summary: 'Get all watchlists of current user' })
   @ApiResponse({ status: 200, description: 'Watchlists returned successfully' })
@@ -105,10 +101,6 @@ export class WatchlistsController {
     return this.watchlistsService.remove(id, user.sub);
   }
 
-  // -------------------------
-  // MOVIES
-  // -------------------------
-
   @Get(':id/movies')
   @ApiOperation({ summary: 'Get movies in watchlist' })
   @ApiResponse({ status: 200, description: 'Movies returned successfully' })
@@ -157,10 +149,6 @@ export class WatchlistsController {
     const user = req.user as JwtAccessPayload;
     return this.watchlistsService.removeMovie(id, movieId, user.sub);
   }
-
-  // -------------------------
-  // USERS
-  // -------------------------
 
   @Get(':id/users')
   @ApiOperation({ summary: 'Get users of watchlist' })

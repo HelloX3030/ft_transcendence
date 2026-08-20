@@ -42,7 +42,7 @@ onMounted(async () => {
 
   // The account has TOTP enabled, so a Google login is not enough on its own.
   // The challenge token is in an httpOnly cookie the browser sends with the
-  // verify call — it is deliberately not readable here.
+  // verify call, and is deliberately not readable here.
   if (route.query.mfa === '1') {
     mfaRequired.value = true;
     return;
@@ -52,7 +52,7 @@ onMounted(async () => {
 });
 
 async function finishLogin() {
-  // False means the session cookies did not survive the redirect — the one
+  // False means the session cookies did not survive the redirect, the one
   // failure this route's whole design exists to avoid, so it is worth showing
   // rather than looping back to /login silently.
   if (!(await authStore.completeOAuthLogin())) {

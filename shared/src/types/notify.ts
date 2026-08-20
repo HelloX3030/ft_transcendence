@@ -1,10 +1,8 @@
 /**
  * Every domain change worth telling another client about. The wire carries this
- * discriminator instead of a rendered sentence, so a client can tell *what*
- * happened and invalidate the right store — see `stores/notify.ts`.
- *
- * Declared as a value so tests can enumerate the types; the union below is
- * derived from it, which keeps the two from drifting apart.
+ * discriminator rather than a rendered sentence, so a client can invalidate the
+ * right store (see `stores/notify.ts`). Declared as a value so tests can
+ * enumerate it; the union below is derived from it.
  */
 export const DOMAIN_EVENT_TYPES = [
   "friend.request.created",
@@ -119,13 +117,10 @@ export interface NotifyError {
 }
 
 /**
- * Payload of the `session_expired` event.
- *
- * Deliberately not an `error`: the gateway only checks the access token during
- * the handshake, so it drops sockets whose token has since run out. That is a
- * routine request to re-handshake, not a failure — the client renews the cookie
- * and reconnects. Sending it on the `error` channel put a console error in front
- * of every user every time their access token aged out.
+ * Payload of the `session_expired` event. Deliberately not an `error`: the gateway
+ * only checks the access token during the handshake, so it drops sockets whose
+ * token has since run out. That is a routine request to re-handshake, and the
+ * client renews the cookie and reconnects.
  */
 export interface NotifySessionExpired {
   message: string;

@@ -42,7 +42,7 @@ vi.mock('./watchlists', () => ({ useWatchlistsStore: () => ({ invalidate: vi.fn(
 
 const { useNotifyStore } = await import('./notify');
 
-describe('notify store — connection status', () => {
+describe('notify store: connection status', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     handlers.clear();
@@ -101,9 +101,9 @@ describe('notify store — connection status', () => {
     expect(store.connectionStatus).toBe('connecting');
   });
 
-  // The gateway drops sockets whose access token expired. socket.io does not
-  // retry a disconnect the server asked for, so before this the socket stayed
-  // down — and `connect_error`, where the refresh used to live, never ran.
+  // The gateway drops sockets whose access token expired, and socket.io does not
+  // retry a disconnect the server asked for, so nothing but this path brings the
+  // socket back.
   describe('a server-initiated disconnect', () => {
     it('renews the session and reconnects, which socket.io will not do', async () => {
       const store = useNotifyStore();
@@ -146,7 +146,7 @@ describe('notify store — connection status', () => {
     });
 
     // Before this the counter only moved inside `connect_error`, so a socket
-    // that never retried could never be reported as offline — the indicator sat
+    // that never retried could never be reported as offline, the indicator sat
     // on "Reconnecting" for good.
     it('reaches offline after repeated drops with no connection in between', async () => {
       const store = useNotifyStore();
@@ -187,7 +187,7 @@ describe('notify store — connection status', () => {
   });
 });
 
-describe('notify store — sending a chat message', () => {
+describe('notify store: sending a chat message', () => {
   /** The acknowledgement callback the store handed to `emit`. */
   function ackCallback(): (timeout: Error | null, ack?: unknown) => void {
     const [, , callback] = socket.emit.mock.calls[0] as [string, unknown, Handler];

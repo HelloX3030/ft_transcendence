@@ -5,7 +5,7 @@ import { backendClient } from '@/api';
 import { logger } from '@/lib/logger';
 
 // Resolves TMDB person ids (a user's favorite actors/directors) to names. Unlike
-// the genre catalogue there's no "fetch all" — people are looked up by id and
+// the genre catalogue there's no "fetch all", people are looked up by id and
 // accumulated in a shared cache, so overlapping lists reuse what's already loaded.
 export const usePeopleStore = defineStore('people', () => {
   // id -> resolved person, accumulated across lookups.

@@ -9,9 +9,9 @@ const PAGE_SIZE = 20;
 /**
  * Server-backed inbox: list, unread count and the read/delete actions.
  *
- * Deliberately separate from the notify store — notify is transport (one socket,
- * one event router), this is domain state. The server owns the list, so nothing
- * here is authoritative; `reset()` drops the cache and a reload restores it.
+ * Deliberately separate from the notify store: that one is transport, this is
+ * domain state. The server owns the list, so nothing here is authoritative;
+ * `reset()` drops the cache and a reload restores it.
  */
 export const useNotificationsStore = defineStore('notifications', () => {
   const items = ref<NotificationItem[]>([]);
@@ -25,7 +25,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   /**
    * Replaces the cache with the newest page. Called on login and on every socket
-   * reconnect — a reconnect means events were missed while the socket was down,
+   * reconnect, a reconnect means events were missed while the socket was down,
    * and a refetch is what closes that gap.
    */
   async function load() {
@@ -116,7 +116,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   }
 
   /**
-   * Drops the local cache only — the server keeps the inbox. Named `$reset` so
+   * Drops the local cache only, the server keeps the inbox. Named `$reset` so
    * the Pinia reset plugin clears it on logout.
    */
   function $reset() {

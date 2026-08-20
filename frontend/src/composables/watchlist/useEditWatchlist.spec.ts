@@ -49,7 +49,7 @@ function setup(currentName: string) {
   });
 }
 
-describe('useEditWatchlist — the rename', () => {
+describe('useEditWatchlist: the rename', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
@@ -75,9 +75,9 @@ describe('useEditWatchlist — the rename', () => {
     expect(result?.failedCount).toBe(0);
   });
 
-  // Previously a bare `await`, so a 403 on a read-only list propagated past
-  // invalidate() — "Something went wrong" over stale data, while the movie
-  // changes had already landed on the server.
+  // A bare `await` here would let a 403 on a read-only list propagate past
+  // invalidate(), reporting "Something went wrong" over stale data while the
+  // movie changes had already landed on the server.
   it('counts a failed rename and still invalidates', async () => {
     update.mockRejectedValue(new Error('read-only list'));
     submittedValues = { name: 'Renamed' };

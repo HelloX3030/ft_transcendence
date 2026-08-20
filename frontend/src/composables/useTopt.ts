@@ -67,9 +67,8 @@ export function useTotp() {
     isDisableDialogOpen.value = true;
   }
 
-  // Mirrors verifyOtp above: the two only differed because disabling used to have
-  // nothing to validate. Closing in a `finally` regardless of outcome would
-  // swallow a rejected code entirely, so the dialog stays open on failure.
+  // Mirrors verifyOtp above. Closing in a `finally` regardless of outcome would
+  // swallow a rejected code, so the dialog stays open on failure.
   async function disableTotp() {
     if (disableOtp.value.length !== 6) return;
     isDisabling.value = true;

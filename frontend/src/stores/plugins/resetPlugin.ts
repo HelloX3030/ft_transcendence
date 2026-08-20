@@ -14,9 +14,7 @@ export function resetAllStores() {
     } catch (error) {
       // Pinia defines $reset on a setup store as a stub that throws, so `?.`
       // does not guard a store that forgot to write one. Left unhandled, the
-      // throw escapes logout(), the caller never navigates, and every store
-      // after this one in the set keeps its state — the UI then renders a
-      // session that no longer exists. One bad store must not strand the rest.
+      // throw escapes logout() and every later store keeps its state.
       logger.error(`[reset] store "${store.$id}" could not be reset`, error);
     }
   }

@@ -7,21 +7,18 @@ import { logger } from '@/lib/logger';
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * The personalised trailer feed.
+ * The personalised trailer feed. A store rather than a composable because
+ * resetPlugin clears every registered store on logout, and state held outside one
+ * would show the first user's recommendations to the second on the same tab.
  *
- * A store rather than a composable because resetPlugin clears every registered
- * store on logout: feed state held outside one would survive a sign-out and show
- * the first user's recommendations to the second on the same tab.
- *
- * The backend has no pagination — its /feed excludes only what the user has
- * *rated*, so calling again returns the same films minus any they reacted to.
- * "Load more" is therefore a refetch filtered through everything already shown.
+ * The backend has no pagination: /feed excludes only what the user has rated, so
+ * "load more" is a refetch filtered through everything already shown.
  */
 export const useFeedStore = defineStore('feed', () => {
   const cards = ref<FeedMovie[]>([]);
   const status = ref<FetchStatus>('idle');
   // True once a refetch came back with nothing new. Terminal until the user
-  // reacts to something — which is why a *failed* refetch must not set it.
+  // reacts to something, which is why a *failed* refetch must not set it.
   const exhausted = ref(false);
 
   // Every tmdbId shown this session, so a film the recommender returns again is

@@ -30,11 +30,11 @@ class UserProfile:
     director_weights: dict[int, float] = field(default_factory=dict)
     keyword_weights: dict[int, float] = field(default_factory=dict)
 
-    # Overviews of liked films — used to build the user's TF-IDF representation.
+    # Overviews of liked films, used to build the user's TF-IDF representation.
     # Capped at _MAX_OVERVIEW_HISTORY entries (FIFO eviction).
     liked_overviews: list[str] = field(default_factory=list)
 
-    # Running average vote_average of liked films — Discover lower-bound filter.
+    # Running average vote_average of liked films, Discover lower-bound filter.
     avg_vote: float = 0.0
 
     last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
@@ -47,10 +47,6 @@ class ContentBasedFilter:
         self._cfg = config
         self._profiles: dict[str, UserProfile] = {}
 
-    # ------------------------------------------------------------------
-    # ContentFilter Protocol
-    # ------------------------------------------------------------------
-
     def get_profile(self, user_id: str) -> UserProfile:
         if user_id not in self._profiles:
             self._profiles[user_id] = UserProfile(user_id=user_id)
@@ -62,7 +58,7 @@ class ContentBasedFilter:
 
         Either component is zero when the profile has no data for it (cold-start or
         no liked overviews yet). The engine's alpha blending handles the true cold-start
-        fallback — this method just returns the best signal available.
+        fallback, this method just returns the best signal available.
         """
         if not candidates:
             return np.zeros(0)
@@ -87,7 +83,7 @@ class ContentBasedFilter:
         When metadata is available (engine passes it from the movie cache), genre
         weights and the liked-overview list are updated immediately. When metadata
         is absent (movie wasn't in a recent feed cache), only the interaction count
-        is incremented — a known gap until full DB integration lands.
+        is incremented, a known gap until full DB integration lands.
         """
         profile = self.get_profile(user_id)
         profile.interaction_count += 1
@@ -116,24 +112,16 @@ class ContentBasedFilter:
 
         self._profiles[user_id] = profile
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-
     def has_profile(self, user_id: str) -> bool:
         return user_id in self._profiles
 
     def load_profiles(self, profiles: list[UserProfile]) -> None:
-        """Populate the in-RAM cache — DB rows decoded by db.py on startup, or a
+        """Populate the in-RAM cache, DB rows decoded by db.py on startup, or a
         single late-registered user loaded on their first request. Existing cache
         entries win: they carry in-RAM-only state (liked_overviews) that a DB
         round-trip would erase."""
         for profile in profiles:
             self._profiles.setdefault(profile.user_id, profile)
-
-    # ------------------------------------------------------------------
-    # Scoring helpers
-    # ------------------------------------------------------------------
 
     def _genre_similarity(
         self, profile: UserProfile, candidates: list[MovieMetadata]
@@ -152,21 +140,21 @@ class ContentBasedFilter:
         vocab = sorted(all_genre_ids)
         idx = {gid: i for i, gid in enumerate(vocab)}
 
-        # User vector — may contain negative values for disliked genres.
+        # User vector, may contain negative values for disliked genres.
         u = np.array([profile.genre_weights.get(gid, 0.0) for gid in vocab])
         u_norm = np.linalg.norm(u)
         if u_norm == 0.0:
             return np.zeros(len(candidates))
         u_unit = u / u_norm
 
-        # Candidate matrix — binary: 1 if the genre appears in the film.
+        # Candidate matrix, binary: 1 if the genre appears in the film.
         C = np.zeros((len(candidates), len(vocab)))
         for i, c in enumerate(candidates):
             for gid in c.genre_ids:
                 if gid in idx:
                     C[i, idx[gid]] = 1.0
 
-        # Row-normalise (zero rows stay zero — genres-unknown films score 0).
+        # Row-normalise (zero rows stay zero, genres-unknown films score 0).
         norms = np.linalg.norm(C, axis=1, keepdims=True)
         norms[norms == 0.0] = 1.0
         C_unit = C / norms
@@ -181,8 +169,8 @@ class ContentBasedFilter:
         TF-IDF cosine similarity between a user pseudo-document (concatenation of
         liked overviews) and each candidate's overview.
 
-        The vectorizer is fitted on the candidate pool only (per architecture spec —
-        lightweight, no persistent index). The user document is then transformed
+        The vectorizer is fitted on the candidate pool only: lightweight, with no
+        persistent index. The user document is then transformed
         against that vocabulary; OOV terms are silently dropped.
         """
         if not profile.liked_overviews:

@@ -38,20 +38,20 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         // The ceiling we hold ourselves to on outbound TMDB traffic, and the
         // window it is measured over. Required rather than defaulted: compose
         // interpolates an unset ${VAR} to an empty string, which Joi.number()
-        // rejects instead of falling back — so a default would fail confusingly.
+        // rejects instead of falling back, so a default would fail confusingly.
         TMDB_RATE_LIMIT: Joi.number().integer().min(1).required(),
         TMDB_RATE_WINDOW_SECONDS: Joi.number().positive().required(),
         RECOMMENDER_URL: Joi.string().uri().required(),
         // How much of the derived onboarding profile is handed to the
         // recommendation service. min(0), not min(1): zero is the meaningful
-        // value — it withholds a dimension whose Discover filter is currently
+        // value: it withholds a dimension whose Discover filter is currently
         // over-constrained, and the derivation still computes it either way.
         ONBOARDING_MAX_GENRES: Joi.number().integer().min(0).required(),
         ONBOARDING_MAX_ACTORS: Joi.number().integer().min(0).required(),
         ONBOARDING_MAX_DIRECTORS: Joi.number().integer().min(0).required(),
         REDIS_URL: Joi.string().required(),
         // Optional on purpose. `.required()` would mean a checkout without
-        // Google credentials fails to boot — every developer, CI, and any
+        // Google credentials fails to boot, every developer, CI, and any
         // evaluator who clones the repo. Absent, the strategy is not registered
         // and GET /auth/google answers 503; see google.strategy.ts.
         GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
@@ -61,11 +61,9 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         SMTP_PORT: Joi.number().required(),
         MAIL_FROM: Joi.string().required(),
         PORT: Joi.number().default(3000),
-        // Session timeouts. Optional, and defaulted to the production values, so
-        // an existing checkout behaves identically — they exist so a tester can
-        // shrink a 15-day idle timeout to a minute and actually watch it expire.
-        // auth.service.ts carries the same defaults because it reads them at
-        // module scope, which runs before this schema is applied.
+        // Session timeouts, defaulted to the production values so an existing
+        // checkout behaves identically. auth.service.ts carries the same defaults
+        // because it reads them at module scope, before this schema is applied.
         ACCESS_TTL_SECONDS: Joi.number().default(SESSION_TTL_DEFAULT_SECONDS.ACCESS_TTL_SECONDS),
         REFRESH_TTL_SECONDS: Joi.number().default(SESSION_TTL_DEFAULT_SECONDS.REFRESH_TTL_SECONDS),
         SESSION_ABSOLUTE_TTL_SECONDS: Joi.number().default(

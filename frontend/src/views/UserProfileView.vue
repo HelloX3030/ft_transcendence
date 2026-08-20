@@ -34,7 +34,7 @@ const isSending = ref(false);
 const profileId = computed(() => Number(route.params.id));
 
 // A profile can be opened straight from a URL, with no friends list fetched
-// yet — and the action button below is read off that list.
+// yet, and the action button below is read off that list.
 void friendsStore.ensureLoaded();
 
 async function load() {
@@ -81,7 +81,7 @@ const relation = computed(() => {
 
 /**
  * Presence is seeded per friend, so `isUserOnline` reads false for everyone
- * else — a dot on a stranger would assert something we do not know.
+ * else, a dot on a stranger would assert something we do not know.
  */
 const isOnline = computed(() => notify.isUserOnline(profileId.value));
 

@@ -17,8 +17,8 @@ import { MoviesService } from './movies.service';
 
 @ApiTags('Movies')
 @ApiBearerAuth()
-// Reacting happens once per swipe, so the tight auth window — meant for
-// credential endpoints — must not apply. The burst and sustained windows stay.
+// Reacting happens once per swipe, so the tight auth window, meant for
+// credential endpoints, must not apply. The burst and sustained windows stay.
 @SkipThrottle(SKIP_AUTH_THROTTLE)
 @Controller('movies')
 export class MoviesController {

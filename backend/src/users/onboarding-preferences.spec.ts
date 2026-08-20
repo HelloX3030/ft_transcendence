@@ -5,7 +5,7 @@ const ALL: OnboardingLimits = { genres: 10, actors: 10, directors: 10 };
 
 interface MovieSpec {
   genres?: number[];
-  /** Billing order — the derivation only counts the first five. */
+  /** Billing order, the derivation only counts the first five. */
   cast?: number[];
   crew?: { id: number; job: string }[];
 }
@@ -81,7 +81,7 @@ describe('derivePreferences', () => {
       expect(actorIds).not.toContain(6);
     });
 
-    // Across ten films most actors appear once — an artefact of picking a film,
+    // Across ten films most actors appear once, an artefact of picking a film,
     // not a preference.
     it('drops an actor who appears in only one film', () => {
       const { actorIds } = derivePreferences([movie({ cast: [7] }), movie({ cast: [8] })], ALL);
@@ -142,7 +142,7 @@ describe('derivePreferences', () => {
   });
 
   it('counts a person credited twice on the same film once', () => {
-    // Credited as director and as writer on the same film — one pick, not two,
+    // Credited as director and as writer on the same film, one pick, not two,
     // so the recurrence threshold is not satisfied by a single movie.
     const doubleCredited = movie({
       crew: [
@@ -191,8 +191,7 @@ describe('derivePreferences', () => {
   });
 
   // The ten films in OnboardingDto's own example, with their real TMDB genres,
-  // top-five billing and directors. This is the profile spec 25 §2.4 measured the
-  // recommender's Discover query against, frozen so those numbers stay true.
+  // top-five billing and directors. Frozen so the derived profile stays true.
   it('derives the documented profile from the reference picks', () => {
     const director = (id: number) => [{ id, job: 'Director' }];
     const picks = [
@@ -229,7 +228,7 @@ describe('derivePreferences', () => {
     expect(result.genreIds).toEqual([12, 28, 18, 53, 878]);
     // Nolan three times, Jackson twice; nobody else directs more than one pick.
     expect(result.directorIds).toEqual([525, 108]);
-    // Six people appear in two films — the four LOTR leads plus DiCaprio (6193,
+    // Six people appear in two films, the four LOTR leads plus DiCaprio (6193,
     // Inception and Titanic) and Caine (3895, Interstellar and The Dark Knight).
     // All six tie at 2, so the limit of 4 takes the lowest ids.
     expect(result.actorIds).toEqual([109, 110, 1327, 1328]);

@@ -14,7 +14,7 @@ export class OnboardingDto implements OnboardingRequest {
     type: [Number],
     example: [27205, 157336, 24428, 155, 550, 680, 13, 120, 122, 597],
   })
-  // De-dup before the size checks, so the bounds count distinct movies — otherwise
+  // De-dup before the size checks, so the bounds count distinct movies, otherwise
   // `[1, 1, 1, ...]` would satisfy a "pick 10" rule with one movie.
   @Transform(({ value }: { value: unknown }): unknown =>
     Array.isArray(value) ? [...new Set<unknown>(value)] : value,

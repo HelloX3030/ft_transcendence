@@ -67,7 +67,7 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   // Read here rather than at module scope: ConfigModule's validation runs at
-  // bootstrap, and module-scope reads happen at import time — before it.
+  // bootstrap, and module-scope reads happen at import time, before it.
   private readonly limits: OnboardingLimits;
 
   constructor(
@@ -92,9 +92,8 @@ export class UsersService {
   }
 
   async completeOnboarding(userId: number, dto: OnboardingDto) {
-    // Cheap fail-fast: derivation costs ten TMDB calls, and a repeat submission
-    // should not pay them. The guarded updateMany below is still what decides —
-    // two concurrent calls would both pass this read.
+    // Cheap fail-fast: derivation costs ten TMDB calls. The guarded updateMany
+    // below is what decides, since two concurrent calls would both pass this.
     const existing = await this.prisma.users.findUnique({
       where: { id: userId },
       select: { onboardingCompleted: true },
@@ -105,14 +104,13 @@ export class UsersService {
     const movies = await this.fetchPickedMovies(dto.movieIds);
     const preferences = derivePreferences(movies, this.limits);
     this.logger.debug(
-      `Onboarding user ${userId} from ${movies.length} movies — ` +
+      `Onboarding user ${userId} from ${movies.length} movies: ` +
         `${preferences.genreIds.length} genres, ${preferences.actorIds.length} actors, ` +
         `${preferences.directorIds.length} directors`,
     );
 
-    // Guarded on `onboardingCompleted: false` so a repeat call cannot re-stamp the
-    // preference arrays — what the derivation wrote must never be clobbered from
-    // this path.
+    // Guarded on `onboardingCompleted: false` so a repeat call cannot re-stamp
+    // the preference arrays.
     const { count } = await this.prisma.users.updateMany({
       where: { id: userId, onboardingCompleted: false },
       data: {
@@ -139,10 +137,9 @@ export class UsersService {
       try {
         return (await this.tmdb.getMovieDetail(id)).data;
       } catch (error) {
-        // One id TMDB no longer knows about: derive from the other nine rather
-        // than failing a signup. Anything else is an outage and must abort,
-        // because onboarding is written once and can never be re-run — a partial
-        // or empty profile would be permanent.
+        // An id TMDB does not know: derive from the other nine rather than fail
+        // a signup. Anything else is an outage and must abort, since onboarding
+        // is written once and a partial profile would be permanent.
         if (error instanceof NotFoundException) {
           this.logger.warn(`Skipping unresolvable TMDB movie ${id} during onboarding`);
           return null;
@@ -181,11 +178,9 @@ export class UsersService {
   }
 
   async uploadAvatar(userId: number, file: Express.Multer.File) {
-    // The declared mimetype and the filename are both client-controlled, so
-    // neither decides what we store: the canonical type and the key extension
-    // come from the actual bytes. This is also what keeps scriptable formats
-    // (SVG, HTML) out of the bucket, and what makes the Content-Type we serve
-    // from GET /files/:id trustworthy.
+    // The declared mimetype and the filename are both client-controlled, so the
+    // canonical type and the key extension come from the actual bytes. That keeps
+    // scriptable formats out of the bucket and the served Content-Type honest.
     const image = detectImageType(file.buffer);
     if (image === null) {
       throw new BadRequestException(`Unsupported image format. Allowed: ${ALLOWED_IMAGE_LABEL}`);
@@ -205,8 +200,7 @@ export class UsersService {
     let updated;
     try {
       // One transaction: a `files` row that nothing points at is an orphan, and
-      // an `avatarFileId` pointing at a row that was never written is a 404 on
-      // every avatar the user has.
+      // an `avatarFileId` pointing at a row that was never written is a 404.
       updated = await this.prisma.$transaction(async (tx) => {
         const row = await tx.files.create({
           data: {
@@ -226,9 +220,8 @@ export class UsersService {
         });
       });
     } catch (error) {
-      // The object is already in the bucket but nothing references it now — drop it
-      // rather than leak it. `delete` swallows its own failures, so the original
-      // error is what surfaces.
+      // The object is in the bucket but nothing references it now, so drop it.
+      // `delete` swallows its own failures, so the original error surfaces.
       await this.storage.delete(key);
       throw error;
     }
@@ -240,9 +233,9 @@ export class UsersService {
   }
 
   /**
-   * Detaches and deletes the current avatar, falling the UI back to initials.
-   * Idempotent-ish: a user with no avatar gets a 404 rather than a silent no-op,
-   * so a stale button does not report success it did not achieve.
+   * Detaches and deletes the current avatar, falling the UI back to initials. A
+   * user with no avatar gets a 404 rather than a silent no-op, so a stale button
+   * cannot report success.
    */
   async deleteAvatar(userId: number) {
     const current = await this.prisma.users.findUnique({
@@ -271,7 +264,7 @@ export class UsersService {
   }
 
   async deleteMe(userId: number) {
-    // Read the keys before the delete — the rows go with the user (cascade), but
+    // Read the keys before the delete: the rows go with the user (cascade), but
     // the objects in the bucket have no such relationship and would be leaked.
     const files = await this.prisma.files.findMany({
       where: { ownerId: userId },
@@ -406,16 +399,12 @@ export class UsersService {
   }
 
   /**
-   * Turning 2FA off is the security-relevant direction, so it is gated the same
-   * way turning it on is. Without this, anyone holding a live session obtained by
-   * any route that is not a login — an unlocked machine, a lifted cookie, a script
-   * on the origin — could remove the second factor permanently in one request,
-   * leaving the account password-only without the owner ever being prompted again.
+   * Turning 2FA off is gated the same way turning it on is. Without the gate,
+   * anyone holding a live session obtained by any route that is not a login could
+   * remove the second factor in a single request.
    *
-   * The gate is a current code rather than the password: Google-only accounts have
-   * no password to present, and the password is the very factor TOTP exists to
-   * survive. A code proves possession of the enrolled device, which is what "still
-   * the legitimate owner" actually means.
+   * The gate is a current code rather than the password: Google-only accounts
+   * have no password, and the password is the factor TOTP exists to survive.
    */
   async deleteTOTP(userId: number, otp?: string) {
     const user = await this.prisma.users.findUnique({
@@ -425,12 +414,10 @@ export class UsersService {
     if (user === null) throw new NotFoundException('User not found.');
 
     if (!user.totpActive) {
-      // An unconfirmed secret has never guarded anything, so there is nothing to
-      // protect — and a code cannot be demanded for a QR the user never scanned.
-      // It has to stay clearable: createTOTP refuses to replace an existing
-      // secret, so an abandoned setup would otherwise be unrecoverable.
-      // `totpActive: false` in the filter, not just the lookup, so a concurrent
-      // activation cannot have its now-live secret cleared without a code.
+      // An unconfirmed secret has never guarded anything, and a code cannot be
+      // demanded for a QR the user never scanned. It must stay clearable, since
+      // createTOTP refuses to replace an existing secret. `totpActive: false` is
+      // in the filter so a concurrent activation cannot lose its now-live secret.
       await this.prisma.users.updateMany({
         where: { id: userId, totpActive: false },
         data: { totpSecret: null },
@@ -440,8 +427,7 @@ export class UsersService {
 
     if (user.totpSecret === null) {
       // Active with no secret is a corrupt row: verifyMfa already refuses such an
-      // account, so it can never complete a login and there is no code that could
-      // be demanded. Clearing the flag is the only way out, not a bypass.
+      // account, so clearing the flag is the only way out, not a bypass.
       await this.prisma.users.updateMany({
         where: { id: userId, totpActive: true, totpSecret: null },
         data: { totpActive: false },
@@ -455,9 +441,8 @@ export class UsersService {
     if (counter === null) throw new BadRequestException('TOTP code is invalid.');
 
     // Same atomic idiom as verifyMfa and activateTOTP: the counter is both filter
-    // and payload, so the check and the write are one statement. A code stays
-    // valid for ~90 seconds, and this is what stops one that is concurrently
-    // being spent on a login from also disabling 2FA.
+    // and payload. A code stays valid for ~90 seconds, and this stops one being
+    // spent on a login from also disabling 2FA.
     const { count } = await this.prisma.users.updateMany({
       where: {
         id: userId,
@@ -469,8 +454,8 @@ export class UsersService {
     if (count === 0) throw new BadRequestException('TOTP code is invalid.');
 
     // totpLastCounter is deliberately left set: re-enrolling generates a fresh
-    // secret, so a stale counter is harmless, and clearing it would open a replay
-    // window across a disable/re-enable cycle.
+    // secret, and clearing it would open a replay window across a disable and
+    // re-enable cycle.
     return successResponse(null, 'TOTP deleted.');
   }
 

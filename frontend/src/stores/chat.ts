@@ -17,7 +17,7 @@ export interface ChatMessageEntry extends ChatMessage {
 
 export interface Chat {
   friend: GetUserResponse;
-  /** Ascending, oldest first — the order the UI renders and the API serves. */
+  /** Ascending, oldest first: the order the UI renders and the API serves. */
   messages: ChatMessageEntry[];
   oldestCursor: string | null;
   hasMore: boolean;
@@ -28,11 +28,9 @@ export interface Chat {
 }
 
 /**
- * Client-side view of server-owned transcripts.
- *
- * Nothing here is authoritative: `reset()` drops the cache and the next load
- * restores it from the server. The one piece of local truth is an optimistic
- * message, and it lives only until its ack or echo arrives.
+ * Client-side view of server-owned transcripts. Nothing here is authoritative:
+ * `reset()` drops the cache and the next load restores it from the server. The
+ * one piece of local truth is an optimistic message, which lives until its ack.
  */
 export const useChatStore = defineStore('chat', () => {
   const chats = ref(new Map<number, Chat>());
@@ -65,9 +63,8 @@ export const useChatStore = defineStore('chat', () => {
   /** Seeds the list from the server: one entry per friend, ordered by recency. */
   async function hydrate() {
     try {
-      // Names and avatars in this list come from the friends store, which no
-      // longer loads itself — a transcript would otherwise render as
-      // "User 7" until something else happened to fetch it.
+      // Names and avatars in this list come from the friends store, which does
+      // not load itself; a transcript would otherwise render as "User 7".
       void useFriendsStore().ensureLoaded();
       const conversations = await chatApi.conversations();
       for (const conversation of conversations) {
@@ -193,11 +190,10 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /**
-   * Folds a server-confirmed message into its transcript.
-   *
-   * The sender's own tabs receive the broadcast too, so a message is matched on
-   * `clientMsgId` first — that is what stops the optimistic copy and the echo
-   * from rendering twice — and on `id` second, for delivery to the peer.
+   * Folds a server-confirmed message into its transcript. The sender's own tabs
+   * receive the broadcast too, so a message is matched on `clientMsgId` first,
+   * which stops the optimistic copy and the echo rendering twice, and on `id`
+   * second for delivery to the peer.
    */
   function ingestMessage(message: ChatMessage) {
     const chat = ensureChat(message.peerUserId);
@@ -215,9 +211,8 @@ export const useChatStore = defineStore('chat', () => {
     if (chat.messages.some((entry) => entry.id === message.id)) return chat;
 
     chat.messages.push(message);
-    // `peerUserId` is the other party from this reader's side, so a message
-    // whose sender *is* the peer came in; anything else is our own echo from
-    // another tab and was never unread.
+    // `peerUserId` is the other party from this reader's side, so a message whose
+    // sender is the peer came in; anything else is our own echo from another tab.
     const fromPeer = message.senderUserId === message.peerUserId;
     if (fromPeer && activeChat.value?.friend.id !== message.peerUserId) {
       chat.unreadCount++;
@@ -264,7 +259,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /**
-   * Clears the cache only — the server keeps every transcript. Named `$reset` so
+   * Clears the cache only; the server keeps every transcript. Named `$reset` so
    * the Pinia reset plugin picks it up and a logout cannot leak the previous
    * session's chats into the next one.
    */

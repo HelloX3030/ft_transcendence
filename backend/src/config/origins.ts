@@ -19,7 +19,7 @@ export const CANONICAL_ORIGIN = APP_ORIGINS[0] ?? '';
 /**
  * The origin *this* request arrived on, so a redirect returns the user to the
  * host they started from. Falls back to canonical unless the reconstructed
- * origin is one we accept — that allowlist check is what stops a forged Host
+ * origin is one we accept; that allowlist check is what stops a forged Host
  * header from steering the redirect. `req.protocol` sees https because of
  * `trust proxy` in main.ts.
  */

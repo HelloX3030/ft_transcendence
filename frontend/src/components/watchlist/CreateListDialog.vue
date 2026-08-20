@@ -74,7 +74,7 @@ const onSubmit = handleSubmit(async (values) => {
     } else {
       toast.success('New List Created Successfully');
     }
-    // The overview will not hear about this from the socket — the backend
+    // The overview will not hear about this from the socket, the backend
     // excludes the actor from their own events.
     watchlists.invalidate();
   } catch (error) {

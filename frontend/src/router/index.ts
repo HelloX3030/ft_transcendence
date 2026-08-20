@@ -141,7 +141,7 @@ router.beforeEach((to) => {
 
   if (to.meta.requiresAuth && isLoggedIn.value && !isReady.value) {
     // Still loading. Callers await refetchUser() before navigating, so this is
-    // transient — let it through rather than bouncing mid-load.
+    // transient, let it through rather than bouncing mid-load.
     if (isLoading.value) return;
 
     // Settled and still not ready means refetchUser() failed; main.ts swallows

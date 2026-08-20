@@ -26,13 +26,10 @@ function getMfaKey() {
 }
 
 /**
- * Secrets are persisted as `<iv>:<auth-tag>:<ciphertext>`, all hex.
- *
- * The auth tag is what makes this different from the CBC scheme it replaced:
- * decryption fails loudly if the stored value was altered, rather than handing
- * back plausible-looking garbage. Values in the older two-part `<iv>:<ciphertext>`
- * form are still readable — see decryptSecret — and are rewritten in this format
- * the next time the user sets TOTP up.
+ * Secrets are persisted as `<iv>:<auth-tag>:<ciphertext>`, all hex. The auth tag
+ * makes decryption fail loudly when the stored value was altered, rather than
+ * hand back plausible-looking garbage. Values in the older two-part
+ * `<iv>:<ciphertext>` form are still readable (see decryptSecret).
  */
 export function encryptSecret(plaintext: string): string {
   const iv = crypto.randomBytes(IV_BYTES);

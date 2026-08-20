@@ -9,7 +9,7 @@ import { login, register } from './utils';
 
 /**
  * The mailer is replaced rather than pointed at Mailpit: the reset token exists
- * only in the mail body, so capturing the send is how the test gets hold of it —
+ * only in the mail body, so capturing the send is how the test gets hold of it,
  * exactly the path a real user takes, minus SMTP.
  */
 const sentMail: { to: string; subject: string; body: string }[] = [];

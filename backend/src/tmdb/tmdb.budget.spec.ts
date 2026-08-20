@@ -30,7 +30,7 @@ describe('TmdbBudget', () => {
     await budget.acquire();
     await budget.acquire();
 
-    // The third would have to wait 500ms for a token — past the 100ms limit.
+    // The third would have to wait 500ms for a token, past the 100ms limit.
     await expect(budget.acquire()).rejects.toThrow(ServiceUnavailableException);
   });
 

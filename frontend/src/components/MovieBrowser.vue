@@ -13,25 +13,15 @@ const props = withDefaults(
   { showLabel: true, density: 'comfortable' },
 );
 
-// Complete literals, never assembled from fragments — Tailwind only emits CSS for
+// Complete literals, never assembled from fragments: Tailwind only emits CSS for
 // classes that appear whole in the source.
 //
-// `comfortable` is intrinsic rather than a breakpoint ladder. A fixed column
-// count stops changing past `xl` while the container keeps growing, so the cells
-// grow without limit and MovieCard's 2:3 aspect ratio turns that straight into
-// height — 400 px wide, 600 px tall posters on a 3840 px screen. auto-fill caps
-// the card width at every viewport and adds columns instead.
-//
-// `compact` is intrinsic for the same reason. Its dialog is capped now, but the
-// cap is the only thing that was holding it — a fixed column count inside any
-// container that can grow is the same bug waiting to come back.
-//
-// The track has a real maximum rather than 1fr. With 1fr the track absorbs the
-// leftover width until there is room for one more column and then snaps back,
-// so a card grows as you drag the window: 144→210px below 900px wide, 144→166px
-// above it. A bounded track is the same size at every viewport, and
-// justify-center splits the remainder into equal margins instead of leaving it
-// all on the right.
+// Both grids are intrinsic (auto-fill) rather than a breakpoint ladder. A fixed
+// column count stops changing past `xl` while the container keeps growing, and
+// MovieCard's 2:3 ratio turns that width straight into height. The track has a
+// bounded maximum rather than 1fr, which would absorb the leftover width until
+// there is room for one more column and then snap back, resizing the cards as
+// the window is dragged.
 const GRIDS = {
   comfortable: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,10rem))] gap-2 justify-center',
   compact: 'grid grid-cols-[repeat(auto-fill,minmax(7rem,8rem))] gap-2 justify-center',
@@ -85,8 +75,8 @@ const showLoading = useDelayedLoading(isLoading);
 // an existing list (pagination).
 const showSkeletons = computed(() => showLoading.value && displayMovies.value.length === 0);
 const isPaginating = computed(() => showLoading.value && displayMovies.value.length > 0);
-// Only "no results" once the search has actually run dry — a fully filtered-out
-// first page (still more pages to come) keeps paginating instead of flashing this.
+// Only "no results" once the search has actually run dry; a fully filtered-out
+// first page, with more pages to come, keeps paginating instead.
 const noResults = computed(
   () =>
     isSearching.value &&
@@ -96,26 +86,21 @@ const noResults = computed(
 );
 const reachedEnd = computed(() => !activeHasMore.value && displayMovies.value.length > 0);
 
-// Follows the density only to keep the placeholder block roughly a screenful:
-// the compact cards are smaller, so more of them fit. Both grids are intrinsic
-// now, so the column count depends on the container and the block can no longer
-// be tuned to land on whole rows.
+// Follows the density only to keep the placeholder block roughly a screenful.
+// Both grids are intrinsic, so the column count depends on the container.
 const SKELETON_COUNT = computed(() => (props.density === 'compact' ? 18 : 12));
 
-// Infinite scroll. The observer only tracks whether the sentinel is in view;
-// it does NOT call loadMore directly, because IntersectionObserver fires on
-// enter/leave only — a short result page that never pushes the sentinel out of
-// view would trigger just once. Instead a watcher pulls the next page whenever
-// the sentinel is visible and more exists, re-running as results arrive so it
-// keeps filling until the viewport is covered.
+// Infinite scroll. The observer only tracks whether the sentinel is in view and
+// does not call loadMore itself: IntersectionObserver fires on enter/leave only,
+// so a short page that never pushes the sentinel out of view would trigger once.
+// A watcher pulls the next page while the sentinel is visible and more exists.
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 const sentinelVisible = ref(false);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
   // The discover feed lives in the store and survives navigation, so only fetch
-  // it the first time it's needed — remounting (e.g. returning to this view)
-  // keeps the already-loaded pages and scroll position instead of resetting.
+  // it the first time: remounting keeps the loaded pages and the scroll position.
   if (discoverStatus.value === 'idle') store.loadDiscover();
   observer = new IntersectionObserver(
     (entries) => {
@@ -137,8 +122,7 @@ watch([sentinelVisible, isSearching, activeHasMore, displayStatus], () => {
 });
 
 // A failed page load keeps its loaded results, so retry the failed next page
-// (append) rather than reloading from page 1; a failed initial load has nothing
-// to preserve, so reload from scratch.
+// rather than reloading from page 1; a failed initial load reloads from scratch.
 function onRetry() {
   if (displayMovies.value.length > 0) void loadMoreActive();
   else store.refresh();

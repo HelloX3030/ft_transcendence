@@ -7,7 +7,7 @@ function build(query: Record<string, unknown>): PaginationQueryDto {
   return plainToInstance(PaginationQueryDto, query);
 }
 
-describe('PaginationQueryDto — filtered coercion', () => {
+describe('PaginationQueryDto: filtered coercion', () => {
   it('defaults filtered to true when the param is absent', () => {
     const dto = build({});
 

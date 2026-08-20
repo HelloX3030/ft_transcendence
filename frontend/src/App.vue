@@ -21,7 +21,7 @@ useCrossTabSession();
            the inset wide, and the only flexible sibling left is the sidebar's
            gap spacer. The visible sidebar is position: fixed, so it stays put
            while the gap behind it closes and content slides underneath. Any
-           wide content does this — it is not chat-specific. -->
+           wide content does this, it is not chat-specific. -->
       <SidebarInset class="min-w-0">
         <div class="sticky top-0 z-50 bg-background">
           <Header />

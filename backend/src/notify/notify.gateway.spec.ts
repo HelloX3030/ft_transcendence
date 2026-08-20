@@ -452,7 +452,7 @@ describe('NotifyGateway', () => {
       const ack = await gateway.chat(dto, asSocket(client));
 
       expect(ack).toEqual({ ok: false, error: 'You are not friends with this user.' });
-      // Nothing reaches any transcript — the message was never delivered.
+      // Nothing reaches any transcript, the message was never delivered.
       expect(roomEmits).toHaveLength(0);
     });
 

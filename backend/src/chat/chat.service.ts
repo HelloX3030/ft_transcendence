@@ -41,28 +41,21 @@ export class ChatService {
     private readonly notify: NotifyService,
   ) {}
 
-  // -------------------------
-  // Send
-  // -------------------------
-
   /**
-   * Persists one message after re-authorising the sender.
-   *
-   * The friendship check runs on **every** message and is never cached or
-   * inferred from the client having a chat window open: history outlives the
-   * friendship (see `deleteFriend`, which touches no messages), so a
-   * conversation can exist between two users who are no longer friends.
+   * Persists one message after re-authorising the sender. The friendship check
+   * runs on every message: history outlives the friendship (`deleteFriend`
+   * touches no messages), so a conversation can exist between two non-friends.
    */
   async send(senderId: number, dto: ChatMsgDto): Promise<ChatMessage> {
-    // Explicit, rather than relying on `areFriends(me, me)` finding no row —
-    // that is an accident of the data, and it produces a misleading error.
+    // Explicit, rather than relying on `areFriends(me, me)` finding no row:
+    // that is an accident of the data, and produces a misleading error.
     if (senderId === dto.peerUserId) {
       throw new BadRequestException('You cannot message yourself.');
     }
 
-    // The DTO already trims and bounds this; repeated here because the service
-    // is reachable without the gateway's validation pipe and the column is
-    // VarChar(2000) — a violation here would surface as a 500, not a 400.
+    // The DTO already trims and bounds this; repeated because the service is
+    // reachable without the gateway's validation pipe, and a VarChar(2000)
+    // violation would surface as a 500 rather than a 400.
     const body = dto.msg.trim();
     if (body === '') throw new BadRequestException('A message cannot be empty.');
     if (body.length > MESSAGE_MAX_LENGTH) {
@@ -81,18 +74,12 @@ export class ChatService {
     return this.toMessage(row, dto.peerUserId, dto.clientMsgId);
   }
 
-  // -------------------------
-  // Read
-  // -------------------------
-
   /**
    * One page of history, newest first internally but returned ascending.
    *
    * Authorisation is structural: the pair key is built from the caller and the
-   * peer, so a third party can only ever address *their own* conversation with
-   * someone. Reading requires participation, not a current friendship — gating
-   * reads on friendship would hide exactly the history that unfriending
-   * deliberately preserves.
+   * peer, so a third party can only address their own conversation. Reading
+   * requires participation, not a current friendship.
    */
   async getMessages(userId: number, peerId: number, dto: ListMessagesDto) {
     const { limit } = dto;
@@ -117,11 +104,9 @@ export class ChatService {
   }
 
   /**
-   * One entry per accepted friend, ordered by recency.
-   *
-   * Friend-derived on purpose: an ex-friend's conversation disappears from the
-   * list while staying fetchable at `GET /chat/:peerId/messages`, so nothing is
-   * destroyed and re-friending brings the history straight back.
+   * One entry per accepted friend, ordered by recency. Friend-derived on purpose:
+   * an ex-friend's conversation leaves the list but stays fetchable at
+   * `GET /chat/:peerId/messages`, so re-friending brings the history back.
    */
   async getConversations(userId: number) {
     const friendIds = await this.friendUtils.getFriends(userId);
@@ -149,10 +134,6 @@ export class ChatService {
     return successResponse(conversations);
   }
 
-  // -------------------------
-  // Mutations
-  // -------------------------
-
   /** Marks everything the peer sent in this conversation as read. */
   async markRead(userId: number, peerId: number) {
     const key = this.friendUtils.getFriendsKey(userId, peerId);
@@ -173,10 +154,6 @@ export class ChatService {
     return successResponse(response);
   }
 
-  // -------------------------
-  // Retention
-  // -------------------------
-
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async pruneExpired(now: number = Date.now()): Promise<number> {
     const { count } = await this.prisma.messages.deleteMany({
@@ -186,17 +163,11 @@ export class ChatService {
     return count;
   }
 
-  // -------------------------
-  // Internals
-  // -------------------------
-
   /**
    * Newest message of every conversation `userId` takes part in, in one query.
-   *
-   * `DISTINCT ON` has no Prisma equivalent; the alternative is one query per
-   * friend, which is the N+1 this exists to avoid. The ORDER BY prefix must
-   * match the DISTINCT ON columns — that is what makes the first row per group
-   * the newest one.
+   * `DISTINCT ON` has no Prisma equivalent, and the alternative is one query per
+   * friend. The ORDER BY prefix must match the DISTINCT ON columns, which is what
+   * makes the first row per group the newest.
    */
   private async lastMessagePerConversation(userId: number): Promise<Map<number, ChatMessage>> {
     const rows = await this.prisma.$queryRaw<LastMessageRow[]>`
@@ -255,9 +226,8 @@ export class ChatService {
 
 /**
  * A foreign key violation on send means the peer's account disappeared between
- * the friendship check and the insert. It is a real, if narrow, race — and the
- * HTTP Prisma filter does not cover socket handlers, so the gateway has to name
- * it rather than leave an unhandled rejection.
+ * the friendship check and the insert. The HTTP Prisma filter does not cover
+ * socket handlers, so the gateway has to name this itself.
  */
 export function isMissingParticipant(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';

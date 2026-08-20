@@ -6,7 +6,6 @@ import type { NotifySocket as Socket } from 'src/types';
 @Injectable()
 export class NotifyService {
   private readonly logger = new Logger(NotifyService.name);
-  // map: userId, clientCount
   private readonly userStatus = new Map<number, Set<Socket>>();
 
   constructor(
@@ -14,9 +13,6 @@ export class NotifyService {
     private readonly notifyGateway: NotifyGateway,
   ) {}
 
-  // -------------------------
-  // User online Status
-  // -------------------------
   setUserAsActive(userId: number, client: Socket) {
     const cSocketSet = this.userStatus.get(userId) ?? new Set();
     cSocketSet.add(client);
@@ -55,9 +51,6 @@ export class NotifyService {
     return this.userStatus.has(userId);
   }
 
-  // -------------------------
-  // Send Notifications
-  // -------------------------
   /**
    * Pushes a typed domain event to every tab of `userId`. Fire-and-forget by
    * design: the caller has already persisted whatever needs to survive, so a
@@ -67,9 +60,6 @@ export class NotifyService {
     this.notifyGateway.sendDomainEvent(userId, event);
   }
 
-  // -------------------------
-  // User Chat
-  // -------------------------
   sendChatMessage(userId: number, message: ChatMessage) {
     this.notifyGateway.sendChatMessage(userId, message);
   }

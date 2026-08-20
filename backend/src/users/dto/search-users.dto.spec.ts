@@ -7,7 +7,7 @@ function build(query: Record<string, unknown>): SearchUsersDto {
   return plainToInstance(SearchUsersDto, query);
 }
 
-describe('SearchUsersDto — query trimming', () => {
+describe('SearchUsersDto: query trimming', () => {
   it('trims surrounding whitespace off the search term', () => {
     const dto = build({ query: '  alice  ' });
 

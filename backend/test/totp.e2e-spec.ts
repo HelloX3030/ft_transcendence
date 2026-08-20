@@ -152,8 +152,8 @@ describe('TOTP MFA (e2e)', () => {
       .send({ email: credentials.email, password: credentials.password, otp })
       .expect(400);
 
-    // forbidNonWhitelisted: a one-shot login carrying the code is no longer a
-    // thing the API offers, rather than being quietly ignored.
+    // forbidNonWhitelisted: a one-shot login carrying the code is rejected,
+    // rather than quietly ignored.
     expect((response.body as { statusCode: number }).statusCode).toBe(400);
   });
 
@@ -276,7 +276,7 @@ describe('TOTP MFA (e2e)', () => {
   });
 
   // An abandoned enrolment has nothing to protect and no scanned QR to read a
-  // code from, and createTOTP refuses to replace an existing secret — so this
+  // code from, and createTOTP refuses to replace an existing secret, so this
   // has to stay clearable or the account is stuck with no way to enrol.
   it('clears a never-activated setup without a code', async () => {
     const dto = buildRegisterDto('totp-del-pending');

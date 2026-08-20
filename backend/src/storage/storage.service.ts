@@ -39,7 +39,7 @@ export class StorageService implements OnModuleInit {
       forcePathStyle: true,
     });
     // Like RedisModule, don't let a missing/unreachable MinIO crash the app at
-    // boot — log and retry lazily on the first upload instead.
+    // boot, log and retry lazily on the first upload instead.
     try {
       await this.ensureBucket();
     } catch (err) {
@@ -68,7 +68,7 @@ export class StorageService implements OnModuleInit {
 
   /**
    * Opens a read stream for an object. The bucket is private and only reachable
-   * from inside the network, so this is the single path bytes take to a client —
+   * from inside the network, so this is the single path bytes take to a client,
    * and it runs behind the authorization in FilesService.
    */
   async getObject(key: string): Promise<StoredObject> {
@@ -76,7 +76,7 @@ export class StorageService implements OnModuleInit {
     try {
       response = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
     } catch (err) {
-      // A row without its object is a broken reference, not an outage — 404 so a
+      // A row without its object is a broken reference, not an outage, 404 so a
       // stale id does not read as "storage is down".
       if (this.isNotFound(err)) {
         this.logger.warn(`Object "${key}" is referenced by a row but missing from the bucket`);
@@ -125,7 +125,7 @@ export class StorageService implements OnModuleInit {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
       return true;
     } catch (err) {
-      // A 404/NotFound means the bucket is genuinely missing — anything else
+      // A 404/NotFound means the bucket is genuinely missing, anything else
       // (network, auth, permissions) is a real error we must not swallow.
       if (this.isNotFound(err)) return false;
       throw err;

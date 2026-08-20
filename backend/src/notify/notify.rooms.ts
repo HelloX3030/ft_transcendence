@@ -1,8 +1,3 @@
-/**
- * Room names used by the notify namespace. Building these inline invites typos
- * (`user :${id}`) that silently drop every delivery instead of failing loudly.
- */
-
 /** Holds every socket of one user, i.e. all of their open tabs. */
 export const userRoom = (userId: number) => `user:${userId}`;
 

@@ -15,7 +15,7 @@ export interface CreateNotification {
   type: notification_type;
   /** Who caused it. Null for system-generated events. */
   actorId?: number | null;
-  /** Watchlist id and the like — whatever the client needs to deep-link to. */
+  /** Watchlist id and the like, whatever the client needs to deep-link to. */
   entityId?: number | null;
   /** Snapshot of the values the client interpolates into its template. */
   params?: Record<string, string>;
@@ -29,10 +29,6 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly notify: NotifyService,
   ) {}
-
-  // -------------------------
-  // Write path
-  // -------------------------
 
   /**
    * Persists an inbox row, then pushes it to whichever tabs happen to be open.
@@ -76,10 +72,6 @@ export class NotificationsService {
     }
   }
 
-  // -------------------------
-  // Read path
-  // -------------------------
-
   async list(userId: number, dto: ListNotificationsDto) {
     const { limit } = dto;
     const where: Prisma.notificationsWhereInput = {
@@ -113,10 +105,6 @@ export class NotificationsService {
     return successResponse({ unreadCount: await this.countUnread(userId) });
   }
 
-  // -------------------------
-  // Mutations
-  // -------------------------
-
   async markRead(userId: number, id: number) {
     // updateMany, not update: scoping on userId in the *where* makes another
     // user's row a no-op (404) instead of a successful cross-account write.
@@ -149,10 +137,6 @@ export class NotificationsService {
     return successResponse({ unreadCount: 0 });
   }
 
-  // -------------------------
-  // Retention
-  // -------------------------
-
   /**
    * Bounds table growth. Without it the inbox is append-only forever, since
    * nothing else ever deletes a row the user did not delete by hand.
@@ -170,10 +154,6 @@ export class NotificationsService {
     if (count > 0) this.logger.log(`Pruned ${count} expired notifications`);
     return count;
   }
-
-  // -------------------------
-  // Internals
-  // -------------------------
 
   private countUnread(userId: number): Promise<number> {
     return this.prisma.notifications.count({ where: { userId, readAt: null } });

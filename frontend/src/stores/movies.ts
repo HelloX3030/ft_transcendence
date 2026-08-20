@@ -7,10 +7,9 @@ import { logger } from '@/lib/logger';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-// A paginated, append-as-you-scroll movie collection. Popular and search are the
-// same machine — they differ only in which URL a page maps to — so both are built
-// from this one factory. `fetchPage` reads any live state (query, filter) at call
-// time, so callers just flip those refs and (re)load.
+// A paginated, append-as-you-scroll movie collection. Popular and search differ
+// only in which URL a page maps to, so both come from this one factory.
+// `fetchPage` reads any live state (query, filter) at call time.
 function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) {
   const items = ref<TmdbMovie[]>([]);
   const page = ref(1);
@@ -88,7 +87,7 @@ function createMovieFeed(fetchPage: (page: number) => Promise<PaginatedMovies>) 
 }
 
 export const useMoviesStore = defineStore('movies', () => {
-  // Whether the quality filter (poster + vote count/average) is applied — shared
+  // Whether the quality filter (poster + vote count/average) is applied, shared
   // by both feeds and part of each request URL (user toggle).
   const filtered = ref(true);
 
@@ -98,11 +97,9 @@ export const useMoviesStore = defineStore('movies', () => {
     useSearchFilter();
 
   // Builds the discover request from pagination, the quality toggle and the
-  // active filter bar, omitting any filter that isn't set.
-  //
-  // Assembled as a DiscoverQuery rather than as string literals: the backend DTO
-  // implements the same interface, so a renamed parameter fails to compile here
-  // instead of turning every discover request into a 400.
+  // active filter bar. Assembled as a DiscoverQuery rather than string literals:
+  // the backend DTO implements the same interface, so a renamed parameter fails
+  // to compile here instead of turning every request into a 400.
   function discoverUrl(page: number): string {
     const query: DiscoverQuery = {
       page,
@@ -119,10 +116,10 @@ export const useMoviesStore = defineStore('movies', () => {
     return `/tmdb/discover?${params}`;
   }
 
-  // Discover list — the default browse state, paginated like search.
+  // Discover list: the default browse state, paginated like search.
   const discoverFeed = createMovieFeed((page) => backendClient<PaginatedMovies>(discoverUrl(page)));
 
-  // Active search session — the query drives which results the feed fetches.
+  // Active search session: the query drives which results the feed fetches.
   const searchQuery = ref('');
   // TMDB's total match count for the current query (see backend caveat: unfiltered).
   const searchTotal = ref(0);
@@ -139,7 +136,7 @@ export const useMoviesStore = defineStore('movies', () => {
     return discoverFeed.load();
   }
 
-  // Ends the active search session and clears its results — views fall back to
+  // Ends the active search session and clears its results; views fall back to
   // the discover list.
   function resetSearch(): void {
     searchQuery.value = '';
@@ -147,9 +144,8 @@ export const useMoviesStore = defineStore('movies', () => {
     searchFeed.reset();
   }
 
-  // Starts a fresh search: resets to page 1 and replaces the previous results.
-  // An empty (or whitespace) query clears the search instead — the backend
-  // rejects empty queries.
+  // Starts a fresh search: resets to page 1 and replaces the previous results. An
+  // empty or whitespace query clears the search, since the backend rejects it.
   async function search(input: string): Promise<void> {
     const query = input.trim();
     if (!query) {
@@ -177,12 +173,9 @@ export const useMoviesStore = defineStore('movies', () => {
     refresh();
   }
 
-  // Rebuild the discover feed from page 1 whenever the filter bar changes, so the
-  // browse list always reflects the current selection (this also covers "clear
-  // all", which resets the filter refs). Skipped until the feed has first loaded:
-  // an unvisited feed reads the live filters when it eventually loads, and search
-  // results are unaffected (TMDB search takes no filters) but the refreshed
-  // discover list is ready underneath for when the search is cleared.
+  // Rebuild the discover feed from page 1 whenever the filter bar changes, which
+  // also covers "clear all". Skipped until the feed has first loaded: an unvisited
+  // feed reads the live filters when it eventually loads.
   watch([sortBy, withGenres, primaryReleaseDateGte, primaryReleaseDateLte], () => {
     if (discoverFeed.status.value !== 'idle') void loadDiscover();
   });
@@ -195,24 +188,20 @@ export const useMoviesStore = defineStore('movies', () => {
   }
 
   return {
-    // Discover feed
     discover: discoverFeed.items,
     discoverStatus: discoverFeed.status,
     discoverHasMore: discoverFeed.hasMore,
     loadDiscover,
     loadMoreDiscover: discoverFeed.loadMore,
-    // Search feed
     searchResults: searchFeed.items,
     searchPage: searchFeed.page,
     searchHasMore: searchFeed.hasMore,
     searchStatus: searchFeed.status,
     loadMore: searchFeed.loadMore,
-    // Search session meta
     searchQuery,
     searchTotal,
     isSearching,
     resultCount,
-    // Shared
     filtered,
     search,
     refresh,

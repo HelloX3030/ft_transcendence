@@ -4,7 +4,7 @@ import { fileUrl, validateFile } from './files';
 
 function makeFile(size: number, type: string): File {
   // A real Blob of `size` bytes would be wasteful at the 5 MB boundary, and
-  // `File.size` is what the check reads — so define it directly.
+  // `File.size` is what the check reads, so define it directly.
   const file = new File([], 'photo.png', { type });
   Object.defineProperty(file, 'size', { value: size });
   return file;

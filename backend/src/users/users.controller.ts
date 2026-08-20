@@ -126,7 +126,7 @@ export class UsersController {
   @ApiOperation({
     summary: "Get a user's profile page",
     description:
-      "The public fields plus the preferences onboarding derived. Never returns email, role, totpActive or onboardingCompleted — those belong to the owner's own read.",
+      "The public fields plus the preferences onboarding derived. Never returns email, role, totpActive or onboardingCompleted; those belong to the owner's own read.",
   })
   @ApiResponse({
     status: 200,
@@ -143,7 +143,7 @@ export class UsersController {
   @ApiResponse({
     status: 201,
     description:
-      'TOTP secret generated successfully. Returns the QR code only — the plaintext secret is never sent to the client.',
+      'TOTP secret generated successfully. Returns the QR code only; the plaintext secret is never sent to the client.',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'User not found' })
@@ -180,7 +180,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Disable TOTP for authenticated user',
     description:
-      'Requires a current, unspent TOTP code while 2FA is active — the access token alone is not enough, or a stolen session could remove the second factor outright. The code is burned on use. An abandoned setup (secret generated, never activated) is cleared without a code.',
+      'Requires a current, unspent TOTP code while 2FA is active; the access token alone is not enough, or a stolen session could remove the second factor outright. The code is burned on use. An abandoned setup (secret generated, never activated) is cleared without a code.',
   })
   @ApiBody({
     type: disableTotpDto,

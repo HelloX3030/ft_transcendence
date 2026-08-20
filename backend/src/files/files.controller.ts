@@ -18,7 +18,7 @@ export class FilesController {
     const file = await this.filesService.read(id);
 
     res.set({
-      // The canonical type sniffed at upload — never the request's or the
+      // The canonical type sniffed at upload, never the request's or the
       // filename's, both of which are client-controlled.
       'Content-Type': file.mimetype,
       'X-Content-Type-Options': 'nosniff',

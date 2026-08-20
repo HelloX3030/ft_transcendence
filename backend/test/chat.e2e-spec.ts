@@ -30,7 +30,7 @@ describe('Chat (e2e)', () => {
   let carlId: number;
 
   /**
-   * Sending is a socket handler, and these tests deliberately open no socket —
+   * Sending is a socket handler, and these tests deliberately open no socket:
    * every recipient is offline throughout, which is the case the spec is about.
    * The service is the seam the gateway delegates to, so calling it directly
    * exercises the whole persistence and authorisation path.
@@ -285,7 +285,7 @@ describe('Chat (e2e)', () => {
   describe('read authorisation', () => {
     it('never exposes a conversation a third party is not part of', async () => {
       // `/chat/:peerId/messages` addresses the caller's own conversation with
-      // `peerId`, so carl asking about cam gets carl↔cam — empty — not cam↔clo.
+      // `peerId`, so carl asking about cam gets carl↔cam, empty, not cam↔clo.
       const page = await history(carlAgent, camId);
 
       expect(page.messages).toHaveLength(0);

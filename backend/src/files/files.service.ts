@@ -29,7 +29,7 @@ export class FilesService {
   private canRead(kind: file_kind): boolean {
     switch (kind) {
       // Avatars appear on profiles, friend lists and chat headers, so any signed-in
-      // user may read one. Unauthenticated requests never reach here — the global
+      // user may read one. Unauthenticated requests never reach here: the global
       // JwtAccessGuard rejects them with a 401 first.
       case file_kind.avatar:
         return true;
@@ -73,12 +73,8 @@ export class FilesService {
     return successResponse(null, 'File deleted');
   }
 
-  // -------------------------
-  // Retention
-  // -------------------------
-
   /**
-   * A file can be uploaded and never attached — the user closes the dialog
+   * A file can be uploaded and never attached: the user closes the dialog
    * mid-flow, or a DB write fails in a way the inline cleanup missed. Nothing
    * references those rows, so nothing will ever delete them without this sweep.
    */

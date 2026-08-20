@@ -1,12 +1,7 @@
 /**
- * Transport primitives shared by every way we talk to the backend.
- *
- * `backendClient` (fetch) and `uploadWithProgress` (XMLHttpRequest) are two
- * transports with one contract: same base URL, same credentials, same
- * 401-refresh-retry, same error mapping, same response envelope. Those pieces
- * live here rather than in either transport, because a divergent 401 path in the
- * upload client would mean uploads mysteriously failing on expired sessions
- * while everything else quietly recovered.
+ * Transport primitives shared by `backendClient` (fetch) and `uploadWithProgress`
+ * (XMLHttpRequest): same base URL, credentials, 401-refresh-retry, error mapping
+ * and response envelope.
  */
 import type { AccessTokenExpiry, apiResponse } from '@cinemates/shared';
 import { BACKEND_URL } from '@/lib/constants';
@@ -61,12 +56,10 @@ async function refreshToken() {
   if (!response.ok) {
     throw new Error('Refresh failed');
   }
-  // The renewed cookie has its own lifetime, so the schedule is set again from
-  // the answer rather than assumed to repeat.
-  //
-  // Never allowed to fail the refresh: the cookie is already set by the time the
-  // body is read, so a response we cannot parse costs the next schedule — which
-  // the reactive 401 path still covers — not the session.
+  // The renewed cookie has its own lifetime, so the schedule is set from the
+  // answer. Never allowed to fail the refresh: the cookie is already set by the
+  // time the body is read, so an unparseable response costs the next schedule,
+  // which the reactive 401 path still covers.
   try {
     const body = unwrapEnvelope<AccessTokenExpiry>(await response.text());
     scheduleAccessRefresh(body?.accessExpiresAt);
@@ -76,18 +69,12 @@ async function refreshToken() {
 }
 
 /**
- * Renews the access cookie shortly before it lapses.
- *
- * The reactive path in `backendClient` — 401, refresh, retry — recovers, but it
- * cannot prevent the 401 itself, and Chrome prints every 401 to the console from
- * its own network stack where no handler, catch or logger can reach it. The only
- * way to remove that line is for the request never to fail, which means renewing
- * ahead of time. The reactive path stays as the fallback for what a timer cannot
- * cover: a suspended laptop, a clock that jumped, a tab throttled in the
- * background.
- *
- * Called with the expiry every session-establishing response reports. Passing
- * `undefined` only cancels — a client that was told nothing schedules nothing.
+ * Renews the access cookie shortly before it lapses. The reactive path in
+ * `backendClient` (401, refresh, retry) recovers but cannot prevent the 401, and
+ * Chrome prints every 401 from its own network stack, where no handler can reach
+ * it. That path stays as the fallback for what a timer cannot cover: a suspended
+ * laptop, a jumped clock, a throttled background tab. Passing `undefined` only
+ * cancels the schedule.
  */
 export function scheduleAccessRefresh(accessExpiresAt: number | undefined) {
   cancelAccessRefresh();
@@ -114,11 +101,8 @@ export function cancelAccessRefresh() {
 
 /**
  * Whether a rejection is the browser abandoning a request rather than a failure.
- *
- * Answered here, once, instead of at every catch that would otherwise have to
- * tell an aborted upload or a fetch cancelled by navigation apart from a real
- * fault — and report the second as if it were the first. A cancellation is not
- * an error and is never worth logging or showing.
+ * Answered here once, so no catch has to tell an aborted upload or a fetch
+ * cancelled by navigation apart from a real fault.
  */
 export function isCancelledRequest(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';

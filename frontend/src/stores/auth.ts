@@ -16,24 +16,21 @@ import { cancelAccessRefresh, scheduleAccessRefresh } from '@/api/http';
 export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = ref(false);
 
-  // The notify store is resolved where it is used, not here. Resolving it in
-  // the setup body made `useAuthStore()` build the notify, chat and friends
-  // stores with it — and the friends store used to fetch on creation, so
-  // main.ts's first line issued an authenticated request before init() had run.
-  // Keeping the lookups local means a store is only built when something
-  // actually needs it.
+  // The notify store is resolved where it is used, not here: resolving it in the
+  // setup body would build the notify, chat and friends stores as soon as
+  // anything called `useAuthStore()`, which main.ts does before init() has run.
 
   async function init() {
     try {
       const session = await authApi.session();
       isLoggedIn.value = session.authenticated;
       // A reload rebuilds the session from the cookie the browser still holds,
-      // so the schedule has to be rebuilt with it — otherwise the first tab
-      // reload of the day goes back to discovering expiry through a 401.
+      // so the schedule has to be rebuilt with it, or expiry is discovered
+      // through a 401 again.
       if (session.authenticated) scheduleAccessRefresh(session.accessExpiresAt);
     } catch {
-      // A genuine network failure — the endpoint answers 200 either way now, so
-      // "nobody is signed in" no longer arrives here. Stay logged out.
+      // A genuine network failure: the endpoint answers 200 either way, so
+      // "nobody is signed in" does not arrive here. Stay logged out.
     }
   }
 
@@ -45,11 +42,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * Shared tail of every path that ends up authenticated.
-   *
-   * `accessExpiresAt` comes from whichever response issued the cookie. The
-   * Google path has none — it arrives by redirect and confirms the session
-   * through `init()`, which schedules from `/auth/me` instead.
+   * Shared tail of every path that ends up authenticated. `accessExpiresAt` comes
+   * from whichever response issued the cookie; the Google path has none, since it
+   * arrives by redirect and confirms the session through `init()`.
    */
   async function startSession(accessExpiresAt?: number) {
     isLoggedIn.value = true;
@@ -57,32 +52,25 @@ export const useAuthStore = defineStore('auth', () => {
     const userStore = useUserStore();
     await userStore.refetchUser();
     useNotifyStore().init();
-    // Only the paths that *establish* a session run through here — a reload
-    // rebuilds its state in main.ts without it — so the other tabs are told
-    // exactly once, by the tab that changed what the browser holds. Announcing
-    // it on boot instead would have every corrected tab correct the others.
-    //
-    // Nothing to announce without an id: the refetch is what failed, and a tab
-    // that cannot say who it is has no business telling other tabs who they are.
+    // Only the paths that establish a session run through here, so the other tabs
+    // are told exactly once, by the tab that changed what the browser holds.
+    // Nothing to announce without an id: the refetch is what failed.
     const userId = userStore.state?.id;
     if (userId !== undefined) broadcastLogin(userId);
   }
 
   // Second step of an MFA login. Takes the challenge token from login(), not the
-  // password — that is deliberately not kept around. On the Google path the
-  // token is omitted entirely and the backend reads it from a cookie instead.
+  // password, which is deliberately not kept around. On the Google path the token
+  // is omitted and the backend reads it from a cookie.
   async function verifyMfa(payload: MfaVerifyRequest) {
     const result = await authApi.verifyMfa(payload);
     await startSession(result?.accessExpiresAt);
   }
 
   /**
-   * Tail of an OAuth login. The session cookies were set by the backend during
-   * the redirect, so there is nothing to send — this only confirms they work
-   * before treating the user as logged in.
-   *
-   * Returns false when they do not, which is how the callback view tells a
-   * silently dropped cookie from a successful sign-in.
+   * Tail of an OAuth login. The session cookies were set by the backend during the
+   * redirect, so this only confirms they work. Returns false when they do not,
+   * which is how the callback view tells a dropped cookie from a sign-in.
    */
   async function completeOAuthLogin(): Promise<boolean> {
     // init() already scheduled the refresh off /auth/me, so startSession() is
@@ -112,15 +100,13 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await authApi.logout();
     } catch {
-      // The server-side session may already be gone — swept, or ended from
-      // another tab. Local state must go either way, or the UI keeps rendering
-      // a session that no longer exists.
+      // The server-side session may already be gone, swept or ended from another
+      // tab. Local state must go either way.
     } finally {
       clearSession();
       // Fires even when the request failed: the cookies are cleared client-side
-      // either way, so the other tabs are just as dead and must be told. Not in
-      // clearSession(), which the password-reset path also calls from a context
-      // that never had a session to end.
+      // either way, so the other tabs are just as dead. Not in clearSession(),
+      // which the password-reset path calls without a session to end.
       broadcastLogout();
     }
   }

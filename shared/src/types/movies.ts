@@ -23,7 +23,7 @@ export interface FeedMovie {
   backdropPath: string | null;
   releaseDate: string;
   genreIds: number[];
-  /** Never null — movies without a trailer are filtered out server-side. */
+  /** Never null, movies without a trailer are filtered out server-side. */
   trailerKey: string;
   voteAverage: number;
 }

@@ -57,14 +57,14 @@ const { showInfo, togglePlay, toggleFullscreen, handleMouseMove } = useVideoPlay
       permissions-policy violation per probe when it is not granted; `autoplay`
       because Chrome delegates unmuted playback in a cross-origin frame through
       it, and the sound toggle unmutes one. Both are names Firefox does not
-      know, so it warns about them instead — an accepted trade: a clean Chrome
+      know, so it warns about them instead, an accepted trade: a clean Chrome
       console is the target, and Firefox's remaining noise is YouTube's own
       document either way.
     -->
     <iframe
       ref="player-host"
       :src="src"
-      :title="`${title} — trailer`"
+      :title="`${title}, trailer`"
       allow="autoplay; compute-pressure"
       class="w-full h-full lg:scale-y-125 scale-y-150"
       frameborder="0"

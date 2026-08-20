@@ -10,7 +10,7 @@ import { formatDate } from '@/lib/format';
 const getProfileById = vi.fn();
 vi.mock('@/api/endpoints/user', () => ({
   userApi: {
-    // The lean read the friends store resolves each row with — the chat store
+    // The lean read the friends store resolves each row with, the chat store
     // watches those details, so it has to answer with a user.
     getById: (id: number) => Promise.resolve({ id, username: `user-${id}`, avatarFileId: null }),
     getProfileById: (id: number) => getProfileById(id),
@@ -242,7 +242,7 @@ describe('UserProfileView', () => {
       expect(wrapper.text()).toContain(`Friends since ${formatDate('2026-01-01T00:00:00.000Z')}`);
     });
 
-    it('shows neither on a stranger — an absent id is not a known-offline one', async () => {
+    it('shows neither on a stranger: an absent id is not a known-offline one', async () => {
       const { wrapper } = await mountProfile(PEER);
 
       expect(wrapper.find(PRESENCE_DOT).exists()).toBe(false);

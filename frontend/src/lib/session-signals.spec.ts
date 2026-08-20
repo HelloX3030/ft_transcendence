@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * Minimal BroadcastChannel stand-in. Node has neither it nor `window`, and the
- * point of these tests is which listeners fire for which message — not the
+ * point of these tests is which listeners fire for which message, not the
  * browser's delivery machinery.
  */
 class FakeBroadcastChannel {
@@ -27,7 +27,7 @@ class FakeBroadcastChannel {
     this.listeners = this.listeners.filter((entry) => entry !== listener);
   }
 
-  /** Delivers as another tab would — the real API never echoes to the sender. */
+  /** Delivers as another tab would, the real API never echoes to the sender. */
   deliver(data: unknown) {
     for (const listener of this.listeners) listener({ data } as MessageEvent);
   }
@@ -46,7 +46,7 @@ function channel(): FakeBroadcastChannel {
   return only;
 }
 
-describe('session signals — cross-tab session changes', () => {
+describe('session signals: cross-tab session changes', () => {
   beforeEach(() => {
     FakeBroadcastChannel.instances = [];
     vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
@@ -138,7 +138,7 @@ describe('session signals — cross-tab session changes', () => {
   });
 });
 
-describe('session signals — terminal 401', () => {
+describe('session signals: terminal 401', () => {
   const listeners = new Map<string, EventListener[]>();
   const fakeWindow = {
     dispatchEvent: (event: Event) => {

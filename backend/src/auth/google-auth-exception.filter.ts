@@ -4,14 +4,10 @@ import { GoogleAuthException } from './auth.service';
 import { requestOrigin } from 'src/config/origins';
 
 /**
- * Turns a failed Google login into a redirect rather than a JSON error.
- *
- * The browser reaches the callback by navigation, so there is no client waiting
- * to read a response body — an error page would be a dead end. This sends the
- * user back to the SPA with a code it maps to copy.
- *
- * A filter rather than a try/catch in the handler because `state` is checked in
- * the guard, which runs before any handler code.
+ * Turns a failed Google login into a redirect rather than a JSON error: the
+ * browser reaches the callback by navigation, so there is no client waiting to
+ * read a body. It is a filter rather than a try/catch in the handler because
+ * `state` is checked in the guard, which runs before any handler code.
  */
 @Catch(GoogleAuthException)
 export class GoogleAuthExceptionFilter implements ExceptionFilter {

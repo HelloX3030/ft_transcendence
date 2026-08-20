@@ -11,7 +11,7 @@ import { APP_ORIGINS } from 'src/config/origins';
 /**
  * Boots the real app with the same pipes, filters and middleware as main.ts.
  *
- * `customize` can swap providers before the module compiles — used to stub out
+ * `customize` can swap providers before the module compiles, used to stub out
  * third-party edges (e.g. the TMDB client) so a suite exercises our own HTTP
  * behaviour without reaching the network.
  */
