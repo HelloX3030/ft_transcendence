@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UpdateUserRequest } from '@cinemates/shared';
-import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
+import { UpdateUserRequest, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@cinemates/shared';
+import { DEFAULT_MAX_LENGTH } from 'src/utils';
 import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateUserDto implements UpdateUserRequest {

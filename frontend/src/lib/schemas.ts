@@ -1,13 +1,24 @@
 import { z } from 'zod';
-import { WATCHLIST_NAME_MAX_LENGTH } from '@cinemates/shared';
+import {
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+  WATCHLIST_NAME_MAX_LENGTH,
+} from '@cinemates/shared';
 
 export const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().nonempty(),
 });
 
+// The bounds come from the shared package so the registration form, the
+// profile form and the backend DTOs cannot drift apart again.
+const usernameSchema = z
+  .string()
+  .min(USERNAME_MIN_LENGTH, `Username must be at least ${USERNAME_MIN_LENGTH} characters long.`)
+  .max(USERNAME_MAX_LENGTH, `Username must be at most ${USERNAME_MAX_LENGTH} characters long.`);
+
 export const userEditSchema = z.object({
-  username: z.string().min(6),
+  username: usernameSchema,
   email: z.string().email(),
 });
 
@@ -23,7 +34,7 @@ export const passwordSchema = z
 
 export const registerSchema = z
   .object({
-    username: z.string().min(6),
+    username: usernameSchema,
     email: z.string().email(),
     password: passwordSchema,
     confirmPassword: z.string(),

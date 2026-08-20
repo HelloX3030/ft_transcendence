@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RegisterRequest } from '@cinemates/shared';
-import { DEFAULT_MAX_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from 'src/utils';
+import { RegisterRequest, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from '@cinemates/shared';
+import { DEFAULT_MAX_LENGTH } from 'src/utils';
 
 import {
   IsEmail,

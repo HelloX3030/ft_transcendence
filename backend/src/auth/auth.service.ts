@@ -124,11 +124,9 @@ const RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 const RESET_COOLDOWN_SECONDS = 60;
 
 /**
- * Generated usernames are padded to 6 rather than the backend's own minimum of
- * 3: the frontend's registerSchema/userEditSchema require 6, so a shorter name
- * would leave a Google user on a profile form they cannot save. The two limits
- * disagreeing is a known defect tracked separately; padding to the stricter one
- * is valid under either.
+ * Generated usernames are padded well past `USERNAME_MIN_LENGTH`: a stem taken
+ * from a two-letter email local part would collide with every other short
+ * address and burn the retry attempts below on names a human is likely to hold.
  */
 const GENERATED_USERNAME_MIN = 6;
 /** Leaves room for a 4-digit collision suffix inside the column's 32 chars. */
