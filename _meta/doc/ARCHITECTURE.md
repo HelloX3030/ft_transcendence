@@ -14,7 +14,7 @@ This document records all tech stack decisions: what was chosen, why, and what r
 | Component library | Reka UI (headless) + shadcn-vue pattern | Decided |
 | State management | Pinia | Decided |
 | Routing | Vue Router | Decided |
-| Icons | Lucide Vue Next | Decided |
+| Icons | Lucide (`@lucide/vue`) | Decided |
 
 ---
 
@@ -25,45 +25,43 @@ This document records all tech stack decisions: what was chosen, why, and what r
 | Framework | NestJS + TypeScript | Decided |
 | ORM | Prisma | Decided |
 | Database | PostgreSQL 16 | Decided |
-| Auth strategy | OAuth 2.0 — Google + 42 | Decided |
-| Auth library | TBD (passport.js or custom) | Open |
-| WebSocket library | TBD (socket.io vs native ws) | Open |
+| Auth library | Passport (`passport-jwt`, `passport-google-oauth20`) | Decided |
+| WebSocket library | socket.io via `@nestjs/websockets` | Decided |
 
 ---
 
 ## Authentication
 
-**OAuth 2.0 with two providers:**
-- Google OAuth (general audience)
-- 42 OAuth (school requirement)
+| Item | Decision | Status |
+|---|---|---|
+| Local login | Email + password, argon2-hashed | Decided |
+| Remote login | Google OAuth 2.0 | Decided |
+| Two-factor | TOTP, own implementation (`qrcode` for enrolment) | Decided |
+| Password reset | Emailed one-time token; OTP still required when TOTP is on | Decided |
+| Session transport | JWT access + refresh tokens in httpOnly cookies | Decided |
 
-No email/password login. Avatar upload is supported post-login.
-
-**Library TBD** — passport.js is the common choice but adds abstraction overhead; a custom implementation using the provider SDKs directly is also viable.
+Email + password is the subject's mandatory baseline; Google OAuth and TOTP are the *remote authentication* and *2FA* minor modules on top of it. Avatar upload is supported post-login.
 
 ---
 
-## Real-time (WebSockets)
+## Real-time
 
-Required for:
-1. Movie Night Mode — live group swipe session + ranking
-2. Friend online status
-3. 1:1 chat
+| Item | Decision | Status |
+|---|---|---|
+| Library | socket.io via `@nestjs/websockets` | Decided |
+| Surface | One `notify` namespace — 1:1 chat, friend online status, notifications | Decided |
 
-**Library TBD:**
-- `socket.io` — higher-level, rooms/namespaces built-in, easier to implement Movie Night sessions, but adds ~50 kB to client bundle
-- `ws` (native WebSocket) — minimal, faster, but requires manual room/broadcast logic
+Chosen over native `ws` for built-in rooms and namespaces; the ~50 kB client bundle cost was accepted.
 
 ---
 
 ## Movie Data & Trailers
 
-| Source | Status | Notes |
+| Item | Decision | Status |
 |---|---|---|
-| Movie metadata | TMDB API | Provisional — needs API key |
-| Trailers | YouTube embeds | Provisional — check ToS for auto-play use case |
-
-**Open:** Catalog scoping logic (which films surface, popularity threshold, streaming availability filter).
+| Movie metadata | TMDB API — server-side client, Redis-cached, request-budgeted | Decided |
+| Trailers | YouTube IFrame API on the `youtube-nocookie` host | Decided |
+| Catalog scoping | Poster + minimum vote count and average, in `tmdb/movie-filter.ts` | Decided |
 
 ---
 
@@ -73,31 +71,14 @@ Required for:
 |---|---|---|
 | Containerization | Docker | Decided |
 | Local orchestration | docker-compose | Decided |
-| Hosting / deployment | TBD | Open |
-| PWA | TBD | Open |
-
-### Recommendation service
-
-A separate Python/FastAPI service (`recommender/`), owned by the algorithm team and run unmodified. It listens on `:8000` on the internal network only — no published port and no Caddy route, because it carries full database credentials and authenticates nothing itself. It shares the Postgres database with the backend, reading `ratings`/`movies`/`users` and writing only `users.feature_vector`. The HTTP contract is documented in [`recommender/recommendation/INTEGRATION.md`](../../recommender/recommendation/INTEGRATION.md).
-
-## Dev Setup
-
-```
-docker compose up --build
-```
-
-- App: `https://localhost:8443` (Vite dev server + HMR, behind Caddy)
-- Backend API: `https://localhost:8443/api` (tsx --watch, behind Caddy)
-- Swagger: `https://localhost:8443/api/docs`
-- PostgreSQL: `localhost:5432`
-
-A Caddy reverse proxy terminates TLS and is the only web port published to the host. It routes `/api/*` to `backend:3000` with the prefix stripped, and everything else to `frontend:5173`, so the whole app lives on one origin — one self-signed-certificate warning to click through, and no cross-origin API calls being silently blocked. Caddy proxies websocket upgrades (Vite HMR, socket.io) without extra configuration. Ports `5173`, `3000` and `9000` are not published; `5432` (Postgres) and `5050` (pgAdmin) remain exposed as developer tools. The proxy sits on `8443`/`8080` rather than `443`/`80` because the school machines run rootless Docker, which cannot publish privileged ports.
+| Reverse proxy | Caddy — terminates TLS, serves the whole app on one origin | Decided |
+| Cache | Redis 7 | Decided |
+| Object storage | MinIO (S3-compatible) | Decided |
+| Mail (dev) | Mailpit | Decided |
 
 ---
 
 ## Code Quality & Formatting
-
-Three-layer pipeline: editor → pre-commit hook → CI. See [`_meta/notes/02-formatting-pipeline.md`](../notes/02-formatting-pipeline.md) for the full reference.
 
 | Tool | Role | Scope |
 |---|---|---|
@@ -106,13 +87,3 @@ Three-layer pipeline: editor → pre-commit hook → CI. See [`_meta/notes/02-fo
 | **oxlint** | Fast linter (subset of ESLint rules, no false positives) | Frontend only |
 | **husky + lint-staged** | Pre-commit hook — runs ESLint + Prettier on staged files only | Both packages |
 | **GitHub Actions** | CI gate — format:check, lint, type-check, unit tests on every PR | Both packages |
-
-**Shared config at repo root:**
-- `.prettierrc` — single source of truth for formatting rules (`singleQuote`, `trailingComma`, `endOfLine: lf`, `printWidth: 100`); inherited by both `frontend/` and `backend/`
-- `.gitattributes` — enforces LF line endings in git (must match `endOfLine: lf` in Prettier to avoid churn)
-
-**Per-package ESLint configs** (`frontend/eslint.config.mjs`, `backend/eslint.config.mjs`) — flat config format (ESLint 9+). Both include `eslint-config-prettier` to disable formatting rules, deferring entirely to Prettier.
-
-**Key constraint:** Prettier and ESLint must never configure the same rules. `eslint-config-prettier` is the last entry in both ESLint configs to enforce this.
-
-**Developer first-time setup** — after cloning, run `npm install` at the repo root to activate the pre-commit hook via husky's `prepare` script. Without this, git hooks don't exist on the local machine.
