@@ -1,31 +1,35 @@
 # Terms of Service — CineMates
 
-**Last updated:** July 1, 2026
+**Last updated:** August 21, 2026
 
-Welcome to CineMates! These Terms of Service ("Terms") govern your access to and use of the CineMates application (the "Service"), operated by **CineMates – a student project at 42 Heilbronn** ("we", "us", "our") as part of the 42 School Common Core curriculum (ft_transcendence).
+Welcome to CineMates. These Terms govern your use of the CineMates application (the "Service"), built by **CineMates — a student project at 42 Heilbronn** ("we", "us", "our") as part of the 42 School Common Core curriculum (ft_transcendence).
 
-By creating an account or using the Service, you agree to these Terms. If you do not agree, please do not use the Service.
+By creating an account and using the Service, you agree to these Terms. If you do not agree, please do not use it.
 
-> **Note:** CineMates is a non-commercial student project built for educational purposes as part of a 42 School evaluation. It is not a commercial product, and these Terms are drafted accordingly — but they still aim to be a genuine, GDPR-conscious framework for how the Service handles your data and interactions.
+> **Note:** CineMates is a non-commercial student project, written for an evaluation rather than for a market. These Terms are written accordingly: short, plain, and describing only what the application actually does.
 
 ---
 
 ## 1. Eligibility
 
-You must be **18 years of age or older** to create an account and use CineMates. By registering, you confirm that you meet this age requirement. If we become aware that a user does not meet this requirement, we reserve the right to suspend or delete the associated account.
+CineMates is intended for people **18 or older**. We do not ask for your age and cannot verify it, so this is a rule of the project rather than a check we perform. If we learn that an account belongs to someone younger, we may remove it.
 
 ## 2. The Service
 
-CineMates lets you discover movies through a vertical, swipeable trailer feed, build a personal watchlist, connect with friends, chat, and participate in real-time group sessions ("Movie Night") to find something to watch together. Movie metadata and trailers are sourced from third-party providers, including **TMDB** (The Movie Database) and **YouTube**, and are subject to those providers' own terms and content availability.
+CineMates helps you find something to watch. You swipe through a feed of movie trailers, keep the ones you like on watchlists, share those lists with other people, add friends, chat with them, and search for specific movies, actors or directors. What the feed shows you is decided by a recommendation engine that learns from your ratings.
 
-We may add, change, or remove features at any time, including during active development, without prior notice — this is an evolving student project.
+Movie data and trailers come from **TMDB** and **YouTube**, and depend on what those services make available.
+
+This is an actively developed student project. Features may be added, changed or removed without notice, including during evaluations.
 
 ## 3. Accounts & Authentication
 
-- You can sign up and log in via **OAuth through Google or the 42 intranet**. We do not receive or store your password for these providers.
-- You are responsible for keeping your account secure and for all activity that occurs under it.
-- You may optionally upload a profile avatar. If you don't, a default avatar is used.
-- You agree to provide accurate information (e.g., genre/actor/director preferences) during onboarding and in your settings.
+- You can sign up with an **email address and a password**, or **through Google**. There is no other login method.
+- If you use a password, we store it hashed with argon2 — we cannot read it, but it is stored. If you use Google, we store your Google account id instead of a password.
+- You can turn on **two-factor login** with an authenticator app. It is optional and off by default.
+- If you forget your password, we email you a single-use reset link.
+- You are responsible for keeping your account secure and for what happens under it.
+- A profile avatar is optional; without one you get a default.
 
 ## 4. Acceptable Use
 
@@ -37,23 +41,26 @@ When using CineMates, you agree **not** to:
 - Use automated tools (bots, scrapers) to interact with the Service outside of normal use.
 - Use the Service to violate the rights (including intellectual property rights) of others.
 
-We may remove content or suspend/terminate accounts that violate these rules, at our discretion.
+We may remove content or suspend accounts that break these rules.
 
-## 5. Social Features & Movie Night
+## 5. Friends, Chat & Shared Watchlists
 
-- **Friends & Chat:** You can add/remove friends and exchange 1:1 text messages. Please be respectful — chat content is between you and your friend, but we may access it if required to investigate abuse reports or comply with legal obligations.
-- **Movie Night:** Movie Night sessions are real-time, group-based swiping sessions. When you join a session, your swipes and online status within that session are visible to other participants in real time.
-- **Online status** (e.g., whether a friend is currently active) is visible to your connected friends.
+- **Friends.** You send a request, the other person accepts it, and either of you can end it later.
+- **Chat.** You can exchange one-to-one text messages with your friends. Messages are stored on our server, and **deleted automatically 90 days after they are sent** — for both of you, with no way to recover them. Treat chat as a conversation, not an archive.
+- **Online status.** Your friends can see when you are online.
+- **Shared watchlists.** A watchlist can be shared with other users, who may view or edit it depending on the role you give them. Anything you put on a shared list is visible to everyone it is shared with.
+- We may look at content if we have to investigate a report of abuse.
 
 ## 6. Content & Intellectual Property
 
-- Movie titles, posters, descriptions, cast/crew information, and trailers are provided by third parties (TMDB, YouTube) and remain the property of their respective rights holders. CineMates does not claim ownership of this content.
-- The CineMates name, logo, and original interface design are part of the student project and may not be reused for commercial purposes without permission.
-- Content you upload (e.g., your avatar) remains yours, but you grant us a limited license to store and display it within the Service for as long as your account exists.
+- Movie titles, posters, descriptions, cast and crew information, and trailers come from third parties and belong to their rights holders. CineMates claims none of it.
+- This product uses the TMDB API but is not endorsed or certified by TMDB.
+- The CineMates name and the interface we built are part of the student project and are not for commercial reuse.
+- Your avatar stays yours; you allow us to store and display it inside the Service while your account exists.
 
 ## 7. Data & Privacy
 
-Our handling of your personal data is described in our **[Privacy Policy](./privacy-policy.md)**, which forms part of these Terms. In short: we collect what's needed to run the Service (profile info, preferences, interactions, friend/chat data), we store it on **EU-based servers**, and you can request an export or full deletion of your data at any time in line with the GDPR.
+What we store and how long we keep it is described in our **Privacy Policy**, linked at the bottom of this page, which forms part of these Terms. In short: we store what the app needs to work — your account, preferences, ratings, friends, chat and watchlists — on whichever machine is running the project. Chat messages and notifications are deleted automatically after a set time, and you can email us to have your account deleted.
 
 ## 8. Service Availability & Disclaimer
 
@@ -63,22 +70,22 @@ CineMates is a student project, actively developed and evaluated as part of a sc
 - We do not guarantee uninterrupted, error-free, or secure operation. Features may break, change, or be temporarily unavailable — including during evaluations, demos, or ongoing development.
 - We are not liable for any damages arising from your use of (or inability to use) the Service, to the maximum extent permitted by applicable law.
 
-## 9. Termination
+## 9. Ending Your Account
 
-You may delete your account at any time via your account settings, which will trigger full deletion of your personal data as described in the Privacy Policy. We may suspend or terminate your access if you violate these Terms, or if the project/service is discontinued (e.g., after the end of the academic evaluation period).
+Email **cwolf@student.42heilbronn.de** and we will delete your account, along with everything attached to it. This cannot be undone. We may also suspend or remove an account that breaks these Terms, and the whole project may be shut down once the academic evaluation is over.
 
 ## 10. Changes to These Terms
 
-We may update these Terms as the project evolves. If we make material changes, we'll make a reasonable effort to notify you (e.g., via an in-app notice) before they take effect. Continued use of the Service after changes take effect constitutes acceptance of the updated Terms.
+We may update these Terms as the project changes. The date at the top says when they were last edited, and continuing to use the Service after a change means you accept it.
 
 ## 11. Governing Law
 
-These Terms are governed by the laws of **Germany**, without regard to conflict-of-law principles, without prejudice to any mandatory consumer-protection rights you may have under the law of your country of residence if you are an EU consumer.
+These Terms are governed by the laws of **Germany**, without prejudice to any mandatory consumer-protection rights you may have where you live if you are an EU consumer.
 
 ## 12. Contact
 
-Questions about these Terms? Reach out to **cwolf@student.42heilbronn.de**.
+Questions about these Terms? Write to **cwolf@student.42heilbronn.de**.
 
 ---
 
-_This document was prepared for a 42 School student project (ft_transcendence) and is intended to demonstrate GDPR-conscious, user-respecting terms rather than to serve as a substitute for professional legal advice for a commercial product._
+_Written for a 42 School student project (ft_transcendence). It describes what this application actually does, and is not a substitute for legal advice for a commercial product._
