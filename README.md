@@ -282,8 +282,6 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 
 **Why one origin, and nothing else published.** Only Caddy's ports reach the host. The frontend, backend and recommender ports are deliberately unpublished — if they were reachable, the plain-HTTP path would still exist. The recommender is unpublished for a stronger reason: it holds full database credentials and has no authentication of its own, so being unreachable from the host is what protects it.
 
-Full decision log: [ARCHITECTURE.md](ARCHITECTURE.md).
-
 ---
 
 ## Database Schema
@@ -882,7 +880,7 @@ AI tooling was used throughout the project, always as an assistant to work the t
 
 **1. Automated testing and CI pipelines.** Generating and expanding the automated quality infrastructure: the GitHub Actions workflow, the ESLint/oxlint and Prettier configuration, the Husky and lint-staged pre-commit setup, and large parts of the **unit and end-to-end test suites** (`backend/src/**/*.spec.ts`, `backend/test/**/*.e2e-spec.ts`, `frontend/src/**/*.spec.ts`). Test scaffolding is repetitive and mechanical — exactly the kind of work worth delegating — while deciding *what* is worth asserting stayed with us. Assertions were reviewed to confirm they actually test behaviour rather than restating the implementation.
 
-**2. Documentation.** Producing and maintaining the written artefacts of the project: this README, [`ARCHITECTURE.md`](ARCHITECTURE.md), the notes under [`_meta/`](_meta/), and the API documentation annotations that generate the Swagger page. AI drafted; the team supplied the facts, the decisions and the reasoning, and corrected the drafts against the actual code. Where the draft claimed something the code did not do, the claim was removed rather than the code changed to match it.
+**2. Documentation.** Producing and maintaining the written artefacts of the project: this README, the notes under [`_meta/`](_meta/), and the API documentation annotations that generate the Swagger page. AI drafted; the team supplied the facts, the decisions and the reasoning, and corrected the drafts against the actual code. Where the draft claimed something the code did not do, the claim was removed rather than the code changed to match it.
 
 **3. Code audits and bug hunting.** Reviewing our own structure for problems that are easy to miss from the inside — inconsistent error handling, endpoints that had drifted from the unified response shape, missing authorisation checks, unhandled edge cases in the session and TOTP logic, and race conditions around concurrent refresh. Findings were treated as leads to verify, not as verdicts: several were false positives, and those that were real were fixed by hand once we understood them.
 
@@ -890,7 +888,7 @@ AI tooling was used throughout the project, always as an assistant to work the t
 
 **5. Implementing changes from a written spec.** For well-understood changes, we wrote a precise specification first — what should change, where, and what the resulting behaviour must be — and used AI to carry out the implementation against it. Writing the spec is where the thinking happens; it also makes the result reviewable, because there is a stated intent to check the diff against. This was used for refactors and mechanical changes with a clear shape, not for designing features.
 
-**Where it was deliberately not used:** the core design decisions — the product concept, the module selection, the database schema, the recommendation engine's algorithmic approach, and the architectural choices recorded in `ARCHITECTURE.md` — were made by the team. Those are the decisions we have to defend, and AI tends to produce the most likely answer rather than the one that fits our specific constraints.
+**Where it was deliberately not used:** the core design decisions — the product concept, the module selection, the database schema, the recommendation engine's algorithmic approach, and the architectural choices recorded in the Technical Stack section above — were made by the team. Those are the decisions we have to defend, and AI tends to produce the most likely answer rather than the one that fits our specific constraints.
 
 ---
 
@@ -919,7 +917,6 @@ AI tooling was used throughout the project, always as an assistant to work the t
 ├── scripts/           Utility scripts (browser-console check)
 ├── _meta/             Internal notes: formatting pipeline, database, git convention
 ├── docker-compose.yml Nine services, one command
-├── ARCHITECTURE.md    Tech stack decision log
 └── .env.example       Every environment variable, documented
 ```
 
