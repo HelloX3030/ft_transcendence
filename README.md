@@ -110,7 +110,9 @@ Attribution names the person who **drove** each feature. Almost everything was r
 
 ## Modules
 
-**Total: 14 points — 5 Major (2 pts each) + 4 Minor (1 pt each).**
+**Total: 15 points — 5 Major (2 pts each) + 5 Minor (1 pt each).**
+
+The subject requires 14. The fifteenth point is deliberate: it is the buffer the subject recommends keeping, so that a module not being validated during evaluation does not drop us below the minimum.
 
 | # | Module | Category | Type | Pts |
 |---|---|---|---|---|
@@ -124,7 +126,7 @@ Attribution names the person who **drove** each feature. Almost everything was r
 | 8 | File upload and management system | Web | Minor | 1 |
 | 9 | Remote authentication with OAuth 2.0 | User Management | Minor | 1 |
 | 10 | Complete 2FA (Two-Factor Authentication) system | User Management | Minor | 1 |
-| | | | **Total** | **14** |
+| | | | **Total** | **15** |
 
 ### 1. Framework for both frontend and backend — Major (2 pts)
 
