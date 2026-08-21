@@ -2,6 +2,13 @@ export { APP_NAME } from '@cinemates/shared';
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 /**
+ * Wording fixed by TMDB's API terms, which require the notice wherever their
+ * data is shown. Not ours to paraphrase.
+ */
+export const TMDB_ATTRIBUTION =
+  'This product uses the TMDB API but is not endorsed or certified by TMDB.';
+
+/**
  * Whether to offer "Continue with Google". False unless the server was given
  * Google credentials, since the endpoint answers 503 without them.
  */

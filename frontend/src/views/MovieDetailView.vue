@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useMovieDetail } from '@/composables/useMovieDetail';
+import { TMDB_ATTRIBUTION } from '@/lib/constants';
 import { useWatchProviders } from '@/composables/useWatchProviders';
 
 import TrailerModal from '@/components/moviedetails/TrailerModal.vue';
@@ -86,6 +87,9 @@ const posterUrl = computed(() => `https://image.tmdb.org/t/p/w342${movie.value?.
         <MovieCredits :director="director" :cast="topCast" />
         <MovieProviders v-if="providers.length" :providers="providers" />
         <SimilarMovies :movies="similarMovies" />
+
+        <!-- Required by TMDB's API terms wherever their data is shown. -->
+        <p class="text-xs text-zinc-500">{{ TMDB_ATTRIBUTION }}</p>
       </div>
 
       <MovieActionBar :has-trailer="!!movie.trailerKey" @trailer="showTrailer = true" />

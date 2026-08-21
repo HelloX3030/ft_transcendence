@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { ArrowLeft } from '@lucide/vue';
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME, TMDB_ATTRIBUTION } from '@/lib/constants';
 import { useAuthStore } from '@/stores/auth';
 
 const props = defineProps<{
@@ -40,10 +40,11 @@ const backPath = computed(() => (auth.isLoggedIn ? '/' : '/login'));
       <div class="prose prose-invert max-w-none" v-html="props.content" />
     </main>
 
-    <footer class="text-muted-foreground mx-auto max-w-2xl p-6 pt-0 text-sm">
+    <footer class="text-muted-foreground mx-auto flex max-w-2xl flex-col gap-2 p-6 pt-0 text-sm">
       <RouterLink :to="props.otherPath" class="hover:underline">
         {{ props.otherTitle }}
       </RouterLink>
+      <p class="text-xs">{{ TMDB_ATTRIBUTION }}</p>
     </footer>
   </div>
 </template>
