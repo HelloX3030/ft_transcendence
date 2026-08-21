@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { messages, Prisma } from '@prisma/client';
@@ -31,7 +32,7 @@ import { ChatMsgDto, ListMessagesDto } from './dto';
 type LastMessageRow = messages;
 
 @Injectable()
-export class ChatService {
+export class ChatService implements OnModuleInit {
   private readonly logger = new Logger(ChatService.name);
 
   constructor(
@@ -40,6 +41,20 @@ export class ChatService {
     @Inject(forwardRef(() => NotifyService))
     private readonly notify: NotifyService,
   ) {}
+
+  /**
+   * The cron below only fires while the app happens to be up at 3am, which a
+   * stack that is started for a demo and stopped again never is. Sweeping once
+   * at boot is what makes the retention window hold in practice rather than
+   * only on paper. Failing is not fatal: the next boot sweeps the same rows.
+   */
+  async onModuleInit() {
+    try {
+      await this.pruneExpired();
+    } catch (err) {
+      this.logger.warn(`Startup message prune failed: ${(err as Error).message}`);
+    }
+  }
 
   /**
    * Persists one message after re-authorising the sender. The friendship check

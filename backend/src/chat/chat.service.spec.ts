@@ -217,6 +217,21 @@ describe('ChatService', () => {
         where: { createdAt: { lt: daysAgo(MESSAGE_RETENTION_DAYS, now) } },
       });
     });
+
+    it('sweeps once at startup, since the cron needs the app up at 3am', async () => {
+      mockPrisma.messages.deleteMany.mockResolvedValue({ count: 2 });
+
+      await service.onModuleInit();
+
+      expect(mockPrisma.messages.deleteMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts anyway when the startup sweep fails', async () => {
+      jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+      mockPrisma.messages.deleteMany.mockRejectedValue(new Error('connection reset'));
+
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+    });
   });
 });
 
