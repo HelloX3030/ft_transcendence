@@ -10,8 +10,16 @@ The full pipeline is implemented, tested, and DB-backed. Profiles load from
 `users.feature_vector` on startup (onboarding prefs seed cold-start users), persist
 back after every signal, and feed requests deduplicate against the user's `ratings`
 history. The real `CollaborativeFilter` is wired in `main.py`; `TMDBBridgeImpl`
-activates automatically when `TMDB_API_KEY` is set. Remaining work: `retrain.py`
-and Docker integration.
+activates automatically when `TMDB_API_KEY` is set. Docker integration landed on
+main (`recommender/Dockerfile` + the `recommender` service in `docker-compose.yml`).
+
+Issues #247 (over-constrained Discover query) and #249 (same films on every call)
+are addressed: the candidate pool is now the union of one query per taste
+dimension, and `/feed` takes a `cursor` that moves the window and rotates the
+sort order. Both deviate from `architecture.md` as originally written — the
+deviations are recorded in §2.3 and §2.4 there.
+
+Remaining work: `retrain.py`.
 
 ```
 recommendation/
@@ -29,15 +37,16 @@ recommendation/
 ├── db.py                  asyncpg persistence: profile encode/decode, seen-ids, SVD rows — complete
 ├── retrain.py             not started
 ├── tests/
-│   ├── test_tmdb_bridge.py       8 tests — profile_to_params
-│   ├── test_fetch_candidates.py  9 tests — fetch_candidates (async)
+│   ├── test_tmdb_bridge.py      18 tests — profile_to_params, query plan, cursor rotation
+│   ├── test_fetch_candidates.py 16 tests — fetch_candidates + plan union (async)
 │   ├── test_content_based.py    23 tests — content_score + update_profile (all weight dicts)
 │   ├── test_collaborative.py    12 tests — predict + train + checkpoint I/O
-│   └── test_db.py               12 tests — vector round-trip, onboarding seed, DSN cleanup
+│   ├── test_db.py               11 tests — vector round-trip, onboarding seed, DSN cleanup
+│   └── test_engine.py            9 tests — cursor derivation + empty-pool fallback
 └── architecture.md        full algorithm spec (reference, do not edit here)
 ```
 
-Run tests from `backend/app/`:
+Run tests from `recommender/`:
 ```
 python3 -m pytest recommendation/tests -v
 ```
@@ -71,6 +80,12 @@ python3 -m pytest recommendation/tests -v
 | Profile persistence trigger | After every `/signal`, write-through; DB errors log but return 204 | A DB blip must not fail the swipe; RAM profile stays correct and is re-persisted on the next signal |
 | Late-registered users | Lazy `_ensure_profile` per request in `main.py` | Startup bulk-load misses users created afterwards; one cheap existence check per request covers them |
 | TMDB auth | `Authorization: Bearer` header, not `api_key` query param | `TMDB_API_KEY` in `.env` holds a v4 read access token (see NestJS `TmdbClient`) — v3 query auth rejects it |
+| Discover query shape (#247) | **One query per taste dimension, unioned** — not one query constrained by all of them | AND-joining every dimension returns nothing for engaged users; Discover does recall, re-ranking does precision |
+| Genre join (#247) | `\|` (OR), was `,` (AND) | Almost no film carries the user's top three genres at once |
+| `vote_average.gte` (#247) | `avg_vote - tmdb_vote_margin`, was `avg_vote` | A floor on the average of liked films excludes half of them by construction |
+| Feed pagination (#249) | `cursor` on `FeedRequest`, plus an advance derived from `len(seen_ids)` | The caller's cursor covers repeated calls before any signal lands; watch history covers everything after |
+| Sort rotation (#249) | `tmdb_sort_cycle` cycled by cursor | Paging alone walks one ordering of the same popularity ranking |
+| Empty pool (#249) | Retry once, unconstrained by taste | A blank screen is worse than an unpersonalised suggestion |
 
 ---
 

@@ -30,6 +30,10 @@ class MovieMetadata:
 class FeedRequest(BaseModel):
     user_id: str
     limit: int = Field(default=10, ge=1, le=50)
+    # How many feeds deep into this browsing session the caller already is.
+    # 0 is the first page; each further call raises it to walk the candidate
+    # window forward instead of re-serving the same films (issue #249).
+    cursor: int = Field(default=0, ge=0)
 
 
 class ScoredMovie(BaseModel):

@@ -19,11 +19,18 @@ interface ScoredMovie {
 export class RecommenderClient {
   private readonly logger = new Logger(RecommenderClient.name);
 
-  /** TMDB ids, best first. Already excludes everything the user has rated. */
-  async feed(userId: number, limit: number): Promise<number[]> {
+  /**
+   * TMDB ids, best first. Already excludes everything the user has rated.
+   *
+   * `cursor` is how many feeds deep into this browsing session the caller
+   * already is: 0 is the first page, and raising it walks the recommender's
+   * candidate window forward. Without it every call inside one session returns
+   * the same films, since the service has no other way to tell them apart.
+   */
+  async feed(userId: number, limit: number, cursor = 0): Promise<number[]> {
     const scored = await this.post<ScoredMovie[]>(
       '/feed',
-      { user_id: String(userId), limit },
+      { user_id: String(userId), limit, cursor },
       FEED_TIMEOUT_MS,
     );
     return scored.map((movie) => movie.movie_id);

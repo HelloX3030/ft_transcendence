@@ -3,7 +3,7 @@
 > How the NestJS backend talks to the Python recommendation microservice.
 > Audience: backend + frontend teams. Algorithm internals live in `architecture.md`;
 > implementation status in `PROGRESS.md`.
-> Last updated: 2026-07-08 (branch `algorithm`).
+> Last updated: 2026-08-31 (branch `recommender-issues`; issues #247 and #249).
 
 ---
 
@@ -49,13 +49,26 @@ see TMDB ids — nothing to convert on our side.
 **Request**
 
 ```json
-{ "user_id": "42", "limit": 10 }
+{ "user_id": "42", "limit": 10, "cursor": 0 }
 ```
 
 | Field | Type | Constraints |
 |---|---|---|
 | `user_id` | string | required — `users.id` as string |
 | `limit` | int | optional, default 10, min 1, max 50 |
+| `cursor` | int | optional, default 0, min 0 — how many feeds deep into this browsing session the caller already is |
+
+**About `cursor`.** Call `/feed` twice with the same `cursor` and you get the
+same films: nothing else distinguishes the two calls. Raise it by one for each
+further page inside one browsing session, and the candidate window moves
+forward (and the Discover sort order rotates) so the user keeps seeing new
+things. Reset it to `0` when a session starts.
+
+You do not have to send it. The service also derives an advance from how much
+the user has already rated, so a caller that always sends `0` still gets a feed
+that moves as the user swipes — the cursor is what makes *repeated calls before
+any of them produce a signal* return different films. `MoviesService.getFeed`
+uses it to page rather than to widen its window.
 
 **Response `200`** — sorted best-first, ready to serve in order:
 
@@ -75,11 +88,14 @@ see TMDB ids — nothing to convert on our side.
 
 1. Load the user's taste profile (RAM, hydrated from `users.feature_vector` +
    onboarding prefs at startup).
-2. Translate the profile into a TMDB Discover query (top genres, keywords,
-   cast/director, min-vote threshold; daily page rotation for variety).
-3. Fetch ~3 Discover pages in parallel (60 candidates), refill if needed.
+2. Translate the profile into a **set** of TMDB Discover queries: a core query
+   (top genres OR-joined + vote floors) plus one query each for favourite cast,
+   crew and keywords. Page and sort order come from the cursor.
+3. Fetch them all in parallel (~3 pages for the core query, 1 per facet) and
+   **union** the results, refilling from the core query if the pool is short.
 4. **Drop every movie the user has already rated** (from `ratings`) — the caller
-   does not need to deduplicate.
+   does not need to deduplicate. If that leaves nothing at all, retry once with
+   every taste constraint dropped, so the feed is never empty for want of trying.
 5. Re-rank the pool: content similarity (genre cosine + overview TF-IDF) blended
    with SVD collaborative filtering, plus engagement deltas, freshness and
    anti-filter-bubble boosts.

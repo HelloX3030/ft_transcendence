@@ -12,7 +12,7 @@ from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
-from .tmdb_bridge import TMDBBridgeImpl, profile_to_params
+from .tmdb_bridge import TMDBBridgeImpl, profile_to_query_plan
 
 # uvicorn only configures its own loggers, without this, the service's INFO
 # lines (profile-load count, DB fallback warnings) never reach the console.
@@ -42,8 +42,8 @@ logging.getLogger("uvicorn.access").addFilter(_SkipHealthChecks())
 
 class _TMDBStub:
     """
-    Real parameter translation (tmdb_bridge.profile_to_params), but candidates
-    come from a fixed pool of 10 real TMDB movies, the params are computed and
+    Real parameter translation (tmdb_bridge.profile_to_query_plan), but candidates
+    come from a fixed pool of 10 real TMDB movies, the plan is computed and
     then ignored. Replaced by TMDBBridgeImpl once TMDB_API_KEY is wired in Docker.
 
     IDs: Dark Knight, Inception, Fight Club, Forrest Gump, The Avengers,
@@ -63,11 +63,11 @@ class _TMDBStub:
         MovieMetadata(tmdb_id=603,    genre_ids=[28, 878],           overview="A computer hacker discovers the world is a simulation."),
     ]
 
-    def profile_to_params(self, profile, diversify: bool) -> dict:  # type: ignore[override]
-        return profile_to_params(profile, diversify=diversify)
+    def profile_to_query_plan(self, profile, diversify: bool, cursor: int = 0) -> list[dict]:  # type: ignore[override]
+        return profile_to_query_plan(profile, diversify=diversify, cursor=cursor)
 
     async def fetch_candidates(
-        self, params: dict, exclude: list[int], min_pool: int = 20
+        self, plan: list[dict], exclude: list[int], min_pool: int = 20
     ) -> list[MovieMetadata]:
         exclude_set = set(exclude)
         return [m for m in self._POOL if m.tmdb_id not in exclude_set]
@@ -161,7 +161,10 @@ async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
             logger.exception("seen-ids query failed for user %s, feed served undeduplicated", request.user_id)
 
     return await _get_engine().get_feed(
-        user_id=request.user_id, limit=request.limit, seen_ids=seen_ids
+        user_id=request.user_id,
+        limit=request.limit,
+        seen_ids=seen_ids,
+        cursor=request.cursor,
     )
 
 
