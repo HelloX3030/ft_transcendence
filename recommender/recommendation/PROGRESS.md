@@ -19,7 +19,7 @@ dimension, and `/feed` takes a `cursor` that moves the window and rotates the
 sort order. Both deviate from `architecture.md` as originally written — the
 deviations are recorded in §2.3 and §2.4 there.
 
-Remaining work: `retrain.py`.
+The module checklist is complete.
 
 ```
 recommendation/
@@ -35,14 +35,16 @@ recommendation/
 ├── tmdb_bridge.py         profile_to_params + fetch_candidates + fetch_movie_detail — complete
 ├── collaborative.py       SVD load/predict/train + atomic checkpoint — complete
 ├── db.py                  asyncpg persistence: profile encode/decode, seen-ids, SVD rows — complete
-├── retrain.py             not started
+├── retrain.py             nightly SVD refit + one-at-a-time guard — complete
 ├── tests/
 │   ├── test_tmdb_bridge.py      18 tests — profile_to_params, query plan, cursor rotation
 │   ├── test_fetch_candidates.py 16 tests — fetch_candidates + plan union (async)
 │   ├── test_content_based.py    23 tests — content_score + update_profile (all weight dicts)
 │   ├── test_collaborative.py    12 tests — predict + train + checkpoint I/O
 │   ├── test_db.py               11 tests — vector round-trip, onboarding seed, DSN cleanup
-│   └── test_engine.py            9 tests — cursor derivation + empty-pool fallback
+│   ├── test_engine.py            9 tests — cursor derivation + empty-pool fallback
+│   ├── test_retrain.py          12 tests — thresholds, failures, concurrency guard
+│   └── test_retrain_endpoint.py 10 tests — the /retrain auth gate
 └── architecture.md        full algorithm spec (reference, do not edit here)
 ```
 
@@ -86,6 +88,10 @@ python3 -m pytest recommendation/tests -v
 | Feed pagination (#249) | `cursor` on `FeedRequest`, plus an advance derived from `len(seen_ids)` | The caller's cursor covers repeated calls before any signal lands; watch history covers everything after |
 | Sort rotation (#249) | `tmdb_sort_cycle` cycled by cursor | Paging alone walks one ordering of the same popularity ranking |
 | Empty pool (#249) | Retry once, unconstrained by taste | A blank screen is worse than an unpersonalised suggestion |
+| Retrain trigger | `POST /retrain`, secret in an `X-Retrain-Secret` header | Query strings are logged verbatim by servers, proxies and browsers |
+| Unset `RETRAIN_SECRET` | Refuse every request (503) | The opposite default is an open endpoint nobody notices |
+| Too-thin training data | Skip, keep the old checkpoint | A model fitted on noise is worse than a stale one |
+| Concurrent retrains | Plain flag, refuse the second immediately | A cron that double-fires must not stack two SVD fits |
 
 ---
 
@@ -113,7 +119,7 @@ python3 -m pytest recommendation/tests -v
 | `tmdb_bridge.py` | Done | `profile_to_params` + `fetch_candidates` + `fetch_movie_detail`; v4 Bearer auth |
 | `collaborative.py` | Done | SVD load/predict/train; atomic checkpoint; zero fallback until first train |
 | `db.py` | Done | Profile load/save (+onboarding seed), seen-ids, SVD training rows |
-| `retrain.py` | Not started | Nightly SVD batch job — `db.fetch_interactions()` already provides the rows |
+| `retrain.py` | Done | Nightly SVD refit; skips rather than fits on too-thin data; one run at a time |
 
 ---
 
@@ -143,24 +149,24 @@ the asyncpg query paths were verified manually against a scratch PostgreSQL 16
 with the real column definitions (load, save, seen-ids dedup, restart survival).
 Without `DATABASE_URL` the service logs a warning and runs in-RAM only.
 
-### `/retrain` endpoint not secured
+### Nothing schedules `/retrain` yet
 
-Accepts a `secret` query param but does not verify it and schedules nothing.
-
-**Blocked on:** `retrain.py`.
+The endpoint works and is authenticated, but no cron calls it, so the SVD
+checkpoint is only refreshed when someone triggers it by hand. Until then
+`predict()` returns zeros and the hybrid score is effectively content-only.
+Wiring a nightly caller is the backend team's side (`INTEGRATION.md` §3.4).
 
 ---
 
 ## Next Steps
 
-**1. `retrain.py`**
-Nightly SVD retrain job: `db.fetch_interactions()` → `CollaborativeFilter.train()`,
-triggered via `/retrain` (verify secret against an env var, then run in a background
-task). Checkpoint swap is already atomic.
+**1. Schedule the nightly retrain**
+`/retrain` is implemented and authenticated; nothing calls it yet. Any cron that
+can send `X-Retrain-Secret` will do.
 
-**2. Docker integration**
-Hand the run command + env vars below to the infra team; the service is
-deploy-ready (DB and TMDB both activate via env vars alone).
+**2. Onboarding virtual likes**
+Fire one `/signal` per picked movie after onboarding. The preference arrays seed
+genres/cast/directors; only real signals teach keywords and the overview TF-IDF.
 
 **3. NestJS → recommender wiring**
 Backend needs to call `POST /feed` and `POST /signal` (contract in `schemas.py`)

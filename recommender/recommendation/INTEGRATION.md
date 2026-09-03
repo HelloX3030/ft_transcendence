@@ -157,11 +157,45 @@ accumulated. The next `/feed` call already reflects the interaction.
 
 Use as the Docker healthcheck.
 
-### 3.4 `POST /retrain?secret=...` — nightly SVD retrain (not functional yet)
+### 3.4 `POST /retrain` — nightly SVD retrain
 
-Returns `202` but currently schedules nothing (`retrain.py` is the next work
-item). Will be triggered by an internal cron, never by user traffic. Ignore for
-integration purposes.
+Refits the collaborative-filtering model on every rating in the database.
+Triggered by a cron, never by user traffic.
+
+**Request** — the secret goes in a header, not the query string, because query
+strings are written verbatim into access, proxy and browser-history logs:
+
+```
+POST /retrain
+X-Retrain-Secret: <RETRAIN_SECRET>
+```
+
+**Response `202`** — returns immediately; the fit runs in the background:
+
+```json
+{ "status": "scheduled", "previous": { "status": "trained", "interactions": 4210,
+  "users": 87, "movies": 940, "duration_seconds": 1.83, "detail": "" } }
+```
+
+`previous` is the last completed run, or `null` on the first call — it is how
+you check that last night's retrain actually worked, since the fit outlives the
+response. `status` is `already_running` if one is still in flight.
+
+| Code | Meaning |
+|---|---|
+| `202` | Scheduled, or `already_running` |
+| `401` | Missing or wrong `X-Retrain-Secret` |
+| `503` | `RETRAIN_SECRET` unset (endpoint refuses rather than running open), or no `DATABASE_URL` |
+
+**What it does:** reads every row of `ratings`, fits SVD, and atomically swaps
+the checkpoint — `predict()` keeps serving the old factors until the new file is
+in place, so a retrain never interrupts a live feed. It **skips** rather than
+trains when the data is too thin (fewer than 20 ratings, 3 users or 3 movies):
+a model fitted on noise would replace a better one. Skips and failures are
+reported in `previous.status`, and the existing checkpoint is left untouched.
+
+**To schedule it:** any nightly authenticated HTTP request works. Nothing calls
+it yet — wiring the cron is the backend team's side.
 
 ---
 
@@ -186,20 +220,25 @@ Two rules keep us consistent:
 
 ## 5. Onboarding — one open integration item
 
-`POST /users/me/onboarding` currently stamps **mock** `genreIds`/`actorIds`/
-`directorIds` (see TODO in `users.service.ts`). Two complementary fixes, both
-supported today:
+**Done:** `POST /users/me/onboarding` derives real `genreIds`/`actorIds`/
+`directorIds` from the picked movies (`derivePreferences` in
+`users.service.ts`) and stores them. We read those three columns as the
+cold-start seed, weighting every id equally at 1.0.
 
-1. **Real preference arrays** — derive genre/actor/director ids from the picked
-   movies (TMDB detail via your proxy) and store them instead of the mocks. We
-   read these columns as the cold-start seed.
-2. **Virtual likes (recommended, simplest)** — after onboarding completes, fire
-   one `/signal` per picked movie: `{"user_id": "...", "movie_id": <tmdbId>, "action": "like"}`.
-   That is exactly the "top-5 favorites become virtual likes" mechanism from the
-   architecture spec (§1.5) — the profile learns genres *and* cast/directors/
-   keywords from the picks automatically, and it gets persisted for us.
+How much of the derivation is stored is capped by `ONBOARDING_MAX_GENRES`,
+`ONBOARDING_MAX_ACTORS` and `ONBOARDING_MAX_DIRECTORS`. The last two sat at `0`
+while the recommender AND-joined every dimension into a single Discover query
+(issue #247) — actor and director seeds were derived and then thrown away. That
+query is now a per-dimension fan-out, so the caps are back to `5/4/3`.
 
-Doing (2) alone already gives new users a fully personalized first feed.
+**Still open — virtual likes.** After onboarding completes, fire one `/signal`
+per picked movie: `{"user_id": "...", "movie_id": <tmdbId>, "action": "like"}`.
+That is the "top-5 favorites become virtual likes" mechanism from the
+architecture spec (§1.5). The preference arrays seed genres, cast and directors;
+virtual likes additionally teach the profile **keywords** and the overview
+TF-IDF component, and every one of them gets persisted. It is a few lines in the
+onboarding handler and it is the single biggest remaining win for a new user's
+first feed.
 
 ---
 
