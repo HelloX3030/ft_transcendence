@@ -177,7 +177,7 @@ describe('MoviesService', () => {
       await service.getFeed(7, 3);
 
       expect(mockRecommender.feed).toHaveBeenCalledTimes(1);
-      expect(mockRecommender.feed).toHaveBeenCalledWith(7, 3);
+      expect(mockRecommender.feed).toHaveBeenCalledWith(7, 3, 0);
     });
 
     it('says so when the recommender had nothing to offer', async () => {
@@ -257,23 +257,25 @@ describe('MoviesService', () => {
       expect(result.data).toHaveLength(2);
     });
 
-    it('widens the window when the first pass cannot fill the page', async () => {
+    it('asks for the next page when the first pass cannot fill the page', async () => {
       mockRecommender.feed
         .mockResolvedValueOnce([1, 2])
         .mockResolvedValueOnce([1, 2, 3, 4, 5, 6, 7, 8]);
-      // Only the first two are unplayable, so the widened pass fills the page.
+      // Only the first two are unplayable, so the second page fills the rest.
       respondWithDetails([1, 2]);
 
       const result = await service.getFeed(7, 2);
 
-      expect(mockRecommender.feed).toHaveBeenNthCalledWith(1, 7, 2);
-      expect(mockRecommender.feed).toHaveBeenNthCalledWith(2, 7, 4);
+      // Same width every time, advancing cursor: a wider window used to return
+      // the same films, since the recommender could not tell the calls apart.
+      expect(mockRecommender.feed).toHaveBeenNthCalledWith(1, 7, 2, 0);
+      expect(mockRecommender.feed).toHaveBeenNthCalledWith(2, 7, 2, 1);
       expect(result.data).toHaveLength(2);
     });
 
-    // The seen set is what makes widening cheap: a wider window re-runs the same
-    // deterministic ranking, so most of what comes back was already enriched.
-    it('never enriches the same id twice across a widened request', async () => {
+    // The seen set keeps paging cheap: consecutive pages can still overlap, and
+    // an id that was already enriched must not be enriched again.
+    it('never enriches the same id twice across a paged request', async () => {
       mockRecommender.feed
         .mockResolvedValueOnce([1, 2])
         .mockResolvedValueOnce([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -285,19 +287,32 @@ describe('MoviesService', () => {
       expect(new Set(enrichedIds).size).toBe(enrichedIds.length);
     });
 
-    it('stops at the recommender ceiling and returns a short page', async () => {
-      // Nothing in the pool is playable, so the page can never fill.
-      mockRecommender.feed.mockImplementation((_userId: number, limit: number) =>
-        Promise.resolve(Array.from({ length: limit }, (_, index) => index + 1)),
+    it('gives up after a bounded number of pages and returns a short page', async () => {
+      // Nothing in the pool is playable, so the page can never fill. Each page
+      // returns different ids, so the seen set never ends the loop early.
+      mockRecommender.feed.mockImplementation((_userId: number, limit: number, cursor: number) =>
+        Promise.resolve(Array.from({ length: limit }, (_, index) => cursor * limit + index + 1)),
       );
       mockTmdb.getMovieDetail.mockImplementation((id: number) => Promise.resolve(detail(id, null)));
 
       const result = await service.getFeed(7, 20);
 
       expect(result.data).toEqual([]);
-      // 20 → 40 → 50, then the ceiling ends it.
-      expect(mockRecommender.feed).toHaveBeenCalledTimes(3);
-      expect(mockRecommender.feed).toHaveBeenLastCalledWith(7, 50);
+      // Bounded by FEED_MAX_ATTEMPTS rather than by a window ceiling, so one
+      // unplayable stretch cannot spin the request.
+      expect(mockRecommender.feed).toHaveBeenCalledTimes(4);
+      expect(mockRecommender.feed).toHaveBeenLastCalledWith(7, 20, 3);
+    });
+
+    it('stops paging as soon as the recommender returns nothing', async () => {
+      mockRecommender.feed.mockResolvedValueOnce([1, 2]).mockResolvedValue([]);
+      respondWithDetails([1, 2]);
+
+      await service.getFeed(7, 5);
+
+      // The recommender falls back to unconstrained films before giving up, so
+      // an empty answer is final and further pages would be wasted calls.
+      expect(mockRecommender.feed).toHaveBeenCalledTimes(2);
     });
   });
 });
