@@ -13,6 +13,7 @@ from zlib import crc32
 import httpx
 
 from .config import DEFAULT_CONFIG, RecommenderConfig
+from .rate_limit import BudgetExhausted, budget_from_env
 from .schemas import MovieMetadata
 
 _TMDB_DISCOVER_URL = "https://api.themoviedb.org/3/discover/movie"
@@ -20,6 +21,10 @@ _TMDB_MOVIE_URL = "https://api.themoviedb.org/3/movie"
 
 # Top-N billed cast members included in cast_ids (billing order, 0 = lead).
 _DETAIL_CAST_LIMIT = 5
+
+# Process-wide pacing for every outbound TMDB call. One budget, not one per
+# request, or the fan-out would let each feed burst its own full allowance.
+_BUDGET = budget_from_env()
 
 
 def _auth_headers(token: str) -> dict[str, str]:
@@ -234,6 +239,7 @@ async def fetch_movie_detail(
         raise RuntimeError("TMDB_API_KEY is not configured")
 
     async def _run(client: httpx.AsyncClient) -> MovieMetadata:
+        await _BUDGET.acquire()
         response = await client.get(
             f"{_TMDB_MOVIE_URL}/{movie_id}",
             params={"append_to_response": "keywords,credits"},
@@ -282,6 +288,7 @@ async def _fetch_page(
     page: int,
 ) -> list[MovieMetadata]:
     """Fetch one Discover page. Returns MovieMetadata for each result."""
+    await _BUDGET.acquire()
     response = await client.get(
         _TMDB_DISCOVER_URL,
         params={**params, "page": page},
@@ -381,7 +388,9 @@ async def fetch_candidates(
         while len(pool) < min_pool and next_page <= 500:
             try:
                 batch = await _fetch_page(client, core, key, next_page)
-            except httpx.HTTPError:
+            except (httpx.HTTPError, BudgetExhausted):
+                # Out of budget means the pool stops here, not that the feed
+                # fails: the caller still gets everything gathered so far.
                 break
             if not batch:
                 break
