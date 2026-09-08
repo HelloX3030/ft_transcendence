@@ -15,6 +15,7 @@
     "reset": "docker compose down -v && docker compose up --build",
     "clear-cache": "docker compose exec redis redis-cli FLUSHALL",
     "check:console": "node scripts/console-check.mjs",
+    "seed": "node scripts/seed.mjs",
     "retrain": "node scripts/retrain.mjs"
   },
   "devDependencies": {
