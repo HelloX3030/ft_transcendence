@@ -1,3 +1,7 @@
 node_modules/
 __pycache__/
 .env
+
+# SVD checkpoint written by the recommender's retrain (MODEL_DIR defaults to
+# ./models with cwd /app, which is the ./recommender bind mount).
+recommender/models/
