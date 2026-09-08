@@ -543,7 +543,7 @@ Then edit `.env`:
 - Optionally generate fresh secrets:
 
   ```bash
-  openssl rand -hex 32   # for MFA_KEY
+  openssl rand -hex 32   # for MFA_KEY and RETRAIN_SECRET
   openssl rand -hex 64   # for JWT_ACCESS_SECRET / JWT_REFRESH_SECRET
   ```
 
@@ -594,6 +594,25 @@ First boot takes a few minutes: the Python service installs NumPy, SciPy and sci
 Open **https://localhost:8443**, accept the certificate, and register an account. Onboarding asks for a few favourite genres to seed your recommendations, and then you are in the trailer feed.
 
 To exercise the multi-user features — chat, presence, friend requests, shared watchlists — register a second account in a private window and befriend the first.
+
+### Demo data
+
+Both need the stack running (`docker compose up -d`).
+
+```bash
+npm run seed      # 5 accounts, onboarded, all friends, 30 trailer reactions
+npm run retrain   # refits the recommendation model
+```
+
+Log in at **https://localhost:8443** with the email, not the username:
+
+| Email                                     | Password     |
+| ----------------------------------------- | ------------ |
+| `seed1@example.com` … `seed5@example.com` | `B8skxi!dk&` |
+
+`seed` paces itself against the auth rate limit, so it takes a couple of minutes. Both are safe to re-run.
+
+`retrain` needs `RETRAIN_SECRET` in `.env`; after changing it, `docker compose up -d recommender`. It reports `skipped` below 20 interactions / 3 users / 3 movies, which `npm run seed` clears.
 
 ### Opening the app from another device
 
@@ -916,7 +935,7 @@ AI tooling was used throughout the project, always as an assistant to work the t
 ├── caddy/             Caddyfile — TLS termination and routing
 ├── postgres/          Database init scripts
 ├── pgadmin/           pgAdmin server definitions
-├── scripts/           Utility scripts (browser-console check)
+├── scripts/           Utility scripts (seeding, retraining, browser-console check)
 ├── _meta/             Internal notes: formatting pipeline, database, git convention
 ├── docker-compose.yml Nine services, one command
 └── .env.example       Every environment variable, documented
