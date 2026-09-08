@@ -14,7 +14,8 @@
     "check": "docker compose run --rm --no-deps frontend sh -c 'npm install && npm run check' && docker compose run --rm backend sh -c 'npm install && npm run check && npm run test'",
     "reset": "docker compose down -v && docker compose up --build",
     "clear-cache": "docker compose exec redis redis-cli FLUSHALL",
-    "check:console": "node scripts/console-check.mjs"
+    "check:console": "node scripts/console-check.mjs",
+    "retrain": "node scripts/retrain.mjs"
   },
   "devDependencies": {
     "husky": "^9.1.7",
