@@ -41,7 +41,33 @@ describe('RecommenderClient', () => {
         expect.objectContaining({
           method: 'POST',
           // user_id is a string on the wire; the service converts it back.
-          body: JSON.stringify({ user_id: '42', limit: 20 }),
+          body: JSON.stringify({ user_id: '42', limit: 20, cursor: 0 }),
+        }),
+      );
+    });
+
+    it('defaults the cursor to the first page', async () => {
+      mockFetchWith([]);
+
+      await client.feed(42, 20);
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: JSON.stringify({ user_id: '42', limit: 20, cursor: 0 }),
+        }),
+      );
+    });
+
+    it('forwards the cursor so a later page asks for different films', async () => {
+      mockFetchWith([]);
+
+      await client.feed(42, 20, 3);
+
+      expect(jest.mocked(global.fetch)).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: JSON.stringify({ user_id: '42', limit: 20, cursor: 3 }),
         }),
       );
     });

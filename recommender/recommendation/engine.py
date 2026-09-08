@@ -54,12 +54,18 @@ class Diversifier(Protocol):
 
 
 class TMDBBridge(Protocol):
-    def profile_to_params(self, profile: UserProfile, diversify: bool) -> dict: ...
+    def profile_to_query_plan(
+        self, profile: UserProfile, diversify: bool, cursor: int = 0
+    ) -> list[dict]: ...
     async def fetch_candidates(
-        self, params: dict, exclude: list[int], min_pool: int = 20
+        self, plan: list[dict], exclude: list[int], min_pool: int = 20
     ) -> list[MovieMetadata]: ...
     async def fetch_movie_detail(self, movie_id: int) -> MovieMetadata: ...
 
+
+# Ordering for the unconstrained fallback query. Popularity, because if we know
+# nothing useful about what fits this user, what fits most people is the best guess.
+_FALLBACK_SORT = "popularity.desc"
 
 # Actions that warrant a TMDB detail fetch to enrich cast/director/keyword weights.
 _DETAIL_ACTIONS: frozenset[str] = frozenset({"like", "watchlist_add", "rewatch", "watched_long", "share"})
@@ -111,16 +117,23 @@ class RecommenderEngine:
         user_id: str,
         limit: int = 10,
         seen_ids: list[int] | None = None,
+        cursor: int = 0,
     ) -> list[ScoredMovie]:
         seen = seen_ids or []
 
         profile = self._content.get_profile(user_id)
 
         diversify = self._diversifier.should_diversify(user_id)
-        tmdb_params = self._tmdb.profile_to_params(profile, diversify=diversify)
-        candidates = await self._tmdb.fetch_candidates(
-            tmdb_params, exclude=seen, min_pool=limit * self._cfg.min_pool_ratio
+        effective_cursor = self._effective_cursor(cursor, len(seen), limit)
+        plan = self._tmdb.profile_to_query_plan(
+            profile, diversify=diversify, cursor=effective_cursor
         )
+        candidates = await self._tmdb.fetch_candidates(
+            plan, exclude=seen, min_pool=limit * self._cfg.min_pool_ratio
+        )
+
+        if not candidates:
+            candidates = await self._fallback_candidates(profile, seen, limit, effective_cursor)
 
         # Cache metadata so record_signal can update the profile without an extra TMDB call.
         for m in candidates:
@@ -185,6 +198,47 @@ class RecommenderEngine:
             ScoredMovie(movie_id=mid, score=float(score))
             for mid, score in zip(candidate_ids, blended)
         ]
+
+    def _effective_cursor(self, requested: int, seen_count: int, limit: int) -> int:
+        """
+        How far to advance the candidate window for this request.
+
+        The caller's cursor covers repeated calls inside one browsing session,
+        before any of them have produced a signal. Watch history covers the
+        rest: a user who has already reacted to 200 films should not be shown
+        the window they started from, whatever cursor the caller sends. Taking
+        both means the feed keeps moving even if a caller never sends a cursor
+        at all (issue #249).
+        """
+        consumed = seen_count // max(limit, 1)
+        return max(requested, 0) + consumed
+
+    async def _fallback_candidates(
+        self,
+        profile: UserProfile,
+        seen: list[int],
+        limit: int,
+        cursor: int,
+    ) -> list[MovieMetadata]:
+        """
+        Last resort when the profile's own queries come back empty.
+
+        Returning an empty feed is never the right answer: the user is looking
+        at a blank screen, and "we have nothing for you" is worse than a
+        merely unpersonalised suggestion. Retry unconstrained by taste, keeping
+        only the exclusion list, so there is always something to show.
+        """
+        bare = [{
+            "sort_by": _FALLBACK_SORT,
+            "vote_count.gte": self._cfg.tmdb_min_vote_count,
+            "page": cursor + 1,
+        }]
+        try:
+            return await self._tmdb.fetch_candidates(
+                bare, exclude=seen, min_pool=limit
+            )
+        except Exception:
+            return []
 
     def _effective_alpha(self, profile: UserProfile) -> float:
         """Cold-start: content-only until the user has enough interactions for CF."""

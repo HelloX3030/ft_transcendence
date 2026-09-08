@@ -113,6 +113,13 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       # Absent, the service serves a fixed 10-movie stub pool instead of real candidates.
       TMDB_API_KEY: ${TMDB_API_KEY}
+      # Guards POST /retrain. Unset means the endpoint refuses every request.
+      RETRAIN_SECRET: ${RETRAIN_SECRET}
+      # Outbound TMDB pacing, the same variables the backend reads. The ceiling
+      # is per process, so this service and the backend each get their own
+      # allowance and TMDB sees the sum.
+      TMDB_RATE_LIMIT: ${TMDB_RATE_LIMIT}
+      TMDB_RATE_WINDOW_SECONDS: ${TMDB_RATE_WINDOW_SECONDS}
     healthcheck:
       # python:3.11-slim ships no curl and the interpreter is already here.
       test:

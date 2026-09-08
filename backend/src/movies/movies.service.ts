@@ -17,6 +17,10 @@ export const FEED_EMPTY_NONE_PLAYABLE = 'Recommended films were found, but none 
 // One TMDB detail call per candidate. Well under the per-IP connection ceiling
 // TMDB's CDN is reported to apply, and paced by the budget in tmdb.client.ts.
 const ENRICH_CONCURRENCY = 8;
+// How many times a single getFeed will ask the recommender for another page
+// before returning a short feed. Each attempt costs one /feed call plus the
+// enrichment of everything it returns, so this bounds latency and TMDB traffic.
+const FEED_MAX_ATTEMPTS = 4;
 
 function toFeedMovie(detail: TmdbMovieDetail, trailerKey: string): FeedMovie {
   return {
@@ -45,25 +49,28 @@ export class MoviesService {
 
   async getFeed(userId: number, limit: number) {
     const cards: FeedMovie[] = [];
-    // Ids already enriched, so a widened window re-fetches nothing.
+    // Ids already enriched, so a later page re-fetches nothing.
     const seen = new Set<number>();
-    let window = limit;
     // Films the recommender put forward that were not already ruled out. This is
     // what separates "nothing was recommended" from "nothing was playable".
     let candidates = 0;
 
-    while (cards.length < limit) {
-      const ids = (await this.recommender.feed(userId, window)).filter((id) => !seen.has(id));
+    // Ask for page after page rather than for one ever-wider page: a wider
+    // window used to return the same films again, because the recommender had
+    // no way to tell one call in a session from the next.
+    for (let cursor = 0; cursor < FEED_MAX_ATTEMPTS && cards.length < limit; cursor++) {
+      const recommended = await this.recommender.feed(userId, limit, cursor);
+      // The recommender falls back to unconstrained popular films before it
+      // gives up, so an empty answer means it genuinely has nothing left and
+      // paging further will not change that.
+      if (recommended.length === 0) break;
+
+      const ids = recommended.filter((id) => !seen.has(id));
       ids.forEach((id) => seen.add(id));
       candidates += ids.length;
 
       const enriched = await mapWithConcurrency(ids, ENRICH_CONCURRENCY, (id) => this.enrich(id));
       cards.push(...enriched.filter((card): card is FeedMovie => card !== null));
-
-      // The recommender's /feed has no cursor, so a wider window is the only
-      // "more" available. At the ceiling, return a short page rather than spin.
-      if (window >= FEED_MAX_LIMIT) break;
-      window = Math.min(window * 2, FEED_MAX_LIMIT);
     }
 
     const page = cards.slice(0, limit);

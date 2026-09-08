@@ -1,8 +1,9 @@
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 
 from .collaborative import CollaborativeFilter
 from .config import DEFAULT_CONFIG
@@ -11,8 +12,9 @@ from .db import Database
 from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
+from .retrain import Retrainer
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
-from .tmdb_bridge import TMDBBridgeImpl, profile_to_params
+from .tmdb_bridge import TMDBBridgeImpl, profile_to_query_plan
 
 # uvicorn only configures its own loggers, without this, the service's INFO
 # lines (profile-load count, DB fallback warnings) never reach the console.
@@ -42,8 +44,8 @@ logging.getLogger("uvicorn.access").addFilter(_SkipHealthChecks())
 
 class _TMDBStub:
     """
-    Real parameter translation (tmdb_bridge.profile_to_params), but candidates
-    come from a fixed pool of 10 real TMDB movies, the params are computed and
+    Real parameter translation (tmdb_bridge.profile_to_query_plan), but candidates
+    come from a fixed pool of 10 real TMDB movies, the plan is computed and
     then ignored. Replaced by TMDBBridgeImpl once TMDB_API_KEY is wired in Docker.
 
     IDs: Dark Knight, Inception, Fight Club, Forrest Gump, The Avengers,
@@ -63,11 +65,11 @@ class _TMDBStub:
         MovieMetadata(tmdb_id=603,    genre_ids=[28, 878],           overview="A computer hacker discovers the world is a simulation."),
     ]
 
-    def profile_to_params(self, profile, diversify: bool) -> dict:  # type: ignore[override]
-        return profile_to_params(profile, diversify=diversify)
+    def profile_to_query_plan(self, profile, diversify: bool, cursor: int = 0) -> list[dict]:  # type: ignore[override]
+        return profile_to_query_plan(profile, diversify=diversify, cursor=cursor)
 
     async def fetch_candidates(
-        self, params: dict, exclude: list[int], min_pool: int = 20
+        self, plan: list[dict], exclude: list[int], min_pool: int = 20
     ) -> list[MovieMetadata]:
         exclude_set = set(exclude)
         return [m for m in self._POOL if m.tmdb_id not in exclude_set]
@@ -81,11 +83,12 @@ class _TMDBStub:
 _engine: RecommenderEngine | None = None
 _content: ContentBasedFilter | None = None
 _db: Database | None = None
+_retrainer: Retrainer | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
-    global _engine, _content, _db
+    global _engine, _content, _db, _retrainer
 
     _content = ContentBasedFilter()
 
@@ -106,19 +109,25 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     # TMDB_API_KEY present → real Discover/detail calls; otherwise fixed stub pool.
     tmdb = TMDBBridgeImpl() if os.environ.get("TMDB_API_KEY") else _TMDBStub()
 
+    # One instance, shared: train() swaps the factors in place, so a completed
+    # retrain is live on the next /feed without a restart.
+    collab = CollaborativeFilter(model_dir=os.environ.get("MODEL_DIR", "./models"))
+
     _engine = RecommenderEngine(
         content_filter=_content,
-        collab_filter=CollaborativeFilter(model_dir=os.environ.get("MODEL_DIR", "./models")),
+        collab_filter=collab,
         engagement_tracker=EngagementTracker(),
         diversifier=Diversifier(),
         tmdb_bridge=tmdb,
         config=DEFAULT_CONFIG,
     )
+    _retrainer = Retrainer(db=_db, collab=collab) if _db is not None else None
     yield
 
     if _db is not None:
         await _db.close()
         _db = None
+    _retrainer = None
 
 
 app = FastAPI(title="CineMatch Recommender", version="0.1.0", lifespan=lifespan)
@@ -161,7 +170,10 @@ async def get_feed(request: FeedRequest) -> list[ScoredMovie]:
             logger.exception("seen-ids query failed for user %s, feed served undeduplicated", request.user_id)
 
     return await _get_engine().get_feed(
-        user_id=request.user_id, limit=request.limit, seen_ids=seen_ids
+        user_id=request.user_id,
+        limit=request.limit,
+        seen_ids=seen_ids,
+        cursor=request.cursor,
     )
 
 
@@ -182,7 +194,43 @@ async def record_signal(payload: EngagementSignal) -> None:
             logger.exception("profile save failed for user %s", payload.user_id)
 
 
+def _verify_retrain_secret(provided: str | None) -> None:
+    """
+    Gate /retrain on a shared secret.
+
+    An unset RETRAIN_SECRET refuses the request rather than waving it through:
+    the failure mode of the opposite default is an unauthenticated endpoint that
+    nobody notices. compare_digest keeps the comparison constant-time, so the
+    secret cannot be recovered a character at a time.
+    """
+    expected = os.environ.get("RETRAIN_SECRET", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Retrain is not configured")
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Invalid retrain secret")
+
+
 @app.post("/retrain", status_code=202)
-async def trigger_retrain(secret: str) -> dict:
-    # TODO: verify secret against env var, schedule SVD retrain job via retrain.py
-    return {"status": "scheduled"}
+async def trigger_retrain(
+    background: BackgroundTasks,
+    x_retrain_secret: str | None = Header(default=None),
+) -> dict:
+    """
+    Schedule an SVD retrain. Returns immediately; the fit runs in the background.
+
+    The secret travels in a header, not a query parameter: query strings are
+    written to access logs, proxy logs and browser history verbatim.
+    """
+    _verify_retrain_secret(x_retrain_secret)
+
+    if _retrainer is None:
+        raise HTTPException(
+            status_code=503, detail="Retrain needs a database; DATABASE_URL is not set"
+        )
+
+    if _retrainer.running:
+        return {"status": "already_running"}
+
+    background.add_task(_retrainer.run)
+    last = _retrainer.last_result
+    return {"status": "scheduled", "previous": last.as_dict() if last else None}

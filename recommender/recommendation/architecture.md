@@ -200,7 +200,7 @@ Der Profil-Vektor $\vec{u}$ wird in konkrete TMDB Discover-Parameter übersetzt:
 
 | Profil-Komponente | TMDB-Parameter | Logik |
 |:--|:--|:--|
-| Genre-Gewichte $g_i$ | `with_genres` | Top-3 Genres nach Gewicht, AND-verknüpft |
+| Genre-Gewichte $g_i$ | `with_genres` | Top-3 Genres nach Gewicht, OR-verknüpft (siehe Hinweis unten) |
 | Schauspieler/Regisseur $a_i$ | `with_cast`, `with_crew` | Top-2 nach Gewicht (optional, wird bei schwachen Signalen weggelassen) |
 | Keyword-Gewichte $k_i$ | `with_keywords` | Top-5 Keywords nach TF-IDF-Gewicht |
 | Interaktionshistorie | `vote_average.gte` | Durchschnittliche Bewertung gelikter Filme als untere Schwelle |
@@ -222,25 +222,55 @@ Der Profil-Vektor $\vec{u}$ wird in konkrete TMDB Discover-Parameter übersetzt:
 
 > **Granularität:** Die Parameter-Translation ist bewusst verlustbehaftet — sie approximiert den hochdimensionalen Profil-Vektor. Das Re-Ranking (Schritt 5 in 2.1) kompensiert diese Vergröberung durch feingranulares Scoring auf dem zurückgegebenen Pool.
 
+> **Abweichung von der ursprünglichen Spezifikation (Issue #247):** Die obige Tabelle beschrieb ursprünglich *eine* Discover-Abfrage, in der alle Dimensionen UND-verknüpft sind. In der Praxis liefert das für aktive Nutzer null Ergebnisse: ein Film müsste alle drei Genres tragen **und** einen der Keywords **und** einen der Schauspieler **und** den Regisseur **und** beide Vote-Schwellen erfüllen. Je mehr ein Nutzer interagiert, desto leerer wird der Pool — genau umgekehrt zum gewünschten Verhalten.
+>
+> Stattdessen erzeugt `profile_to_query_plan()` **mehrere Abfragen**, deren Vereinigung den Kandidaten-Pool bildet:
+>
+> | Abfrage | Constraint | Seiten |
+> |:--|:--|:--|
+> | `core` | Genres OR-verknüpft + Vote-Schwellen | `tmdb_pages` |
+> | `cast` | nur `with_cast` | `tmdb_facet_pages` |
+> | `crew` | nur `with_crew` | `tmdb_facet_pages` |
+> | `keywords` | nur `with_keywords` | `tmdb_facet_pages` |
+>
+> Discover ist damit für **Recall** zuständig, das Re-Ranking für **Precision** — konsistent mit dem Granularitäts-Hinweis oben. Die Facetten-Abfragen tragen bewusst keine Genre- oder Vote-Average-Einschränkung: „mehr Filme mit diesem Schauspieler" ist für sich genommen eine vollständige Absicht.
+>
+> Ebenfalls entschärft: `vote_average.gte` liegt jetzt um `tmdb_vote_margin` **unter** dem Profil-Durchschnitt statt exakt darauf. Eine Schwelle genau auf dem Durchschnitt aller gelikten Filme schließt definitionsgemäß die Hälfte davon aus.
+
 ### 2.4 Kandidaten-Pool, Deduplizierung & Seitenrotation
 
 **Pool-Größe:** TMDB gibt standardmäßig 20 Ergebnisse pro Seite zurück. Es werden **3 Seiten parallel** abgefragt (60 Kandidaten), um nach Deduplizierung einen ausreichend großen Re-Ranking-Pool zu haben.
 
 **Deduplizierung:** Gesehene Filme werden anhand der DB-Interaktionshistorie herausgefiltert (`user_interactions`-Tabelle). Ist der verbleibende Pool nach dem Filter kleiner als `2 × limit`, wird eine weitere Seite nachgeladen.
 
-**Seitenrotation für Abwechslung:** Um zu vermeiden, dass bei identischen Parametern immer dieselben 60 Filme erscheinen, wird die Startseite pro Session leicht variiert:
+**Seitenrotation für Abwechslung:** Um zu vermeiden, dass bei identischen Parametern immer dieselben 60 Filme erscheinen, bewegt sich das Ergebnisfenster in zwei unabhängigen Achsen:
 
 ```python
-base_page = hash(user_id + date.today().isoformat()) % 5 + 1
+base_page = crc32(f"{user_id}:{date.today().isoformat()}") % tmdb_page_window
+page      = base_page + cursor * tmdb_pages + 1      # max. 500 (TMDB-Limit)
+sort_by   = tmdb_sort_cycle[cursor % len(tmdb_sort_cycle)]
 ```
 
-Dadurch verschiebt sich das Ergebnisfenster täglich, ohne dass eine Zustandsverwaltung pro Session nötig ist.
+- **Täglich, pro Nutzer:** `base_page` streut zwei Nutzer mit identischem Geschmack auseinander und mischt täglich neu. `crc32` statt `hash()`, weil letzteres pro Prozess gesalzen ist und die Rotation bei jedem Neustart neu würfeln würde.
+- **Pro Aufruf:** der `cursor` (siehe 2.5) verschiebt das Fenster um eine volle Abrufbreite und rotiert zusätzlich die Sortierung.
+
+> **Warum beides (Issue #249):** Reine Tagesrotation bedeutet, dass jeder `/feed`-Aufruf innerhalb eines Tages dasselbe Fenster liefert — der Nutzer sieht dieselben ~60 Filme, bis Mitternacht. Und Blättern allein durchläuft nur *eine* Sortierung derselben Popularitäts-Rangliste; wer deren Kopf erschöpft hat, findet am Kopf der nächsten Sortierung andere Filme.
+
+**Cursor-Herleitung:** Der Engine nimmt den größeren Effekt aus beiden Quellen:
+
+```python
+effective_cursor = max(requested_cursor, 0) + len(seen_ids) // limit
+```
+
+Der übergebene Cursor deckt wiederholte Aufrufe *innerhalb* einer Session ab (bevor Signale vorliegen), die Interaktionshistorie den Rest: Wer bereits 200 Filme bewertet hat, darf nicht wieder am Anfangsfenster landen — unabhängig davon, was der Aufrufer sendet. Dadurch bewegt sich der Feed auch dann weiter, wenn ein Aufrufer gar keinen Cursor mitschickt.
+
+**Leerer Pool:** Liefert der Abfrageplan nach der Deduplizierung nichts, wiederholt die Engine die Abfrage **ohne jede Geschmacks-Einschränkung** (nur `vote_count.gte` und die Ausschlussliste bleiben). Ein leerer Feed ist nie die richtige Antwort: eine unpersonalisierte Empfehlung ist besser als ein leerer Bildschirm.
 
 ### 2.5 FastAPI-Endpunkte
 
 | Method | Path | Request Body | Response | Beschreibung |
 |:--|:--|:--|:--|:--|
-| `POST` | `/feed` | `{user_id, limit}` | `[{movie_id, score}]` | Personalisierten Feed berechnen (inkl. TMDB-Aufruf, falls Option A) |
+| `POST` | `/feed` | `{user_id, limit, cursor?}` | `[{movie_id, score}]` | Personalisierten Feed berechnen (inkl. TMDB-Aufruf, falls Option A). `cursor` (Default `0`) = wie viele Feeds tief der Aufrufer in dieser Session bereits ist |
 | `POST` | `/feed/params` | `{user_id}` | `{tmdb_params, page}` | Nur Parameter zurückgeben (falls Option B) |
 | `POST` | `/signal` | `{user_id, movie_id, action, watch_time?}` | `204` | Engagement-Signal aufzeichnen + Profil aktualisieren |
 | `POST` | `/retrain` | `{secret}` | `202` | SVD-Neutraining triggern (intern, abgesichert) |
