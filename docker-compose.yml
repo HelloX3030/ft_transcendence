@@ -268,6 +268,74 @@ services:
     networks:
       - web
 
+  # Reads Prometheus and draws it. Holds no metrics of its own: every panel is a
+  # PromQL query sent to prometheus:9090 over this network.
+  #
+  # No published port. The only way in is Caddy's /grafana* route on the app's
+  # own origin, which means one TLS certificate for the whole stack instead of a
+  # second one to accept, and no plaintext Grafana on a host port next to it.
+  grafana:
+    image: grafana/grafana:13.2.1
+    environment:
+      # Where Grafana believes it lives. serve_from_sub_path makes it prefix
+      # every asset and API path it generates with /grafana, which is why the
+      # Caddy route uses `handle` and does not strip the prefix.
+      #
+      # The host half is the canonical origin, the same one APP_ORIGINS leads
+      # with. Reaching the stack over the LAN via APP_HOST still works: with a
+      # sub-path set, the UI links itself relatively and only absolute links
+      # Grafana mails out would carry this hostname.
+      GF_SERVER_ROOT_URL: https://localhost:8443/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+
+      # --- Access ---
+      # The default admin/admin is the single most common way a Grafana ends up
+      # world-readable. Required in .env; there is no fallback here on purpose.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      # Both already default to false. Set explicitly because "we turned it off"
+      # and "the version we happened to run defaults to off" are not the same
+      # claim, and this file is where that claim has to be checkable.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Caddy terminates TLS in front, so the browser's connection really is
+      # https even though Grafana itself speaks plain http on this network.
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: lax
+
+      # --- No outbound traffic ---
+      # Update checks, usage reporting, the news feed and gravatar all reach the
+      # public internet. Off because none of them are wanted, and because a
+      # school machine behind a proxy would otherwise spend every page load
+      # waiting on requests that cannot complete.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # Grafana ships a list of apps it downloads from grafana.com on first
+      # start (Loki and traces explorers). Nothing here uses them, and on a
+      # machine without outbound internet the install is retried on every boot.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      # Datasources and, later, dashboards. Read-only: this is the source of
+      # truth, and Grafana must never be able to write back over it.
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # Grafana's own database — users, sessions, dashboard edits made in the
+      # UI. Provisioned files are reapplied on every start, so losing this
+      # volume costs the login, not the setup.
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      # Under the sub-path, because serve_from_sub_path moves the API there too.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/grafana/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      - prometheus
+    networks:
+      - web
+
 # Compose interpolates ${...} in `content`, which is what lets the scrape token
 # come from .env like every other secret. Prometheus itself cannot read an
 # environment variable from its config file, so it has to arrive as a file.
@@ -283,6 +351,7 @@ networks:
 
 volumes:
   prometheus_data:
+  grafana_data:
   caddy_data:
   caddy_config:
   pgdata:

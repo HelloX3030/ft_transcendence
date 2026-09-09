@@ -1,0 +1,29 @@
+# Grafana's connection to Prometheus, provisioned rather than clicked.
+#
+# A datasource added through the UI lives only in Grafana's database, which is a
+# Docker volume: `docker compose down -v` and it is gone, with nothing in git to
+# say it ever existed. Declared here it is recreated on every start, survives a
+# wiped volume, and shows up in review like any other change.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # `proxy`, not `browser`: Grafana's backend makes the query from inside the
+    # Docker network. That is the only thing that works here — Prometheus
+    # publishes no port, so a browser could not reach it directly — and it also
+    # means the viewer's machine never talks to Prometheus at all.
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    # Provisioned datasources are read-only in the UI on purpose: an edit there
+    # would be silently reverted on the next restart, which is worse than being
+    # told the field is locked.
+    editable: false
+    jsonData:
+      # Must match scrape_interval in prometheus/prometheus.yml. Grafana uses it
+      # as the floor for $__rate_interval, and a value below the real scrape
+      # interval produces rate() windows with too few points, which show up as
+      # graphs that flicker between a number and nothing.
+      timeInterval: 15s

@@ -578,12 +578,19 @@ First boot takes a few minutes: the Python service installs NumPy, SciPy and sci
 | **App** | https://localhost:8443 |
 | Backend API | https://localhost:8443/api |
 | **API docs (Swagger)** | https://localhost:8443/api/docs |
+| **Grafana** (metrics dashboards) | https://localhost:8443/grafana |
 | Mailpit (all outgoing mail) | http://localhost:8025 |
 | pgAdmin | http://localhost:5050 |
 | MinIO console | http://localhost:9001 |
 | PostgreSQL | localhost:5432 |
 
 `http://localhost:8080` redirects to HTTPS.
+
+Grafana signs in with `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` from `.env`.
+It has no published port of its own — that route through Caddy is the only way
+in, which is also why it is the one admin tool here that is not plain HTTP on a
+host port. Prometheus, which it reads, is not reachable from the host at all;
+`npm run metrics:targets` reports what it is scraping.
 
 > **Expect one certificate warning.** The app is served over HTTPS with a certificate Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate installed into the machine's trust store, neither of which belongs in a project you clone and run.
 >
