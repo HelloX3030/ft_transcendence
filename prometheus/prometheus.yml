@@ -1,0 +1,41 @@
+# What Prometheus scrapes, how often, and how it authenticates.
+#
+# Note there is nothing in here about the application: Prometheus pulls, so a
+# service is a target the moment it is listed below and exposes /metrics. It is
+# never told about Prometheus and holds no configuration for it.
+
+global:
+  # Every series gets a sample this often. 15s is the usual default and the one
+  # rate() windows below are sized against: a [5m] window still holds 20 points
+  # if a few scrapes are missed.
+  scrape_interval: 15s
+  # How often alerting rules are evaluated. Kept equal to the scrape interval so
+  # a rule never re-reads the same sample twice.
+  evaluation_interval: 15s
+  # Stamped onto every series leaving this server. Only matters once there is
+  # something downstream (a second Prometheus, or Alertmanager) to tell them
+  # apart, but it costs nothing to set now.
+  external_labels:
+    monitor: cinemates
+
+scrape_configs:
+  # Prometheus watching itself. The cheapest way to notice that scraping has
+  # stopped working is for the thing doing the scraping to be a target too.
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # The NestJS backend. Reached by its compose service name on the `web`
+  # network, on the container port, not through Caddy — Caddy answers 404 for
+  # /api/metrics precisely so this is the only path that works.
+  - job_name: backend
+    static_configs:
+      - targets: ['backend:3000']
+    authorization:
+      type: Bearer
+      # Read from a file rather than written inline, because Prometheus does no
+      # environment substitution in this config: `${METRICS_TOKEN}` here would
+      # be sent as those seventeen literal characters. Compose materialises the
+      # file from .env — see the `configs` block in docker-compose.yml — so the
+      # token still lives in exactly one place and never in git.
+      credentials_file: /etc/prometheus/metrics_token

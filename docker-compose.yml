@@ -222,6 +222,59 @@ services:
       - web
       - db
 
+  # Pulls /metrics from every target in prometheus/prometheus.yml and keeps the
+  # samples in its own time-series database.
+  #
+  # No published port, deliberately, for the same reason as the recommender: it
+  # has no authentication of any kind, and everything it holds — the route
+  # table, traffic volumes, login-failure rates — is a map of the system.
+  # Grafana will read it over this network; target health is visible there as
+  # the `up` metric without needing its web UI. To reach that UI anyway:
+  #
+  #   docker compose exec prometheus wget -qO- localhost:9090/api/v1/targets
+  #
+  # and after editing prometheus.yml, reload without losing the stored data:
+  #
+  #   docker compose exec prometheus wget --post-data='' -qO- localhost:9090/-/reload
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    # Spelled out because setting `command` replaces the image's default
+    # arguments rather than adding to them, so the config path has to come back.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Samples older than this are dropped. Two weeks is enough to see a
+      # regression against "the same day last week" without the volume growing
+      # without bound.
+      - --storage.tsdb.retention.time=15d
+      # Enables POST /-/reload, so a scrape-config change does not need a
+      # restart. Safe here only because nothing outside this network can ask.
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Named volume: without it every restart throws away the history, which is
+      # the one thing Prometheus exists to keep.
+      - prometheus_data:/prometheus
+    configs:
+      - source: metrics_token
+        target: /etc/prometheus/metrics_token
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - backend
+    networks:
+      - web
+
+# Compose interpolates ${...} in `content`, which is what lets the scrape token
+# come from .env like every other secret. Prometheus itself cannot read an
+# environment variable from its config file, so it has to arrive as a file.
+configs:
+  metrics_token:
+    content: ${METRICS_TOKEN}
+
 networks:
   web:
     driver: bridge
@@ -229,6 +282,7 @@ networks:
     driver: bridge
 
 volumes:
+  prometheus_data:
   caddy_data:
   caddy_config:
   pgdata:
