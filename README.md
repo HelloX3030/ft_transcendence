@@ -305,7 +305,15 @@ npm run metrics:targets   # what is being scraped, and is it healthy
 npm run metrics:alerts    # what is firing, pending, or quiet
 npm run metrics:test      # unit-test the alert rules
 npm run metrics:reload    # apply an edited config without a restart
+npm run metrics:drill     # break something on purpose and watch an alert fire
 ```
+
+`metrics:drill` is the one that proves the chain end to end. It stops a service,
+waits for the alert to walk inactive → pending → firing, finds the mail that
+names that alert, prints it, and puts the service back — including when it fails
+or is interrupted. `redis` is the default because the application is built to
+survive it; `target` stops an exporter instead, which removes an observer rather
+than a dependency. `recommender` and `postgres` are also available.
 
 **Why the monitoring stack is unreachable from the host.** Prometheus has no
 authentication of any kind and everything it holds — the route table, traffic

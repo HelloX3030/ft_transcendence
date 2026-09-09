@@ -18,6 +18,7 @@
     "metrics:reload": "node scripts/prometheus.mjs reload",
     "metrics:alerts": "node scripts/prometheus.mjs alerts",
     "metrics:test": "node scripts/prometheus.mjs test",
+    "metrics:drill": "node scripts/alert-drill.mjs",
     "check:console": "node scripts/console-check.mjs",
     "seed": "node scripts/seed.mjs",
     "retrain": "node scripts/retrain.mjs"
