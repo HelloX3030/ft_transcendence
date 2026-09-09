@@ -11,6 +11,11 @@
 # site address below into a bare :8443 catch-all that quietly serves every Host.
 {
 	default_sni {$APP_HOST:127.0.0.1}
+
+	# Turns on per-request HTTP metrics. Caddy already speaks Prometheus — this
+	# switches on the collection; the :9180 site at the bottom of this file is
+	# what serves it. Together they mean Caddy needs no exporter at all.
+	metrics
 }
 
 # Ports 443 and 80 are deliberately not used: the school machines run rootless
@@ -80,6 +85,18 @@ localhost:8443, {$APP_HOST:127.0.0.1}:8443 {
 	handle {
 		reverse_proxy frontend:5173
 	}
+}
+
+# Prometheus scrape target, internal to the Docker network — no port for this is
+# published, so it is reachable only as caddy:9180.
+#
+# A separate site rather than Caddy's admin endpoint, which also serves /metrics:
+# the admin API can rewrite Caddy's entire configuration at runtime, and reaching
+# it would mean binding it to the network instead of the loopback it defaults to.
+# Handing that to every container on `web` to collect request counts is not a
+# trade worth making. This site serves metrics and nothing else.
+:9180 {
+	metrics
 }
 
 # Caddy's automatic HTTP->HTTPS redirect is not usable here: it builds the

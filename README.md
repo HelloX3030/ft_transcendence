@@ -283,6 +283,8 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 | **Grafana** | Dashboards, behind Caddy at `/grafana` with no published port |
 | **postgres_exporter / redis_exporter** | Translate Postgres and Redis statistics into metrics |
 | **cAdvisor / node_exporter** | Per-container resources, and the host's CPU, memory and disk |
+| **Caddy & MinIO metrics** | Both speak Prometheus natively; switched on, no exporter needed |
+| **prometheus-fastapi-instrumentator** | Instruments the recommendation service in its own code |
 
 **Why Caddy.** It generates its own certificate and terminates TLS with no configuration, which is what lets `https://` work on a fresh clone with no CA setup. Serving the frontend, the API and the WebSocket through one origin also removes an entire class of CORS and cookie problems, and lets the session cookies stay `sameSite: strict`.
 

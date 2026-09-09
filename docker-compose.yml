@@ -258,6 +258,8 @@ services:
     configs:
       - source: metrics_token
         target: /etc/prometheus/metrics_token
+      - source: minio_metrics_token
+        target: /etc/prometheus/minio_metrics_token
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
       interval: 10s
@@ -432,6 +434,10 @@ services:
 configs:
   metrics_token:
     content: ${METRICS_TOKEN}
+  # MinIO derives this from its own credentials; see .env.example for how to
+  # regenerate it when they change.
+  minio_metrics_token:
+    content: ${MINIO_METRICS_TOKEN}
 
 networks:
   web:

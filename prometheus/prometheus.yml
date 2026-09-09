@@ -68,3 +68,33 @@ scrape_configs:
   - job_name: node
     static_configs:
       - targets: ['node_exporter:9100']
+
+  # --- Built-in and instrumented targets ------------------------------------
+  # Neither of the next two needs an exporter: both already speak Prometheus and
+  # only had to be switched on.
+
+  # Caddy, on a site that serves metrics and nothing else. Deliberately not its
+  # admin endpoint, which also offers /metrics but can rewrite Caddy's whole
+  # configuration at runtime — see caddy/Caddyfile.
+  - job_name: caddy
+    static_configs:
+      - targets: ['caddy:9180']
+
+  # MinIO's own metrics, behind a bearer token it derives from its root
+  # credentials. Compose materialises the file from .env, the same way the
+  # backend's scrape token is delivered.
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ['minio:9000']
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/minio_metrics_token
+
+  # The recommendation service, instrumented in its own code the way the backend
+  # is. No token: unlike the backend it has no authentication of any kind, so
+  # guarding only its metrics endpoint would protect nothing — what keeps it
+  # private is having no published port.
+  - job_name: recommender
+    static_configs:
+      - targets: ['recommender:8000']
