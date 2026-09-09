@@ -42,3 +42,10 @@ export const SKIP_AUTH_THROTTLE = { auth: true };
 
 /** For @SkipThrottle on credential endpoints, which use the auth window only. */
 export const SKIP_TMDB_THROTTLES = { burst: true, sustained: true };
+
+/**
+ * For routes that no window should apply to. The scrape endpoint is the only
+ * one: Prometheus polls it on a fixed interval from one address, and a 429 there
+ * is not a throttled client but a gap in every graph and alert that reads it.
+ */
+export const SKIP_ALL_THROTTLES = { burst: true, sustained: true, auth: true };

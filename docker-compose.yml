@@ -59,6 +59,11 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       MINIO_BUCKET: ${MINIO_BUCKET}
       MFA_KEY: ${MFA_KEY}
+      # Bearer token Prometheus must present to scrape GET /metrics. The
+      # endpoint is reachable only as backend:3000/metrics on this network —
+      # Caddy answers 404 for /api/metrics — and this stops the other services
+      # on `web` from reading it.
+      METRICS_TOKEN: ${METRICS_TOKEN}
       TMDB_API_KEY: ${TMDB_API_KEY}
       TMDB_RATE_LIMIT: ${TMDB_RATE_LIMIT}
       TMDB_RATE_WINDOW_SECONDS: ${TMDB_RATE_WINDOW_SECONDS}
