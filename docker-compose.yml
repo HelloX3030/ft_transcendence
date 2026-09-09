@@ -320,6 +320,8 @@ services:
       # Datasources and, later, dashboards. Read-only: this is the source of
       # truth, and Grafana must never be able to write back over it.
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # The dashboard JSON the provider above points at.
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
       # Grafana's own database — users, sessions, dashboard edits made in the
       # UI. Provisioned files are reapplied on every start, so losing this
       # volume costs the login, not the setup.

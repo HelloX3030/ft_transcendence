@@ -7,9 +7,23 @@
 
 apiVersion: 1
 
+# Removed before the block below is applied, on every start. Without this,
+# changing anything about a datasource's identity — its uid especially — leaves
+# Grafana looking for a record that does not exist, and the whole provisioning
+# module fails with "data source not found": no datasource AND no dashboards,
+# from one edit. Deleting first makes this file authoritative rather than a
+# patch applied to whatever the volume already held.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
 datasources:
   - name: Prometheus
     type: prometheus
+    # Fixed rather than generated, because dashboards reference the datasource
+    # by uid. Left to Grafana it would differ per machine, and every dashboard
+    # in git would point at a datasource that does not exist on a fresh clone.
+    uid: prometheus
     # `proxy`, not `browser`: Grafana's backend makes the query from inside the
     # Docker network. That is the only thing that works here — Prometheus
     # publishes no port, so a browser could not reach it directly — and it also
