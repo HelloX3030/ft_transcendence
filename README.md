@@ -279,8 +279,21 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 | **GitHub Actions** | CI: format, lint, type-check and tests on every pull request |
 | **Husky + lint-staged** | Pre-commit formatting, run inside Docker |
 | **pgAdmin** | Database inspection during development |
+| **Prometheus** | Scrapes and stores every metric below, 15-day retention |
+| **Grafana** | Dashboards, behind Caddy at `/grafana` with no published port |
+| **postgres_exporter / redis_exporter** | Translate Postgres and Redis statistics into metrics |
+| **cAdvisor / node_exporter** | Per-container resources, and the host's CPU, memory and disk |
 
 **Why Caddy.** It generates its own certificate and terminates TLS with no configuration, which is what lets `https://` work on a fresh clone with no CA setup. Serving the frontend, the API and the WebSocket through one origin also removes an entire class of CORS and cookie problems, and lets the session cookies stay `sameSite: strict`.
+
+**Why the monitoring stack is unreachable from the host.** Prometheus has no
+authentication of any kind and everything it holds — the route table, traffic
+volumes, login-failure rates — is a map of the system, so it publishes no port;
+the same goes for every exporter. Grafana is the single way in, and it is
+reachable only through Caddy over TLS with a password from `.env`. The backend's
+own `/metrics` is closed twice over: Caddy answers 404 for `/api/metrics`, and
+the route itself requires a bearer token, which is what stops the other services
+on the Docker network from reading it by name.
 
 **Why one origin, and nothing else published.** Only Caddy's ports reach the host. The frontend, backend and recommender ports are deliberately unpublished — if they were reachable, the plain-HTTP path would still exist. The recommender is unpublished for a stronger reason: it holds full database credentials and has no authentication of its own, so being unreachable from the host is what protects it.
 

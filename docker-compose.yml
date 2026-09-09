@@ -338,6 +338,94 @@ services:
     networks:
       - web
 
+  # --- Exporters -----------------------------------------------------------
+  # Postgres and Redis do not speak Prometheus and never will: we do not own
+  # their source. Each of these is a translator — it connects as an ordinary
+  # client, asks the service for the statistics it already keeps about itself,
+  # and republishes them as a /metrics page. Neither Postgres nor Redis is
+  # modified, restarted, or aware any of this is happening.
+  #
+  # None publish a port. Prometheus reaches them by service name on `web`.
+
+  # Runs SELECTs against pg_stat_* — connection counts, cache hit ratio,
+  # deadlocks, transaction rates — and reshapes the rows into metrics.
+  #
+  # Reuses DB_USER rather than a dedicated role. A production deployment would
+  # create a login with only the built-in pg_monitor role, so a compromised
+  # exporter could read statistics and nothing else; here that would mean a
+  # migration and a second credential for a service that already runs beside
+  # the database it is reading.
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - web
+      - db
+
+  # Issues Redis INFO and turns the reply into metrics: memory against the
+  # 256mb cap, keyspace hits and misses, and evictions — which matter here
+  # because the cache is allkeys-lru, so under memory pressure it discards
+  # entries silently and every discarded entry is a TMDB call we pay for again.
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.91.1
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - web
+
+  # Not a translator: cAdvisor reads Docker's own resource accounting and
+  # reports CPU, memory, network and disk per container. One container covers
+  # every service in this file, and it is what turns "the recommender died" into
+  # a memory graph that ends at the container limit.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    command:
+      # Only containers, not every cgroup on the machine. Without this the
+      # series count is dominated by systemd slices nothing here asks about.
+      - --docker_only=true
+      - --housekeeping_interval=10s
+      # Container labels become metric labels otherwise, and compose sets
+      # several per container — that is cardinality bought for nothing.
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    networks:
+      - web
+
+  # The host itself: CPU, memory, load, and disk space. Disk is the reason it is
+  # here — nothing else in this stack can see how full the filesystem is, and a
+  # full disk stops Postgres and Prometheus at the same time.
+  node_exporter:
+    image: prom/node-exporter:v1.12.1
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host/root
+      # Pseudo-filesystems and the container's own mounts are not disks anyone
+      # can fill; reporting them buries the real ones.
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup.*|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|securityfs|sysfs|tracefs)$$
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    # Needed to see the host's processes rather than only its own.
+    pid: host
+    networks:
+      - web
+
 # Compose interpolates ${...} in `content`, which is what lets the scrape token
 # come from .env like every other secret. Prometheus itself cannot read an
 # environment variable from its config file, so it has to arrive as a file.

@@ -39,3 +39,32 @@ scrape_configs:
       # file from .env — see the `configs` block in docker-compose.yml — so the
       # token still lives in exactly one place and never in git.
       credentials_file: /etc/prometheus/metrics_token
+
+  # --- Exporters ------------------------------------------------------------
+  # Each of these is a separate process that translates something which does not
+  # speak Prometheus. They are reached by compose service name on the `web`
+  # network; none publishes a port to the host.
+
+  # SELECTs against pg_stat_*: connections against max_connections, cache hit
+  # ratio, deadlocks, transaction rates.
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+
+  # Redis INFO: memory against the 256mb cap, keyspace hit ratio, and evictions.
+  - job_name: redis
+    static_configs:
+      - targets: ['redis_exporter:9121']
+
+  # Docker's own accounting, per container. Scraped a little slower than the
+  # rest: cAdvisor emits a large number of series per container and there is
+  # nothing here that needs 15-second resolution on container memory.
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # The host machine: CPU, memory, load and — the reason it is here — disk space.
+  - job_name: node
+    static_configs:
+      - targets: ['node_exporter:9100']
