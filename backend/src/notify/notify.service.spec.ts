@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import { Logger } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DomainEvent } from '@cinemates/shared';
@@ -19,7 +20,11 @@ describe('NotifyService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [NotifyService, { provide: NotifyGateway, useValue: mockNotifyGateway }],
+      providers: [
+        NotifyService,
+        { provide: NotifyGateway, useValue: mockNotifyGateway },
+        MetricsService,
+      ],
     }).compile();
 
     service = module.get<NotifyService>(NotifyService);

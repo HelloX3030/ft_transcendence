@@ -29,6 +29,7 @@ import { FriendUtils, UserUtils } from 'src/utils';
 import { onlineStatusRoom, userRoom } from './notify.rooms';
 import { APP_ORIGINS } from 'src/config/origins';
 import { WsAckExceptionFilter } from 'src/filter/ws-ack-exception.filter';
+import { MetricsService } from 'src/metrics/metrics.service';
 
 /** How often to look for sockets whose access token has run out. */
 const TOKEN_EXPIRY_SWEEP_MS = 60_000;
@@ -62,6 +63,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     private readonly chatService: ChatService,
     private readonly friendUtils: FriendUtils,
     private readonly userUtils: UserUtils,
+    private readonly metrics: MetricsService,
   ) {}
   // @WebSocketServer() injects the `notify` namespace, not the root Server, so
   // every emit below is already scoped to it.
@@ -100,7 +102,13 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       } catch (error) {
         this.logger.error(error);
       }
+
+      this.metrics.recordWsConnection('accepted');
     } catch (error) {
+      // A rejected handshake is an unauthenticated or expired cookie, which is
+      // ordinary; a rising rate of them is a frontend that has stopped
+      // refreshing, and that is otherwise silent until users complain.
+      this.metrics.recordWsConnection('rejected');
       this.logger.error(error);
       client.emit('error', { message: 'No token provided or the token is invalid.' });
       client.disconnect(true);
@@ -113,6 +121,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
     if (!userId) {
       return;
     }
+    this.metrics.recordWsDisconnection();
     this.notifyService.setUserAsInactive(userId, client);
     // Sockets are ref-counted per user, so closing one of several open tabs
     // must not announce the user as offline while the others are still up.
@@ -136,6 +145,7 @@ export class NotifyGateway implements OnGatewayConnection<Socket>, OnGatewayDisc
       const expiresAt = socket.data?.tokenExpiresAt;
       if (expiresAt !== undefined && expiresAt <= now) {
         this.logger.debug(`Disconnecting socket of user ${socket.data.user}: token expired`);
+        this.metrics.recordWsExpiredSocketDropped();
         socket.emit('session_expired', { message: 'Your session expired.' });
         socket.disconnect(true);
       }

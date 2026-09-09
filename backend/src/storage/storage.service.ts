@@ -14,6 +14,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Readable } from 'node:stream';
+import { MetricsService } from 'src/metrics/metrics.service';
 
 export interface StoredObject {
   body: Readable;
@@ -27,6 +28,8 @@ export class StorageService implements OnModuleInit {
   private client: S3Client;
   private bucketReady = false;
   private readonly bucket = process.env.MINIO_BUCKET!;
+
+  constructor(private readonly metrics: MetricsService) {}
 
   async onModuleInit() {
     this.client = new S3Client({
@@ -60,7 +63,9 @@ export class StorageService implements OnModuleInit {
           ContentType: mimetype,
         }),
       );
+      this.metrics.recordUpload('success', buffer.byteLength);
     } catch (err) {
+      this.metrics.recordUpload('failure');
       this.logger.error(`Upload failed for "${key}": ${(err as Error).message}`);
       throw new ServiceUnavailableException('File storage is currently unavailable');
     }

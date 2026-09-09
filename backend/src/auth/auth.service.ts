@@ -13,6 +13,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, createHmac, randomBytes, randomInt } from 'crypto';
 import { MailService } from 'src/mail/mail.service';
+import { MetricsService } from 'src/metrics/metrics.service';
 import { RedisService } from 'src/redis/redis.service';
 import { DAY_MS, daysAgo, PASSWORD_RESET_RETENTION_DAYS } from 'src/retention.config';
 import { GoogleProfile, JwtMfaPayload, JwtRefreshPayload, JwtTokens } from 'src/types';
@@ -188,6 +189,7 @@ export class AuthService {
     private jwt: JwtService,
     private mail: MailService,
     private redis: RedisService,
+    private metrics: MetricsService,
   ) {}
 
   async register(req: ExpressRequest, dto: RegisterDto, res: ExpressResponse) {
@@ -205,6 +207,7 @@ export class AuthService {
       });
       const tokens = await this.createJwt(user.id, user.email, req);
       this.setCookies(tokens, res, tokens.refreshExpiresAt);
+      this.metrics.recordRegistration('success');
       return successResponse(
         { accessExpiresAt: this.accessExpiresAt() },
         'User registered successfully',
@@ -214,6 +217,7 @@ export class AuthService {
         if (error.code === 'P2002') {
           // Deliberately generic: does not reveal whether the email or the
           // username collided.
+          this.metrics.recordRegistration('credentials_taken');
           throw new ConflictException('Credentials taken');
         }
       }
@@ -229,14 +233,25 @@ export class AuthService {
     const user = await this.prisma.users.findUnique({
       where: { email: dto.email },
     });
-    if (user === null) throw new ForbiddenException('Invalid credentials');
+    // The three failures below answer with one identical 403 so the endpoint
+    // cannot be used to test whether an address has an account. The metric is
+    // not bound by that: it is read by operators, not by callers, and telling a
+    // stuffing run apart from one confused user needs the distinction.
+    if (user === null) {
+      this.metrics.recordLogin('unknown_account');
+      throw new ForbiddenException('Invalid credentials');
+    }
 
     // Google-only accounts have no local password, and argon2.verify on a null
     // hash throws, which the global filter would turn into a 500.
-    if (user.password === null) throw new ForbiddenException('Invalid credentials');
+    if (user.password === null) {
+      this.metrics.recordLogin('no_local_password');
+      throw new ForbiddenException('Invalid credentials');
+    }
 
     const isPwMatch = await argon2.verify(user.password, dto.password);
     if (!isPwMatch) {
+      this.metrics.recordLogin('bad_password');
       throw new ForbiddenException('Invalid credentials');
     }
 
@@ -247,6 +262,7 @@ export class AuthService {
       }
       // The password is not asked for again. The client holds this token for the
       // OTP step instead, so the password crosses the wire once per login.
+      this.metrics.recordLogin('mfa_required');
       return successResponse(
         { mfaRequired: true, mfaType: 'totp', mfaToken: await this.createMfaToken(user.id) },
         'TOTP is required for login.',
@@ -255,6 +271,7 @@ export class AuthService {
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res, tokens.refreshExpiresAt);
+    this.metrics.recordLogin('success');
     return successResponse(
       { mfaRequired: false, mfaType: 'none', accessExpiresAt: this.accessExpiresAt() },
       'Login successful',
@@ -274,18 +291,25 @@ export class AuthService {
     // The password flow puts the token in the body; the Google flow cannot,
     // because it arrives by redirect, so it leaves it in an httpOnly cookie.
     const token = dto.mfaToken ?? readCookie(req, MFA_COOKIE);
-    if (token === null) throw new ForbiddenException('Invalid TOTP');
+    if (token === null) {
+      this.metrics.recordMfaVerification('invalid_challenge');
+      throw new ForbiddenException('Invalid TOTP');
+    }
 
     const userId = await this.readMfaToken(token);
 
     const user = await this.prisma.users.findUnique({ where: { id: userId } });
     // The account can be deleted, or TOTP turned off, between the two steps.
     if (user === null || !user.totpActive || user.totpSecret === null) {
+      this.metrics.recordMfaVerification('invalid_challenge');
       throw new ForbiddenException('Invalid TOTP');
     }
 
     const counter = verifyTOTP(user.totpSecret, dto.otp);
-    if (counter === null) throw new ForbiddenException('Invalid TOTP');
+    if (counter === null) {
+      this.metrics.recordMfaVerification('invalid_otp');
+      throw new ForbiddenException('Invalid TOTP');
+    }
 
     // A code stays valid across three time steps, so spending it has to be
     // recorded or a captured one can be replayed. The counter is both filter and
@@ -297,13 +321,19 @@ export class AuthService {
       },
       data: { totpLastCounter: counter },
     });
-    if (count === 0) throw new ForbiddenException('Invalid TOTP');
+    if (count === 0) {
+      // The code was valid but already spent: a replay of a captured OTP, or two
+      // racing logins. Worth telling apart from a wrong code.
+      this.metrics.recordMfaVerification('replayed_otp');
+      throw new ForbiddenException('Invalid TOTP');
+    }
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res, tokens.refreshExpiresAt);
     // The Google path may have left this behind; the password path never sets
     // it. Either way the challenge has been spent.
     res.clearCookie(MFA_COOKIE);
+    this.metrics.recordMfaVerification('success');
     return successResponse(
       { mfaRequired: false, mfaType: 'none', accessExpiresAt: this.accessExpiresAt() },
       'Login successful',
@@ -338,6 +368,7 @@ export class AuthService {
       if (payload.purpose !== 'mfa') throw new Error('Not an MFA challenge token.');
       return payload.sub;
     } catch {
+      this.metrics.recordMfaVerification('invalid_challenge');
       throw new ForbiddenException('Invalid TOTP');
     }
   }
@@ -354,13 +385,21 @@ export class AuthService {
       'If an account exists for that address, a reset link is on its way.',
     );
 
+    this.metrics.recordPasswordResetStage('requested');
+
     const user = await this.prisma.users.findUnique({ where: { email: dto.email } });
-    if (user === null) return generic;
+    if (user === null) {
+      this.metrics.recordPasswordResetStage('unknown_account');
+      return generic;
+    }
 
     // The IP throttle does not stop someone flooding one inbox from rotating
     // addresses, so the cooldown is per email. Fail-open when Redis is down.
     const cooldownKey = `pwreset:cooldown:${user.id}`;
-    if ((await this.redis.get(cooldownKey)) !== null) return generic;
+    if ((await this.redis.get(cooldownKey)) !== null) {
+      this.metrics.recordPasswordResetStage('cooldown_blocked');
+      return generic;
+    }
     await this.redis.set(cooldownKey, '1', RESET_COOLDOWN_SECONDS);
 
     // A Google-only account has no password to reset. Saying so beats letting
@@ -373,6 +412,7 @@ export class AuthService {
           'so there is no password to reset.\n\n' +
           'Use the "Continue with Google" button on the login page.',
       );
+      this.metrics.recordPasswordResetStage('google_account');
       return generic;
     }
 
@@ -402,6 +442,7 @@ export class AuthService {
         'If this was not you, ignore this mail. Nothing has changed.',
     );
 
+    this.metrics.recordPasswordResetStage('mail_sent');
     return generic;
   }
 
@@ -420,6 +461,7 @@ export class AuthService {
     // Unknown, already spent and expired answer identically. Telling them apart
     // would confirm that a token was once real, and for whom.
     if (record === null || record.usedAt !== null || record.expiresAt < new Date()) {
+      this.metrics.recordPasswordResetStage('invalid_token');
       throw new BadRequestException('This reset link is invalid or has expired');
     }
 
@@ -442,6 +484,7 @@ export class AuthService {
       await revokeAllSessions(tx, record.userId);
     });
 
+    this.metrics.recordPasswordResetStage('completed');
     // Deliberately not logged in. Auto-login would mean access to a mailbox
     // alone produces a session, and it hides whether the new password works.
     return successResponse(null, 'Password updated. You can now log in.');
@@ -539,6 +582,7 @@ export class AuthService {
     if (user.totpActive) {
       if (user.totpSecret === null) {
         this.logger.error('TOTP is enabled, but no totpSecret has been set.');
+        this.metrics.recordGoogleLogin('provider_error');
         throw new GoogleAuthException('provider_error');
       }
       // The challenge goes in a cookie, not the URL: a redirect target lands in
@@ -550,11 +594,13 @@ export class AuthService {
         sameSite: 'lax',
         maxAge: MFA_TOKEN_TTL_MS,
       });
+      this.metrics.recordGoogleLogin('mfa_required');
       return { mfaRequired: true };
     }
 
     const tokens = await this.createJwt(user.id, user.email, req);
     this.setCookies(tokens, res, tokens.refreshExpiresAt);
+    this.metrics.recordGoogleLogin('success');
     return { mfaRequired: false };
   }
 
@@ -657,11 +703,13 @@ export class AuthService {
       },
     });
     if (session === null) {
+      this.metrics.recordTokenRefresh('unknown_session');
       this.logger.error('could not find the session in the database to issue a new JWT');
       throw new ForbiddenException('Invalid session id');
     }
 
     if (session.userId !== payload.sub) {
+      this.metrics.recordTokenRefresh('owner_mismatch');
       this.logger.error('refresh token subject does not match the owner of the session');
       throw new ForbiddenException('Invalid session id');
     }
@@ -669,6 +717,7 @@ export class AuthService {
     // Enforced here, not left to the 5-minute sweep: a row past its expiry that
     // has not been collected yet would otherwise still mint fresh tokens.
     if (session.expiresAt.getTime() <= Date.now()) {
+      this.metrics.recordTokenRefresh('expired_session');
       throw new ForbiddenException('Invalid session id');
     }
 
@@ -684,6 +733,10 @@ export class AuthService {
       // legitimate user out of every device, and the sources are hard to
       // enumerate (bfcache, sleep, network retries). The warning is the data
       // needed before turning reuse detection on.
+      // The signal reuse detection would act on, published so it can be graphed
+      // and alerted on before that decision is made. Rotation means a key that is
+      // neither current nor graced was already spent: a replay, or a leak.
+      this.metrics.recordTokenRefresh('stale_key');
       this.logger.warn(`stale refresh key presented for session ${session.id}`);
       throw new ForbiddenException('Invalid session id');
     }
@@ -714,6 +767,10 @@ export class AuthService {
       refresh_token: refresh.refresh_token,
     };
     this.setCookies(tokens, res, refresh.expiresAt);
+    // `graced` is a sibling tab arriving on the key that was just superseded —
+    // normal, but a rate that dwarfs `success` means the grace window is doing
+    // more work than it should.
+    this.metrics.recordTokenRefresh(isCurrent ? 'success' : 'graced');
     return successResponse({ accessExpiresAt: this.accessExpiresAt() }, 'Token refreshed');
   }
 
@@ -727,6 +784,7 @@ export class AuthService {
     });
     res.clearCookie('access_token', cookieOptions(res));
     res.clearCookie('refresh_token', cookieOptions(res));
+    this.metrics.recordLogout();
     return successResponse(null, 'Logged out');
   }
 

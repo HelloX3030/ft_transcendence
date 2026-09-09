@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createTransport, type Transporter } from 'nodemailer';
+import { MetricsService } from 'src/metrics/metrics.service';
 
 /**
  * Sends the few transactional mails the app produces. In development this points
@@ -12,6 +13,8 @@ import { createTransport, type Transporter } from 'nodemailer';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter | null = null;
+
+  constructor(private readonly metrics: MetricsService) {}
 
   /**
    * Built lazily so a missing or unreachable SMTP host cannot stop the app from
@@ -30,12 +33,20 @@ export class MailService {
   }
 
   async send(to: string, subject: string, text: string): Promise<void> {
-    await this.getTransporter().sendMail({
-      from: process.env.MAIL_FROM,
-      to,
-      subject,
-      text,
-    });
+    try {
+      await this.getTransporter().sendMail({
+        from: process.env.MAIL_FROM,
+        to,
+        subject,
+        text,
+      });
+      this.metrics.recordMailSend('success');
+    } catch (error) {
+      // Counted, then rethrown unchanged: sendInBackground still owns the
+      // decision to swallow it, and a caller that awaits still sees the error.
+      this.metrics.recordMailSend('failure');
+      throw error;
+    }
   }
 
   /**
