@@ -7,7 +7,9 @@
  *
  * Usage:
  *   npm run metrics:targets   # what is being scraped, and is it healthy
- *   npm run metrics:reload    # re-read prometheus.yml without a restart
+ *   npm run metrics:reload    # re-read prometheus.yml and the rules, no restart
+ *   npm run metrics:alerts    # which alert rules are firing, pending or quiet
+ *   npm run metrics:test      # unit-test the alert rules against synthetic data
  *
  * Both exit non-zero on a bad outcome — a target down, or a config that does
  * not parse — so either can gate a CI step or a cron job.
@@ -115,6 +117,86 @@ function targets() {
 }
 
 /**
+ * What every alert rule is currently doing.
+ *
+ * Read from Prometheus rather than Alertmanager on purpose: Prometheus is what
+ * evaluates the rules and knows the three states. Alertmanager only ever hears
+ * about the third one, so a rule sitting in `pending` — condition true, `for`
+ * window not yet elapsed — is invisible there.
+ */
+function alerts() {
+  requireRunning();
+
+  const raw = inContainer(['wget', '-qO-', `${PROM}/api/v1/rules?type=alert`]);
+  if (raw === null) {
+    console.error('Could not read the rules API.');
+    process.exit(1);
+  }
+
+  const groups = JSON.parse(raw).data.groups;
+  const rules = groups.flatMap((g) => g.rules.map((r) => ({ group: g.name, ...r })));
+  if (rules.length === 0) {
+    console.log('No alert rules loaded. Check rule_files in prometheus/prometheus.yml.');
+    process.exit(1);
+  }
+
+  const firing = rules.filter((r) => r.state === 'firing');
+  const pending = rules.filter((r) => r.state === 'pending');
+
+  // Only the interesting ones are listed in full; the quiet majority is a count,
+  // because a wall of "inactive" is how a status command stops being read.
+  for (const [label, list] of [
+    ['FIRING', firing],
+    ['PENDING', pending],
+  ]) {
+    if (list.length === 0) continue;
+    console.log(`${label}:`);
+    for (const rule of list) {
+      for (const alert of rule.alerts ?? []) {
+        const summary = alert.annotations?.summary ?? rule.name;
+        console.log(`  ${rule.name}  [${alert.labels?.severity ?? '-'}]  ${summary}`);
+      }
+    }
+    console.log('');
+  }
+
+  const quiet = rules.length - firing.length - pending.length;
+  console.log(
+    `${rules.length} rules in ${groups.length} groups: ` +
+      `${firing.length} firing, ${pending.length} pending, ${quiet} inactive.`,
+  );
+  // Firing alerts are a non-zero exit so this can gate something; pending is not,
+  // since pending is the system working as designed.
+  if (firing.length > 0) process.exit(1);
+}
+
+/**
+ * Runs the alert-rule unit tests. Each feeds synthetic series through a real
+ * PromQL evaluation and asserts which alerts fire and when, so a rule can be
+ * proven correct without waiting for the outage it describes.
+ */
+function test() {
+  requireRunning();
+  try {
+    execFileSync(
+      'docker',
+      [
+        'compose',
+        'exec',
+        '-T',
+        'prometheus',
+        'sh',
+        '-c',
+        'cd /etc/prometheus/rules/tests && promtool test rules *.yml',
+      ],
+      { cwd: ROOT, stdio: 'inherit' },
+    );
+  } catch {
+    process.exit(1);
+  }
+}
+
+/**
  * Applies an edited prometheus.yml without restarting the process, so there is
  * no gap in the graphs and no write-ahead-log replay.
  *
@@ -164,7 +246,9 @@ function reload() {
 const command = process.argv[2];
 if (command === 'targets') targets();
 else if (command === 'reload') reload();
+else if (command === 'alerts') alerts();
+else if (command === 'test') test();
 else {
-  console.error('Usage: node scripts/prometheus.mjs <targets|reload>');
+  console.error('Usage: node scripts/prometheus.mjs <targets|reload|alerts|test>');
   process.exit(1);
 }

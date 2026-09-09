@@ -18,6 +18,20 @@ global:
   external_labels:
     monitor: cinemates
 
+# Alert rules, evaluated every `evaluation_interval` above. Split by subject the
+# same way the dashboards are, so a rule and the panel that explains it are easy
+# to find together.
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Where firing alerts are sent. Prometheus decides *what* is firing; it never
+# notifies anyone itself. Alertmanager does the grouping, deduplication,
+# inhibition and delivery — see alertmanager/alertmanager.yml.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
 scrape_configs:
   # Prometheus watching itself. The cheapest way to notice that scraping has
   # stopped working is for the thing doing the scraping to be a target too.
@@ -98,3 +112,9 @@ scrape_configs:
   - job_name: recommender
     static_configs:
       - targets: ['recommender:8000']
+
+  # Alertmanager's own health. Without this, the component responsible for
+  # telling you things are broken is the one thing nothing watches.
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']

@@ -1,0 +1,86 @@
+# What happens after Prometheus decides an alert is firing.
+#
+# Prometheus itself only computes state — it never sends anything to a person.
+# It pushes the list of firing alerts here, and this file decides how they are
+# grouped, how often they repeat, which ones suppress which, and where they go.
+
+global:
+  # Mailpit, already in the stack. It captures mail rather than delivering it, so
+  # an alert arrives as a real email you can open at http://localhost:8025 with
+  # no credentials and no outbound network. Port 1025 is its SMTP side, which is
+  # deliberately not published to the host.
+  smtp_smarthost: 'mailpit:1025'
+  smtp_from: 'alertmanager@cinemates.local'
+  # Mailpit speaks plain SMTP on the internal network and offers no TLS. The
+  # connection never leaves Docker; a real provider would need both this and
+  # credentials.
+  smtp_require_tls: false
+
+route:
+  receiver: mail
+
+  # One notification per alertname per job, rather than one per firing series.
+  # When Postgres goes down, several rules fire at once — this makes that one
+  # email instead of eight.
+  group_by: ['alertname', 'job']
+
+  # Hold a new group briefly so alerts that fire together arrive together.
+  group_wait: 30s
+  # Then wait this long before sending an update about a group that has already
+  # notified but gained new members.
+  group_interval: 5m
+  # Re-notify about something still broken this often. Long enough not to be
+  # noise, short enough that a problem does not fall out of memory.
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts repeat more often. They still land in the same inbox —
+    # there is nowhere else to send them here — but a stack with a pager would
+    # branch on exactly this matcher.
+    - matchers:
+        - severity="critical"
+      receiver: mail
+      repeat_interval: 1h
+
+    # Informational alerts repeat as rarely as they can. A restart is worth
+    # knowing about once; it is not worth an email every four hours.
+    #
+    # Capped at the notification log's retention, not set to some larger number:
+    # Alertmanager only remembers what it has already sent for as long as that
+    # log keeps it, so a repeat_interval beyond it silently stops meaning
+    # anything — the entry expires and the next evaluation looks like a first
+    # notification. Alertmanager warns about exactly this at startup.
+    - matchers:
+        - severity="info"
+      receiver: mail
+      repeat_interval: 120h
+
+receivers:
+  - name: mail
+    email_configs:
+      - to: 'ops@cinemates.local'
+        # Also mail when the condition clears, so an inbox is not left with an
+        # alert that resolved itself an hour ago and no way to tell.
+        send_resolved: true
+        headers:
+          Subject: >-
+            [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+            {{ .CommonLabels.alertname }}
+
+inhibit_rules:
+  # If a target is down, everything else that rule set says about it is a
+  # consequence, not news. Suppress the noise and keep the cause.
+  - source_matchers:
+      - alertname="TargetDown"
+    target_matchers:
+      - severity=~"warning|critical"
+    # Only within the same job: the backend being down must not silence alerts
+    # about Postgres.
+    equal: ['job']
+
+  # A container that was OOM-killed also restarted. The kill is the story.
+  - source_matchers:
+      - alertname="ContainerOOMKilled"
+    target_matchers:
+      - alertname="ContainerRestarted"
+    equal: ['name']

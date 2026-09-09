@@ -1,0 +1,175 @@
+# Unit tests for the alert rules, run by `promtool test rules`.
+#
+# Each test feeds synthetic time series into a real PromQL evaluation and asserts
+# which alerts are firing at a given moment. That means every rule below is
+# proven to fire on the condition it claims — and, just as importantly, proven
+# NOT to fire before its `for` window elapses — without waiting for the disk to
+# actually fill or for someone to actually attack the login endpoint.
+#
+#   npm run metrics:test
+
+rule_files:
+  - ../availability.yml
+  - ../backend.yml
+  - ../security.yml
+  - ../dependencies.yml
+  - ../infrastructure.yml
+
+evaluation_interval: 1m
+
+tests:
+  # --- TargetDown, and the `for` window that keeps it quiet ----------------
+  - interval: 1m
+    input_series:
+      - series: 'up{job="redis", instance="redis_exporter:9121"}'
+        # Up for three minutes, then down for the rest.
+        values: '1 1 1 0 0 0 0 0'
+    alert_rule_test:
+      # One minute after it goes down: pending, not firing. This is the
+      # assertion that a restart does not page anyone.
+      - eval_time: 4m
+        alertname: TargetDown
+        exp_alerts: []
+      # Two minutes later the `for` window has elapsed.
+      - eval_time: 6m
+        alertname: TargetDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: redis
+              instance: redis_exporter:9121
+            exp_annotations:
+              summary: "redis is not answering scrapes"
+              description: >-
+                Prometheus has failed to scrape redis_exporter:9121 (redis) for
+                over two minutes. Either the process is down or its metrics
+                endpoint has stopped responding.
+
+  # --- Refresh-token reuse fires on a single occurrence --------------------
+  - interval: 1m
+    input_series:
+      # A counter that steps by one at minute 3 — one replayed key, once.
+      - series: 'auth_token_refreshes_total{outcome="stale_key", job="backend"}'
+        values: '0 0 0 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: RefreshTokenReuse
+        exp_alerts: []
+      # No `for` on this rule: one occurrence is the signal, so it fires as soon
+      # as the increase is visible.
+      - eval_time: 5m
+        alertname: RefreshTokenReuse
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              outcome: stale_key
+              job: backend
+            exp_annotations:
+              summary: "A spent refresh token was presented again (1 in 15m)"
+              description: >-
+                A refresh key was used that had already been rotated away and is
+                past the grace window. That is either a replayed token or one
+                that leaked. The session was refused; the account was not logged
+                out, because a false positive would evict a legitimate user from
+                every device.
+
+  # --- Error-rate ratio, including the case that must NOT fire ------------
+  - interval: 1m
+    input_series:
+      # 100 requests/min total, of which 10/min are 5xx = 10%, above the 5% bar.
+      - series: 'http_request_duration_seconds_count{job="backend", status_code="200", route="/v1/movies"}'
+        values: '0+90x15'
+      - series: 'http_request_duration_seconds_count{job="backend", status_code="500", route="/v1/movies"}'
+        values: '0+10x15'
+    alert_rule_test:
+      # Before the 5m `for` has elapsed.
+      - eval_time: 4m
+        alertname: BackendHighErrorRate
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: BackendHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Backend is returning 5xx for 10% of requests"
+              description: >-
+                More than 5% of responses have been server errors for five
+                minutes. 4xx is deliberately excluded — a rejected login or a 404
+                is the server working, not failing.
+
+  # --- A healthy backend must stay silent ---------------------------------
+  - interval: 1m
+    input_series:
+      # All 2xx. The 5xx series does not exist at all, which is the shape that
+      # made the error-rate *panel* read "No data" until it was given a
+      # vector(0) — worth asserting the rule does not misbehave on it either.
+      - series: 'http_request_duration_seconds_count{job="backend", status_code="200", route="/v1/movies"}'
+        values: '0+100x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: BackendHighErrorRate
+        exp_alerts: []
+
+  # --- The cache-ratio guard clause ---------------------------------------
+  - interval: 1m
+    input_series:
+      # A very quiet half hour: two hits, two misses. That is a 50% hit ratio,
+      # which is below the threshold — but on almost no traffic. The `and`
+      # clause in the rule exists to keep this silent, and this test is what
+      # proves it does.
+      - series: 'cache_operations_total{result="hit", namespace="tmdb", job="backend"}'
+        values: '0 0 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2'
+      - series: 'cache_operations_total{result="miss", namespace="tmdb", job="backend"}'
+        values: '0 0 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2'
+    alert_rule_test:
+      - eval_time: 39m
+        alertname: CacheHitRatioCollapsed
+        exp_alerts: []
+
+  # --- Disk: the threshold rule and the prediction rule -------------------
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{mountpoint="/", job="node", fstype="ext4"}'
+        values: '1000x30'
+      # Free space falling steadily: 100 down to 70 over 30 minutes. At 90 the
+      # filesystem is 91% full, past the 85% bar.
+      - series: 'node_filesystem_avail_bytes{mountpoint="/", job="node", fstype="ext4"}'
+        values: '100-1x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: DiskSpaceLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: /
+              job: node
+              fstype: ext4
+            exp_annotations:
+              summary: "Root filesystem is 92.5% full"
+              description: >-
+                A full disk stops Postgres from writing and Prometheus from
+                storing at the same moment, so this is one of the few alerts
+                where the failure is total rather than partial.
+
+  # --- OOM kill fires immediately and names the container -----------------
+  - interval: 1m
+    input_series:
+      - series: 'container_oom_events_total{name="ft_transcendence-recommender-1", job="cadvisor"}'
+        values: '0 0 0 0 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ContainerOOMKilled
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: ContainerOOMKilled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              name: ft_transcendence-recommender-1
+              job: cadvisor
+            exp_annotations:
+              summary: "ft_transcendence-recommender-1 was killed for exceeding its memory limit"
+              description: >-
+                The kernel killed this container. Without this alert the service
+                simply disappears and the only evidence is a gap in its metrics.

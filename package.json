@@ -16,6 +16,8 @@
     "clear-cache": "docker compose exec redis redis-cli FLUSHALL",
     "metrics:targets": "node scripts/prometheus.mjs targets",
     "metrics:reload": "node scripts/prometheus.mjs reload",
+    "metrics:alerts": "node scripts/prometheus.mjs alerts",
+    "metrics:test": "node scripts/prometheus.mjs test",
     "check:console": "node scripts/console-check.mjs",
     "seed": "node scripts/seed.mjs",
     "retrain": "node scripts/retrain.mjs"

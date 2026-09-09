@@ -1,0 +1,65 @@
+# Is each thing we scrape still answering?
+#
+# One rule covers every target. `up` is synthesised by Prometheus itself for each
+# scrape, so this needs no cooperation from the thing being watched — a service
+# that has crashed hard enough to answer nothing at all still triggers it, which
+# is exactly the case a health endpoint cannot cover.
+
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        # Two minutes, not zero: a container restart or a redeploy misses a
+        # scrape or two, and paging for that trains people to ignore the alert.
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is not answering scrapes"
+          description: >-
+            Prometheus has failed to scrape {{ $labels.instance }}
+            ({{ $labels.job }}) for over two minutes. Either the process is down
+            or its metrics endpoint has stopped responding.
+
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus is running a stale configuration"
+          description: >-
+            The last configuration reload failed, so Prometheus is still running
+            the previous config. Any scrape job or rule added since then is not
+            in effect. Run `npm run metrics:reload` to see the parse error.
+
+      # `up` only says the exporter answered. An exporter whose backing service
+      # has died still scrapes perfectly well and reports the failure in its own
+      # metric — so without these two rules, stopping Postgres or Redis would
+      # fire nothing at all.
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          job: postgres
+        annotations:
+          summary: "Postgres is not reachable from its exporter"
+          description: >-
+            postgres_exporter is running and answering scrapes, but cannot open a
+            connection to the database. Every service that needs Postgres is
+            failing right now.
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          job: redis
+        annotations:
+          summary: "Redis is not reachable from its exporter"
+          description: >-
+            redis_exporter is answering but Redis is not. The application
+            degrades rather than fails — cache reads become misses — so the
+            visible symptom is TMDB rate budget draining, not an outage.

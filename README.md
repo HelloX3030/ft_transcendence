@@ -285,8 +285,27 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 | **cAdvisor / node_exporter** | Per-container resources, and the host's CPU, memory and disk |
 | **Caddy & MinIO metrics** | Both speak Prometheus natively; switched on, no exporter needed |
 | **prometheus-fastapi-instrumentator** | Instruments the recommendation service in its own code |
+| **Alertmanager** | Groups, deduplicates and delivers firing alerts as mail to Mailpit |
 
 **Why Caddy.** It generates its own certificate and terminates TLS with no configuration, which is what lets `https://` work on a fresh clone with no CA setup. Serving the frontend, the API and the WebSocket through one origin also removes an entire class of CORS and cookie problems, and lets the session cookies stay `sameSite: strict`.
+
+**Alerting.** 28 rules in `prometheus/rules/`, split by subject the same way the
+dashboards are. Prometheus evaluates them and decides what is firing; it never
+notifies anyone itself — that is Alertmanager's job, and it groups related alerts
+into one message, suppresses consequences of a cause that is already firing, and
+delivers to Mailpit, where the mail can be read at `http://localhost:8025`.
+
+Every rule carries a `for` window so a single missed scrape cannot page anyone,
+and the rules have unit tests: `npm run metrics:test` feeds synthetic time series
+through a real PromQL evaluation and asserts which alerts fire, and when. That
+proves a rule works without waiting for the disk to actually fill.
+
+```bash
+npm run metrics:targets   # what is being scraped, and is it healthy
+npm run metrics:alerts    # what is firing, pending, or quiet
+npm run metrics:test      # unit-test the alert rules
+npm run metrics:reload    # apply an edited config without a restart
+```
 
 **Why the monitoring stack is unreachable from the host.** Prometheus has no
 authentication of any kind and everything it holds — the route table, traffic

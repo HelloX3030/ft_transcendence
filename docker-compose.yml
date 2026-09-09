@@ -252,6 +252,7 @@ services:
       - --web.enable-lifecycle
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       # Named volume: without it every restart throws away the history, which is
       # the one thing Prometheus exists to keep.
       - prometheus_data:/prometheus
@@ -337,6 +338,38 @@ services:
       start_period: 30s
     depends_on:
       - prometheus
+    networks:
+      - web
+
+  # Receives firing alerts from Prometheus and turns them into notifications.
+  # The split matters: Prometheus evaluates rules and knows nothing about email,
+  # Alertmanager knows nothing about PromQL and does the grouping, silencing,
+  # inhibition and delivery.
+  #
+  # No published port, like everything else here. Its web UI is where silences
+  # are created; reach it with
+  #
+  #   docker compose exec alertmanager wget -qO- localhost:9093/api/v2/alerts
+  #
+  # or use `npm run metrics:alerts`, which reads the state from Prometheus. The
+  # human-visible output is the mail itself, in Mailpit on :8025.
+  alertmanager:
+    image: prom/alertmanager:v0.34.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Silences and notification state. Without it, a restart re-notifies about
+      # everything currently firing and forgets every silence.
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - mailpit
     networks:
       - web
 
@@ -447,6 +480,7 @@ networks:
 
 volumes:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
   caddy_data:
   caddy_config:
