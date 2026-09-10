@@ -1,0 +1,130 @@
+# The machine and the containers on it. These are the rules that could not exist
+# before node_exporter and cAdvisor: nothing inside the application can see how
+# full the disk is or why a container disappeared.
+
+groups:
+  - name: infrastructure
+    rules:
+      - alert: DiskSpaceLow
+        expr: >-
+          1 - (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            / node_filesystem_size_bytes{mountpoint="/"}
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Root filesystem is {{ $value | humanizePercentage }} full"
+          description: >-
+            A full disk stops Postgres from writing and Prometheus from storing
+            at the same moment, so this is one of the few alerts where the
+            failure is total rather than partial.
+
+      - alert: DiskWillFillInFourHours
+        # Fits a line through the last six hours of free space and asks where it
+        # crosses zero. This fires while there is still time to act, which is the
+        # only useful moment to hear about a disk — DiskSpaceLow above only tells
+        # you once you are already close.
+        expr: >-
+          predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[6h], 4 * 3600) < 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Root filesystem is on course to fill within four hours"
+          description: >-
+            Extrapolating the last six hours of free space. Prometheus' own
+            retention, Postgres WAL and container logs are the usual causes.
+
+      - alert: HostMemoryHigh
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.92
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory {{ $value | humanizePercentage }} used"
+          description: >-
+            Measured against available rather than free, so reclaimable page
+            cache is already counted as spare. At this level the kernel starts
+            killing containers.
+
+      - alert: ContainerOOMKilled
+        expr: increase(container_oom_events_total{name!=""}[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.name }} was killed for exceeding its memory limit"
+          description: >-
+            The kernel killed this container. Without this alert the service
+            simply disappears and the only evidence is a gap in its metrics.
+
+      - alert: ContainerRestarted
+        expr: changes(container_start_time_seconds{name!=""}[15m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.name }} restarted"
+          description: >-
+            Informational on its own; read alongside ContainerOOMKilled, which
+            explains why.
+
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_database_numbackends) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postgres is using {{ $value | humanizePercentage }} of max_connections"
+          description: >-
+            At 100% Postgres refuses new connections outright, which takes down
+            every service that needs the database at the same instant. This is a
+            cliff, not a slope.
+
+      - alert: PostgresDeadlocks
+        expr: increase(pg_stat_database_deadlocks[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postgres detected {{ $value }} deadlock(s) in {{ $labels.datname }}"
+          description: >-
+            Postgres resolved it by aborting one transaction, so a request
+            failed. Deadlocks mean two code paths take the same locks in
+            different orders.
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is at {{ $value | humanizePercentage }} of its memory cap"
+          description: >-
+            The policy is allkeys-lru, so Redis will not fail — it will silently
+            discard cache entries, and each discarded TMDB entry is an upstream
+            call paid for twice.
+
+      - alert: RedisEvictingKeys
+        expr: increase(redis_evicted_keys_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis evicted {{ $value }} keys in the last 15 minutes"
+          description: >-
+            Memory pressure is already discarding cache. Expect the TMDB budget
+            to start absorbing the difference.
+
+      - alert: HostCpuHigh
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[10m])) > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU {{ $value | humanizePercentage }} busy"
+          description: >-
+            Sustained across all cores for fifteen minutes. Check the
+            per-container CPU panel to see which service is responsible.

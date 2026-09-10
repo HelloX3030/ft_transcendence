@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import {
   BadRequestException,
   ConflictException,
@@ -158,6 +159,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwt },
         { provide: MailService, useValue: mockMail },
         { provide: RedisService, useValue: mockRedis },
+        MetricsService,
       ],
     }).compile();
 

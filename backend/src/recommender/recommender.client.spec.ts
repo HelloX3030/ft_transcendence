@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecommenderClient } from './recommender.client';
@@ -17,7 +18,7 @@ describe('RecommenderClient', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RecommenderClient],
+      providers: [RecommenderClient, MetricsService],
     }).compile();
     client = module.get<RecommenderClient>(RecommenderClient);
   });

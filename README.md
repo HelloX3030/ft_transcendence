@@ -51,6 +51,7 @@ Behind the feed sits a dedicated Python recommendation service that blends colla
 | 🔐 **Secure accounts** | Argon2id passwords, JWT sessions, Google OAuth 2.0, TOTP 2FA |
 | 🖼️ **Avatar uploads** | Validated, magic-byte-checked uploads stored in MinIO |
 | 📱 **Responsive UI** | Mobile-first, works from a phone up to a wide desktop |
+| 📊 **Monitoring** | Prometheus, Grafana dashboards and alerting across every service |
 
 ---
 
@@ -105,14 +106,16 @@ Attribution names the person who **drove** each feature. Almost everything was r
 | Data retention | Scheduled sweeps for read notifications, old messages, orphaned uploads and spent reset tokens | lseeger |
 | Legal pages | Privacy Policy and Terms of Service, written for what this app actually does with data | cwolf |
 | CI & code quality | GitHub Actions gate, Prettier, ESLint, oxlint, `vue-tsc`/`tsc`, Jest + Vitest, Husky pre-commit hook running in Docker | lseeger |
+| Metrics instrumentation | 63 metric families from the backend — HTTP timings by route, auth outcomes, cache hit ratio, TMDB budget, socket presence — behind a token-guarded `/metrics` | lseeger |
+| Monitoring & alerting | Prometheus over 10 targets, 9 Grafana dashboards, 28 alert rules delivered by Alertmanager | lseeger |
 
 ---
 
 ## Modules
 
-**Total: 15 points — 5 Major (2 pts each) + 5 Minor (1 pt each).**
+**Total: 17 points — 6 Major (2 pts each) + 5 Minor (1 pt each).**
 
-The subject requires 14. The fifteenth point is deliberate: it is the buffer the subject recommends keeping, so that a module not being validated during evaluation does not drop us below the minimum.
+The subject requires 14. The three points above that are deliberate: they are the buffer the subject recommends keeping, so that a module not being validated during evaluation does not drop us below the minimum.
 
 | # | Module | Category | Type | Pts |
 |---|---|---|---|---|
@@ -126,7 +129,8 @@ The subject requires 14. The fifteenth point is deliberate: it is the buffer the
 | 8 | File upload and management system | Web | Minor | 1 |
 | 9 | Remote authentication with OAuth 2.0 | User Management | Minor | 1 |
 | 10 | Complete 2FA (Two-Factor Authentication) system | User Management | Minor | 1 |
-| | | | **Total** | **15** |
+| 11 | Monitoring system with Prometheus and Grafana | DevOps | Major | 2 |
+| | | | **Total** | **17** |
 
 ### 1. Framework for both frontend and backend — Major (2 pts)
 
@@ -215,7 +219,31 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 
 **Who.** lseeger.
 
-> **Not claimed.** The notification system, while implemented and in daily use, covers friend and watchlist events rather than every create/update/delete action in the app, so we do not claim the "complete notification system" minor module for it. It is listed above as a feature, not as a module. The same applies to the log-management, monitoring and status-page DevOps modules: we scoped them out and there is no code for them in this repository.
+### 11. Monitoring system with Prometheus and Grafana — Major (2 pts)
+
+**Why.** Sixteen containers fail in ways the application cannot describe. Logs answer "what happened in this one request"; they cannot answer "how many requests failed this hour", "did p95 latency double after the last deploy", or "is Postgres two days from running out of connections". Those are questions about aggregates over time, which is a different data shape and needs different tooling. The honest trigger was smaller than that: "the app feels slow" was a sentence nobody on the team could turn into a number.
+
+**How.** All five parts of the module are implemented.
+
+**Collection.** Prometheus scrapes **10 targets** every 15 seconds and keeps 15 days of history in a named volume. It pulls; nothing pushes to it, so a service that has crashed hard enough to answer nothing at all is detected by the scrape failing rather than by the service reporting its own death.
+
+**Exporters and integrations.** Three different kinds, because the targets are three different kinds of thing:
+
+- **Instrumented in our own code** — the NestJS backend exposes **63 metric families** via `prom-client`: a request-duration histogram labelled by route *template*, and domain counters that only the application knows — login outcomes split by reason, TOTP replay, refresh-token reuse, TMDB rate-budget rejections, cache hit ratio, socket presence, and business totals polled from the database. The Python recommender is instrumented the same way with `prometheus-fastapi-instrumentator`.
+- **Exporters** — `postgres_exporter` and `redis_exporter` are translators: each connects as an ordinary client, asks the service for the statistics it already keeps about itself, and republishes them. Neither Postgres nor Redis is modified or aware of it. `cAdvisor` and `node_exporter` wrap no service at all — they read Docker's own accounting and the host's `/proc`, which is the only way to see per-container memory or how full the disk is.
+- **Already native** — Caddy and MinIO both speak Prometheus and only had to be switched on.
+
+**Dashboards.** Nine provisioned from files in `grafana/dashboards/`, **146 panels**: Backend Overview (RED metrics), Auth & Security, Dependencies, Realtime & Product, Node Runtime, Datastores, Containers & Host, Integrations and Alerting. Provisioned rather than clicked, because a dashboard built in the UI lives only in Grafana's volume — `docker compose down -v` destroys it with nothing in git to say it existed.
+
+**Alerting.** **28 rules** in `prometheus/rules/`, split by subject the way the dashboards are. Prometheus evaluates them; Alertmanager groups related alerts into one message, suppresses consequences of a cause that is already firing, and mails to Mailpit. Every rule carries a `for` window sized to what it watches — `TargetDown` waits two minutes so a restart cannot page anyone, while a replayed refresh token fires immediately, because waiting for a *sustained* rate of token theft means waiting for the takeover to succeed.
+
+**Security.** Grafana is the only way in: no published port, reachable only through Caddy over TLS, with an admin password from `.env` and no fallback, anonymous access and self sign-up both explicitly disabled. Prometheus, Alertmanager and every exporter publish no port at all — Prometheus has no authentication whatsoever, and everything it holds is a map of the system. The backend's own `/metrics` is closed twice: Caddy answers 404 for `/api/metrics`, and the route requires a bearer token compared in constant time, which is what stops the other containers on the Docker network from reading it by name.
+
+**Worth knowing.** The alert rules have **unit tests** — `promtool test rules` feeds synthetic time series through a real PromQL evaluation and asserts which alerts fire and when, including the negative cases where the assertion is that nothing fires *yet*. That proves a disk-prediction rule works without waiting for the disk to fill. And `npm run metrics:drill` stops a service on purpose and follows the whole chain to the inbox, because a rule that never fires and a rule that is broken look identical from the outside.
+
+**Who.** lseeger.
+
+> **Not claimed.** The notification system, while implemented and in daily use, covers friend and watchlist events rather than every create/update/delete action in the app, so we do not claim the "complete notification system" minor module for it. It is listed above as a feature, not as a module. The same applies to the remaining DevOps modules — log management (ELK) and a status page: we scoped those out and there is no code for them here. Monitoring, which was scoped out alongside them at the start, was subsequently built and *is* claimed — see module 11.
 
 ---
 
@@ -274,13 +302,55 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 
 | Technology | Role |
 |---|---|
-| **Docker** + **docker compose** | One-command deployment of all nine services |
+| **Docker** + **docker compose** | One-command deployment of all sixteen services |
 | **Caddy** | Reverse proxy, automatic TLS, single public origin |
 | **GitHub Actions** | CI: format, lint, type-check and tests on every pull request |
 | **Husky + lint-staged** | Pre-commit formatting, run inside Docker |
 | **pgAdmin** | Database inspection during development |
+| **Prometheus** | Scrapes and stores every metric below, 15-day retention |
+| **Grafana** | Dashboards, behind Caddy at `/grafana` with no published port |
+| **postgres_exporter / redis_exporter** | Translate Postgres and Redis statistics into metrics |
+| **cAdvisor / node_exporter** | Per-container resources, and the host's CPU, memory and disk |
+| **Caddy & MinIO metrics** | Both speak Prometheus natively; switched on, no exporter needed |
+| **prometheus-fastapi-instrumentator** | Instruments the recommendation service in its own code |
+| **Alertmanager** | Groups, deduplicates and delivers firing alerts as mail to Mailpit |
 
 **Why Caddy.** It generates its own certificate and terminates TLS with no configuration, which is what lets `https://` work on a fresh clone with no CA setup. Serving the frontend, the API and the WebSocket through one origin also removes an entire class of CORS and cookie problems, and lets the session cookies stay `sameSite: strict`.
+
+**Alerting.** 28 rules in `prometheus/rules/`, split by subject the same way the
+dashboards are. Prometheus evaluates them and decides what is firing; it never
+notifies anyone itself — that is Alertmanager's job, and it groups related alerts
+into one message, suppresses consequences of a cause that is already firing, and
+delivers to Mailpit, where the mail can be read at `http://localhost:8025`.
+
+Every rule carries a `for` window so a single missed scrape cannot page anyone,
+and the rules have unit tests: `npm run metrics:test` feeds synthetic time series
+through a real PromQL evaluation and asserts which alerts fire, and when. That
+proves a rule works without waiting for the disk to actually fill.
+
+```bash
+npm run metrics:targets   # what is being scraped, and is it healthy
+npm run metrics:alerts    # what is firing, pending, or quiet
+npm run metrics:test      # unit-test the alert rules
+npm run metrics:reload    # apply an edited config without a restart
+npm run metrics:drill     # break something on purpose and watch an alert fire
+```
+
+`metrics:drill` is the one that proves the chain end to end. It stops a service,
+waits for the alert to walk inactive → pending → firing, finds the mail that
+names that alert, prints it, and puts the service back — including when it fails
+or is interrupted. `redis` is the default because the application is built to
+survive it; `target` stops an exporter instead, which removes an observer rather
+than a dependency. `recommender` and `postgres` are also available.
+
+**Why the monitoring stack is unreachable from the host.** Prometheus has no
+authentication of any kind and everything it holds — the route table, traffic
+volumes, login-failure rates — is a map of the system, so it publishes no port;
+the same goes for every exporter. Grafana is the single way in, and it is
+reachable only through Caddy over TLS with a password from `.env`. The backend's
+own `/metrics` is closed twice over: Caddy answers 404 for `/api/metrics`, and
+the route itself requires a bearer token, which is what stops the other services
+on the Docker network from reading it by name.
 
 **Why one origin, and nothing else published.** Only Caddy's ports reach the host. The frontend, backend and recommender ports are deliberately unpublished — if they were reachable, the plain-HTTP path would still exist. The recommender is unpublished for a stronger reason: it holds full database credentials and has no authentication of its own, so being unreachable from the host is what protects it.
 
@@ -489,6 +559,8 @@ Organised the team's process and worked across the whole stack.
 
 **Infrastructure:** parts of the Docker Compose setup, the Caddy single-origin HTTPS configuration, the GitHub Actions CI pipeline, the Husky/lint-staged pre-commit tooling running in Docker, and the data-retention sweeps. Also **connected the recommendation engine to the application** — the integration between the NestJS backend and lkubler's FastAPI service.
 
+**Monitoring:** the whole observability stack — instrumenting the backend, the exporters and native integrations, the nine Grafana dashboards, the alert rules and their unit tests, and the `npm run metrics:*` tooling around them.
+
 **Testing:** built out the backend unit test suites, particularly around auth, sessions, TOTP and the socket gateway, and the end-to-end suite.
 
 **Challenge — a three-week exam period.** Common Core exams took lseeger and lkubler away from the project for roughly three weeks. The project could not simply pause, so the mitigation was front-loading: making sure the infrastructure and CI were stable enough to be self-service before leaving, and that in-flight work was either merged or documented in an issue rather than living in someone's head. Coming back meant a deliberate catch-up pass — reading the diff of what had landed, re-running the full check suite, and re-reading the areas that had moved before touching them.
@@ -578,12 +650,19 @@ First boot takes a few minutes: the Python service installs NumPy, SciPy and sci
 | **App** | https://localhost:8443 |
 | Backend API | https://localhost:8443/api |
 | **API docs (Swagger)** | https://localhost:8443/api/docs |
+| **Grafana** (metrics dashboards) | https://localhost:8443/grafana |
 | Mailpit (all outgoing mail) | http://localhost:8025 |
 | pgAdmin | http://localhost:5050 |
 | MinIO console | http://localhost:9001 |
 | PostgreSQL | localhost:5432 |
 
 `http://localhost:8080` redirects to HTTPS.
+
+Grafana signs in with `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` from `.env`.
+It has no published port of its own — that route through Caddy is the only way
+in, which is also why it is the one admin tool here that is not plain HTTP on a
+host port. Prometheus, which it reads, is not reachable from the host at all;
+`npm run metrics:targets` reports what it is scraping.
 
 > **Expect one certificate warning.** The app is served over HTTPS with a certificate Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate installed into the machine's trust store, neither of which belongs in a project you clone and run.
 >
@@ -834,6 +913,9 @@ Honest list of what does not work, or works only under conditions.
 - **A TMDB API key is required for real content.** Without one the recommender serves a small fixed stub pool, which is enough to see the mechanics but not the product.
 - **Data is pruned on a schedule.** Read notifications older than 30 days, unread ones older than 90, and chat messages older than 90 days are deleted. This is a privacy decision, but it does mean old chat history disappears.
 - **Single-instance only.** The WebSocket gateway keeps presence in process, so the backend does not currently scale horizontally without a Redis socket.io adapter.
+- **Alerts go to Mailpit, not to a person.** Delivery is a real SMTP path with real grouping and inhibition, but Mailpit captures mail rather than sending it, so nobody is woken up. Pointing it at a pager or a Slack webhook is a receiver block in `alertmanager/alertmanager.yml` and no code change.
+- **Metrics retention is 15 days, on one node.** Prometheus stores locally with no remote write and no second replica, so the monitoring stack does not survive losing the machine it watches — and it is not a place to look for anything older than a fortnight.
+- **`METRICS_TOKEN` and `MINIO_METRICS_TOKEN` are shared secrets in `.env`.** They are compared in constant time and never leave the Docker network, but they do not expire and there is no rotation mechanism beyond editing the file. The MinIO one is derived from the MinIO credentials, so changing those silently breaks the scrape until it is regenerated — `.env.example` carries the command.
 
 ---
 
@@ -877,6 +959,12 @@ Honest list of what does not work, or works only under conditions.
 - [GitHub Actions](https://docs.github.com/en/actions) · [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects)
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
 - [Jest](https://jestjs.io/docs/getting-started) · [Vitest](https://vitest.dev/) · [Playwright](https://playwright.dev/docs/intro)
+
+**Monitoring**
+- [Prometheus Documentation](https://prometheus.io/docs/introduction/overview/) · [Querying with PromQL](https://prometheus.io/docs/prometheus/latest/querying/basics/) · [Alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) · [Unit testing rules](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/)
+- [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/) · [Grafana Provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/)
+- [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) — the four golden signals, and why alerts should page on symptoms rather than causes
+- [prom-client](https://github.com/siimon/prom-client) · [postgres_exporter](https://github.com/prometheus-community/postgres_exporter) · [redis_exporter](https://github.com/oliver006/redis_exporter) · [cAdvisor](https://github.com/google/cadvisor) · [node_exporter](https://github.com/prometheus/node_exporter)
 
 **External APIs**
 - [TMDB API Reference](https://developer.themoviedb.org/reference/intro/getting-started) · [TMDB Terms of Use](https://www.themoviedb.org/api-terms-of-use)
@@ -935,9 +1023,12 @@ AI tooling was used throughout the project, always as an assistant to work the t
 ├── caddy/             Caddyfile — TLS termination and routing
 ├── postgres/          Database init scripts
 ├── pgadmin/           pgAdmin server definitions
-├── scripts/           Utility scripts (seeding, retraining, browser-console check)
+├── prometheus/        Scrape config and the alert rules, with their unit tests
+├── grafana/           Provisioned datasource, dashboard provider and 9 dashboards
+├── alertmanager/      Routing, grouping and inhibition for firing alerts
+├── scripts/           Utility scripts (seeding, retraining, monitoring, console check)
 ├── _meta/             Internal notes: formatting pipeline, database, git convention
-├── docker-compose.yml Nine services, one command
+├── docker-compose.yml Sixteen services, one command
 └── .env.example       Every environment variable, documented
 ```
 

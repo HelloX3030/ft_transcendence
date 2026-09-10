@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { REDIS_CLIENT } from './redis.constants';
 import { RedisService } from './redis.service';
@@ -13,7 +14,11 @@ describe('RedisService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [RedisService, { provide: REDIS_CLIENT, useValue: mockRedisClient }],
+      providers: [
+        RedisService,
+        { provide: REDIS_CLIENT, useValue: mockRedisClient },
+        MetricsService,
+      ],
     }).compile();
     service = module.get<RedisService>(RedisService);
     warnSpy = jest.spyOn(service['logger'], 'warn').mockImplementation(() => {});

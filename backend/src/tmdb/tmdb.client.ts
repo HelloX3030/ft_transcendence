@@ -1,6 +1,7 @@
 import { BadGatewayException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { TmdbBudget } from './tmdb.budget';
 import { TmdbListResponse } from './tmdb.types';
+import { MetricsService } from 'src/metrics/metrics.service';
 
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TIMEOUT_MS = 5000;
@@ -17,7 +18,7 @@ export class TmdbClient {
   private readonly logger = new Logger(TmdbClient.name);
   private readonly budget: TmdbBudget;
 
-  constructor() {
+  constructor(private readonly metrics: MetricsService) {
     this.budget = new TmdbBudget(
       Number(process.env.TMDB_RATE_LIMIT),
       Number(process.env.TMDB_RATE_WINDOW_SECONDS) * 1000,
@@ -28,7 +29,19 @@ export class TmdbClient {
   async get<T = TmdbListResponse>(path: string): Promise<T> {
     // Every outbound TMDB call passes through here, so the budget is enforced
     // for all endpoints regardless of which caller (or cache state) got us here.
-    await this.budget.acquire();
+    try {
+      await this.budget.acquire();
+    } catch (err) {
+      // The only thing acquire() throws is the budget-exhausted 503. Counted
+      // here rather than inside TmdbBudget, which stays a pure, testable class
+      // with no dependencies.
+      this.metrics.recordTmdbBudgetRejection();
+      throw err;
+    }
+
+    // Started after the budget wait so the histogram measures TMDB, not our own
+    // queueing — otherwise a busy period looks like an upstream slowdown.
+    const finish = this.metrics.startTmdbRequest();
 
     const headers = {
       accept: 'application/json',
@@ -42,6 +55,7 @@ export class TmdbClient {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (err) {
+      finish('network_error');
       this.logger.warn(`TMDB network error for ${path}: ${(err as Error).message}`);
       throw new BadGatewayException('TMDB is unreachable');
     }
@@ -50,15 +64,18 @@ export class TmdbClient {
     // upstream failure, so it gets its own exception: callers that can tolerate a
     // missing resource catch it specifically, without swallowing outages.
     if (res.status === 404) {
+      finish('not_found');
       this.logger.warn(`TMDB responded 404 for ${path}`);
       throw new NotFoundException('TMDB resource not found');
     }
 
     if (!res.ok) {
+      finish('upstream_error');
       this.logger.warn(`TMDB responded ${res.status} for ${path}`);
       throw new BadGatewayException('TMDB request failed');
     }
 
+    finish('success');
     return (await res.json()) as T;
   }
 }

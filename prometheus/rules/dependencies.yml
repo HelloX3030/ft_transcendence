@@ -1,0 +1,92 @@
+# The services the backend depends on and does not control.
+
+groups:
+  - name: dependencies
+    rules:
+      - alert: TmdbBudgetExhausted
+        expr: rate(tmdb_budget_rejections_total[10m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TMDB requests are being rejected for lack of rate budget"
+          description: >-
+            The self-imposed outbound ceiling has been turning callers away for
+            ten minutes, so users are seeing 503s on film data. Either traffic
+            has outgrown TMDB_RATE_LIMIT or the cache hit ratio has collapsed and
+            every request is going upstream.
+
+      - alert: TmdbUpstreamFailing
+        expr: >-
+          sum(rate(tmdb_requests_total{outcome=~"upstream_error|network_error"}[10m]))
+          /
+          sum(rate(tmdb_requests_total[10m]))
+          > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of TMDB calls are failing"
+          description: >-
+            not_found is excluded: it is a definitive answer about one film, not
+            an outage. This is network errors and 5xx from TMDB itself.
+
+      - alert: CacheHitRatioCollapsed
+        expr: >-
+          (
+            sum(rate(cache_operations_total{result="hit"}[30m]))
+            /
+            sum(rate(cache_operations_total{result=~"hit|miss"}[30m]))
+          ) < 0.5
+          and
+          sum(rate(cache_operations_total[30m])) > 0.05
+        # The second clause is load-bearing. Without it, a quiet half hour with
+        # two reads and one miss reads as a 50% hit ratio and pages someone.
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit ratio has fallen to {{ $value | humanizePercentage }}"
+          description: >-
+            Every miss is a TMDB call and a slice of rate budget. Check whether
+            Redis is evicting under memory pressure before assuming traffic
+            changed shape.
+
+      - alert: RedisUnreachableFromBackend
+        expr: rate(cache_operations_total{result="error"}[10m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The backend cannot reach Redis"
+          description: >-
+            Cache reads are erroring rather than missing. The app degrades
+            gracefully — every read falls through to the upstream — so nothing is
+            broken for users yet, but the TMDB budget is now absorbing all of it.
+
+      - alert: RecommenderFailing
+        expr: >-
+          sum(rate(recommender_requests_total{outcome!="success"}[10m]))
+          /
+          sum(rate(recommender_requests_total[10m]))
+          > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of recommender calls are failing"
+          description: >-
+            /signal is fire-and-forget, so its failures reach no user and fail no
+            request — they are invisible outside this alert, and a model that has
+            stopped receiving signals stops improving silently.
+
+      - alert: MailSendFailing
+        expr: increase(mail_send_total{outcome="failure"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transactional mail is failing to send ({{ $value }} in 15m)"
+          description: >-
+            Mail is sent in the background and never surfaces to the user, so a
+            broken SMTP path is silent: password resets simply never arrive.

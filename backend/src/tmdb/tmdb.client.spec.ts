@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import { BadGatewayException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TmdbMovie } from '@cinemates/shared';
@@ -23,7 +24,7 @@ describe('TmdbClient', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TmdbClient],
+      providers: [TmdbClient, MetricsService],
     }).compile();
     client = module.get<TmdbClient>(TmdbClient);
   });

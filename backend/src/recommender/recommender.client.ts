@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { MetricsService, type RecommenderEndpoint } from 'src/metrics/metrics.service';
 
 const FEED_TIMEOUT_MS = 5000; // matches TmdbClient's TIMEOUT_MS
 const SIGNAL_TIMEOUT_MS = 2000; // fire-and-forget: fail fast, never queue behind a swipe
@@ -19,6 +20,8 @@ interface ScoredMovie {
 export class RecommenderClient {
   private readonly logger = new Logger(RecommenderClient.name);
 
+  constructor(private readonly metrics: MetricsService) {}
+
   /**
    * TMDB ids, best first. Already excludes everything the user has rated.
    *
@@ -32,6 +35,7 @@ export class RecommenderClient {
       '/feed',
       { user_id: String(userId), limit, cursor },
       FEED_TIMEOUT_MS,
+      'feed',
     );
     return scored.map((movie) => movie.movie_id);
   }
@@ -49,6 +53,7 @@ export class RecommenderClient {
       '/signal',
       { user_id: String(userId), movie_id: movieId, action },
       SIGNAL_TIMEOUT_MS,
+      'signal',
     ).catch((error: Error) =>
       this.logger.warn(
         `signal ${action} for user ${userId} / movie ${movieId} failed: ${error.message}`,
@@ -56,8 +61,17 @@ export class RecommenderClient {
     );
   }
 
-  private async post<T>(path: string, body: unknown, timeoutMs: number): Promise<T> {
+  private async post<T>(
+    path: string,
+    body: unknown,
+    timeoutMs: number,
+    endpoint: RecommenderEndpoint,
+  ): Promise<T> {
     const url = `${process.env.RECOMMENDER_URL}${path}`;
+    // /signal is fire-and-forget, so its failures reach nobody: no user sees
+    // them and no request fails. Without this counter a recommender that has
+    // stopped accepting signals is invisible until the model stops improving.
+    const finish = this.metrics.startRecommenderRequest(endpoint);
 
     let res: Response;
     try {
@@ -68,14 +82,18 @@ export class RecommenderClient {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
+      finish('network_error');
       this.logger.warn(`Recommender network error for ${path}: ${(error as Error).message}`);
       throw new ServiceUnavailableException('Recommendations are temporarily unavailable');
     }
 
     if (!res.ok) {
+      finish('http_error');
       this.logger.warn(`Recommender responded ${res.status} for ${path}`);
       throw new ServiceUnavailableException('Recommendations are temporarily unavailable');
     }
+
+    finish('success');
 
     // /signal answers 204 with no body, and res.json() throws on an empty one,
     // which the caller's .catch would then log as a failure that did not happen.

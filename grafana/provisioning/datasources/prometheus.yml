@@ -1,0 +1,43 @@
+# Grafana's connection to Prometheus, provisioned rather than clicked.
+#
+# A datasource added through the UI lives only in Grafana's database, which is a
+# Docker volume: `docker compose down -v` and it is gone, with nothing in git to
+# say it ever existed. Declared here it is recreated on every start, survives a
+# wiped volume, and shows up in review like any other change.
+
+apiVersion: 1
+
+# Removed before the block below is applied, on every start. Without this,
+# changing anything about a datasource's identity — its uid especially — leaves
+# Grafana looking for a record that does not exist, and the whole provisioning
+# module fails with "data source not found": no datasource AND no dashboards,
+# from one edit. Deleting first makes this file authoritative rather than a
+# patch applied to whatever the volume already held.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    # Fixed rather than generated, because dashboards reference the datasource
+    # by uid. Left to Grafana it would differ per machine, and every dashboard
+    # in git would point at a datasource that does not exist on a fresh clone.
+    uid: prometheus
+    # `proxy`, not `browser`: Grafana's backend makes the query from inside the
+    # Docker network. That is the only thing that works here — Prometheus
+    # publishes no port, so a browser could not reach it directly — and it also
+    # means the viewer's machine never talks to Prometheus at all.
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    # Provisioned datasources are read-only in the UI on purpose: an edit there
+    # would be silently reverted on the next restart, which is worse than being
+    # told the field is locked.
+    editable: false
+    jsonData:
+      # Must match scrape_interval in prometheus/prometheus.yml. Grafana uses it
+      # as the floor for $__rate_interval, and a value below the real scrape
+      # interval produces rate() windows with too few points, which show up as
+      # graphs that flicker between a number and nothing.
+      timeInterval: 15s

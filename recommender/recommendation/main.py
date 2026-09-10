@@ -4,6 +4,7 @@ import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .collaborative import CollaborativeFilter
 from .config import DEFAULT_CONFIG
@@ -22,24 +23,27 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(
 logger = logging.getLogger(__name__)
 
 
-class _SkipHealthChecks(logging.Filter):
+class _SkipPolledRoutes(logging.Filter):
     """
-    Drop the access-log line for /health.
+    Drop the access-log lines for /health and /metrics.
 
-    The container health check polls it every ten seconds, which is a few hundred
-    identical lines an hour. The other routes keep their access logs.
+    The container health check polls one every ten seconds and Prometheus scrapes
+    the other every fifteen, which between them is well over a thousand identical
+    lines an hour. The routes that carry real traffic keep their access logs.
 
     uvicorn logs access records with args (client_addr, method, path,
     http_version, status), so the path is matched positionally rather than by
     searching the formatted line.
     """
 
+    _POLLED = frozenset({"/health", "/metrics"})
+
     def filter(self, record: logging.LogRecord) -> bool:
         args = record.args
-        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] == "/health")
+        return not (isinstance(args, tuple) and len(args) >= 3 and args[2] in self._POLLED)
 
 
-logging.getLogger("uvicorn.access").addFilter(_SkipHealthChecks())
+logging.getLogger("uvicorn.access").addFilter(_SkipPolledRoutes())
 
 
 class _TMDBStub:
@@ -131,6 +135,21 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
 
 
 app = FastAPI(title="CineMatch Recommender", version="0.1.0", lifespan=lifespan)
+
+# Adds request count and duration histograms per endpoint, plus the standard
+# Python process metrics, and serves them at GET /metrics for Prometheus.
+#
+# Unguarded, unlike the backend's equivalent: this service has no authentication
+# on any route, so a token on the metrics endpoint alone would protect nothing.
+# What keeps it private is the same thing that protects /feed and /retrain — no
+# published port, and no Caddy route.
+#
+# excluded_handlers keeps the two polled endpoints out of the HTTP histograms;
+# otherwise a scrape every fifteen seconds becomes the busiest route in the
+# service and buries the traffic that matters.
+Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose(
+    app, include_in_schema=False
+)
 
 
 def _get_engine() -> RecommenderEngine:

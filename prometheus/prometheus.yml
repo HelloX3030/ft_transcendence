@@ -1,0 +1,120 @@
+# What Prometheus scrapes, how often, and how it authenticates.
+#
+# Note there is nothing in here about the application: Prometheus pulls, so a
+# service is a target the moment it is listed below and exposes /metrics. It is
+# never told about Prometheus and holds no configuration for it.
+
+global:
+  # Every series gets a sample this often. 15s is the usual default and the one
+  # rate() windows below are sized against: a [5m] window still holds 20 points
+  # if a few scrapes are missed.
+  scrape_interval: 15s
+  # How often alerting rules are evaluated. Kept equal to the scrape interval so
+  # a rule never re-reads the same sample twice.
+  evaluation_interval: 15s
+  # Stamped onto every series leaving this server. Only matters once there is
+  # something downstream (a second Prometheus, or Alertmanager) to tell them
+  # apart, but it costs nothing to set now.
+  external_labels:
+    monitor: cinemates
+
+# Alert rules, evaluated every `evaluation_interval` above. Split by subject the
+# same way the dashboards are, so a rule and the panel that explains it are easy
+# to find together.
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Where firing alerts are sent. Prometheus decides *what* is firing; it never
+# notifies anyone itself. Alertmanager does the grouping, deduplication,
+# inhibition and delivery — see alertmanager/alertmanager.yml.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # Prometheus watching itself. The cheapest way to notice that scraping has
+  # stopped working is for the thing doing the scraping to be a target too.
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # The NestJS backend. Reached by its compose service name on the `web`
+  # network, on the container port, not through Caddy — Caddy answers 404 for
+  # /api/metrics precisely so this is the only path that works.
+  - job_name: backend
+    static_configs:
+      - targets: ['backend:3000']
+    authorization:
+      type: Bearer
+      # Read from a file rather than written inline, because Prometheus does no
+      # environment substitution in this config: `${METRICS_TOKEN}` here would
+      # be sent as those seventeen literal characters. Compose materialises the
+      # file from .env — see the `configs` block in docker-compose.yml — so the
+      # token still lives in exactly one place and never in git.
+      credentials_file: /etc/prometheus/metrics_token
+
+  # --- Exporters ------------------------------------------------------------
+  # Each of these is a separate process that translates something which does not
+  # speak Prometheus. They are reached by compose service name on the `web`
+  # network; none publishes a port to the host.
+
+  # SELECTs against pg_stat_*: connections against max_connections, cache hit
+  # ratio, deadlocks, transaction rates.
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+
+  # Redis INFO: memory against the 256mb cap, keyspace hit ratio, and evictions.
+  - job_name: redis
+    static_configs:
+      - targets: ['redis_exporter:9121']
+
+  # Docker's own accounting, per container. Scraped a little slower than the
+  # rest: cAdvisor emits a large number of series per container and there is
+  # nothing here that needs 15-second resolution on container memory.
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # The host machine: CPU, memory, load and — the reason it is here — disk space.
+  - job_name: node
+    static_configs:
+      - targets: ['node_exporter:9100']
+
+  # --- Built-in and instrumented targets ------------------------------------
+  # Neither of the next two needs an exporter: both already speak Prometheus and
+  # only had to be switched on.
+
+  # Caddy, on a site that serves metrics and nothing else. Deliberately not its
+  # admin endpoint, which also offers /metrics but can rewrite Caddy's whole
+  # configuration at runtime — see caddy/Caddyfile.
+  - job_name: caddy
+    static_configs:
+      - targets: ['caddy:9180']
+
+  # MinIO's own metrics, behind a bearer token it derives from its root
+  # credentials. Compose materialises the file from .env, the same way the
+  # backend's scrape token is delivered.
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ['minio:9000']
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/minio_metrics_token
+
+  # The recommendation service, instrumented in its own code the way the backend
+  # is. No token: unlike the backend it has no authentication of any kind, so
+  # guarding only its metrics endpoint would protect nothing — what keeps it
+  # private is having no published port.
+  - job_name: recommender
+    static_configs:
+      - targets: ['recommender:8000']
+
+  # Alertmanager's own health. Without this, the component responsible for
+  # telling you things are broken is the one thing nothing watches.
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']

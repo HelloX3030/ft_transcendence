@@ -14,6 +14,11 @@
     "check": "docker compose run --rm --no-deps frontend sh -c 'npm install && npm run check' && docker compose run --rm backend sh -c 'npm install && npm run check && npm run test'",
     "reset": "docker compose down -v && docker compose up --build",
     "clear-cache": "docker compose exec redis redis-cli FLUSHALL",
+    "metrics:targets": "node scripts/prometheus.mjs targets",
+    "metrics:reload": "node scripts/prometheus.mjs reload",
+    "metrics:alerts": "node scripts/prometheus.mjs alerts",
+    "metrics:test": "node scripts/prometheus.mjs test",
+    "metrics:drill": "node scripts/alert-drill.mjs",
     "check:console": "node scripts/console-check.mjs",
     "seed": "node scripts/seed.mjs",
     "retrain": "node scripts/retrain.mjs"

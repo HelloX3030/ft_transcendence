@@ -1,0 +1,30 @@
+# Tells Grafana to load every dashboard JSON in /etc/grafana/dashboards, which
+# is grafana/dashboards/ in this repo.
+#
+# Same reasoning as the datasource beside it: a dashboard built in the UI lives
+# only in Grafana's volume, so `npm run reset` destroys it and nothing in git
+# says it existed. From a file it is recreated on every start and shows up in a
+# diff like any other change.
+
+apiVersion: 1
+
+providers:
+  - name: cinemates
+    orgId: 1
+    # Groups them in the UI instead of dropping them at the top level next to
+    # whatever Grafana ships with.
+    folder: CineMates
+    type: file
+    # A dashboard deleted from the repo should disappear from Grafana too,
+    # otherwise the folder slowly fills with panels no file explains.
+    disableDeletion: false
+    # Read-only in the UI. You can still open, edit and explore a panel — what
+    # is refused is *saving* over the file, which Grafana would revert on the
+    # next restart anyway. To keep a change: edit it here, or edit in the UI,
+    # export the JSON (Dashboard settings -> JSON Model) and paste it back into
+    # the file.
+    allowUiUpdates: false
+    # How often the files are re-read, so an edit shows up without a restart.
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards

@@ -1,0 +1,63 @@
+# The application itself. Every expression here is scoped with job="backend":
+# the recommendation service publishes http_request_duration_seconds under the
+# same name, so an unscoped rule would alert on the wrong service's traffic.
+
+groups:
+  - name: backend
+    rules:
+      - alert: BackendHighErrorRate
+        expr: >-
+          sum(rate(http_request_duration_seconds_count{job="backend",status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_request_duration_seconds_count{job="backend"}[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend is returning 5xx for {{ $value | humanizePercentage }} of requests"
+          description: >-
+            More than 5% of responses have been server errors for five minutes.
+            4xx is deliberately excluded — a rejected login or a 404 is the
+            server working, not failing.
+
+      - alert: BackendHighLatency
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="backend"}[5m]))
+          ) > 1
+        # Ten minutes: latency is noisy at low request rates, where a single slow
+        # request moves p95 a long way.
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend p95 latency is {{ $value | humanizeDuration }}"
+          description: >-
+            The slowest 5% of requests have taken over a second for ten minutes.
+            Check the event-loop lag panel before the query panels: if lag is
+            also high, the process is saturated rather than the database slow.
+
+      - alert: BackendEventLoopLagHigh
+        expr: nodejs_eventloop_lag_p99_seconds{job="backend"} > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend event loop is lagging {{ $value | humanizeDuration }}"
+          description: >-
+            Tasks are waiting more than 200ms for their turn on the event loop.
+            Node runs your code on one thread, so this is the earliest sign the
+            process is overloaded — it rises before request latency does.
+
+      - alert: BackendRestarted
+        expr: changes(process_start_time_seconds{job="backend"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Backend process restarted"
+          description: >-
+            The process start time changed in the last 15 minutes. Every counter
+            the backend exports reset with it, which is why rate() graphs have a
+            gap rather than a cliff.

@@ -10,13 +10,15 @@ import { WatchlistsModule } from './watchlists/watchlists.module';
 import { TmdbModule } from './tmdb/tmdb.module';
 import { RedisModule } from './redis/redis.module';
 import { MailModule } from './mail/mail.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtAccessGuard } from './auth/guard';
 import { NotifyModule } from './notify/notify.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
 import { FilesModule } from './files/files.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { MetricsModule } from './metrics/metrics.module';
+import { HttpMetricsInterceptor } from './metrics/http-metrics.interceptor';
 import { THROTTLERS } from './throttle.config';
 import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
 
@@ -28,6 +30,11 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
         DATABASE_URL: Joi.string().required(),
         JWT_ACCESS_SECRET: Joi.string().min(32).required(),
         JWT_REFRESH_SECRET: Joi.string().min(32).required(),
+        // Shared secret Prometheus presents to scrape GET /metrics. Required,
+        // not optional-with-a-default: an absent value would leave the endpoint
+        // open to everything else on the Docker network, and a default would be
+        // the same published secret on every checkout.
+        METRICS_TOKEN: Joi.string().min(32).required(),
         APP_ORIGINS: Joi.string().required(),
         MINIO_ENDPOINT: Joi.string().required(),
         MINIO_ACCESS_KEY: Joi.string().required(),
@@ -78,6 +85,7 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
     // ThrottlerModule is @Global(); registering it anywhere else would compete
     // with this one. Feature modules pick windows via @SkipThrottle instead.
     ThrottlerModule.forRoot(THROTTLERS),
+    MetricsModule,
     PrismaModule,
     RedisModule,
     MailModule,
@@ -96,6 +104,12 @@ import { SESSION_TTL_DEFAULT_SECONDS } from './auth/auth.service';
     {
       provide: APP_GUARD,
       useClass: JwtAccessGuard,
+    },
+    // Global so a new controller is measured the day it is written, rather than
+    // the day someone remembers to instrument it.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpMetricsInterceptor,
     },
   ],
 })

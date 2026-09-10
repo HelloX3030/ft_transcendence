@@ -1,0 +1,67 @@
+# Signals that mean something other than a user having a bad day.
+#
+# The endpoints these watch answer every failure identically, on purpose — login
+# returns one generic 403 so it cannot be used to test whether an address has an
+# account. The metrics are not bound by that: they are read by operators, not by
+# callers, which is what makes these rules possible at all.
+
+groups:
+  - name: security
+    rules:
+      - alert: RefreshTokenReuse
+        expr: increase(auth_token_refreshes_total{outcome="stale_key"}[15m]) > 0
+        # No `for`. Refresh keys rotate on every use, so a key that is neither
+        # current nor inside the grace window was already spent. One occurrence
+        # is the signal; waiting for a sustained rate would mean waiting for a
+        # successful account takeover.
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A spent refresh token was presented again ({{ $value }} in 15m)"
+          description: >-
+            A refresh key was used that had already been rotated away and is past
+            the grace window. That is either a replayed token or one that leaked.
+            The session was refused; the account was not logged out, because a
+            false positive would evict a legitimate user from every device.
+
+      - alert: TotpCodeReplayed
+        expr: increase(auth_mfa_verifications_total{outcome="replayed_otp"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A valid TOTP code was submitted twice ({{ $value }} in 15m)"
+          description: >-
+            The code was correct but already spent. A code stays valid across
+            three time steps, so this is what a captured code being reused looks
+            like — or two logins racing, which is benign. Correlate with the
+            login-failure rate before acting.
+
+      - alert: LoginFailureSpike
+        expr: >-
+          sum(rate(auth_login_attempts_total{outcome=~"bad_password|unknown_account"}[5m]))
+          > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Failed logins running at {{ $value | printf \"%.2f\" }}/sec"
+          description: >-
+            Sustained failed logins for ten minutes. The per-IP throttle allows
+            20 attempts a minute, so a rate this high for this long means either
+            many addresses or many accounts — the shape of credential stuffing
+            rather than one forgotten password.
+
+      - alert: TotpFailureSpike
+        expr: >-
+          sum(rate(auth_mfa_verifications_total{outcome="invalid_otp"}[10m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TOTP failures running at {{ $value | printf \"%.3f\" }}/sec"
+          description: >-
+            Someone is guessing six-digit codes. At 20 attempts a minute a TOTP
+            is about a month out of reach, so this is unlikely to succeed — but
+            it means a password has already been accepted.

@@ -1,3 +1,4 @@
+import { MetricsService } from 'src/metrics/metrics.service';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -92,6 +93,7 @@ describe('NotifyGateway', () => {
         { provide: ChatService, useValue: mockChatService },
         { provide: FriendUtils, useValue: mockFriendUtils },
         { provide: UserUtils, useValue: mockUserUtils },
+        MetricsService,
       ],
     }).compile();
 
