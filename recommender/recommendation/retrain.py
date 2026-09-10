@@ -26,6 +26,26 @@ MIN_USERS = 3
 MIN_MOVIES = 3
 
 
+def _emit_event(result: "RetrainResult") -> None:
+    """
+    Emit one structured line per retrain attempt, for the ELK pipeline.
+
+    Separate from the human-readable log lines in _run(), and deliberately so:
+    those are sentences written for a person reading `docker compose logs`, and
+    rewording one should not silently reshape a Kibana dashboard. This is the
+    machine-readable record, and its field names are the contract that
+    logstash/pipeline/logstash.conf and the index template both depend on.
+
+    A failure here must never propagate — a dashboard is not worth failing a
+    retrain over — so the caller wraps it.
+    """
+    logger.info(
+        "retrain %s",
+        result.status,
+        extra={"event": {"kind": "retrain"}, "retrain": result.as_dict()},
+    )
+
+
 @dataclass(frozen=True)
 class RetrainResult:
     """What one retrain attempt did. Serialised straight into the API response."""
@@ -63,14 +83,28 @@ class Retrainer:
 
     async def run(self) -> RetrainResult:
         if self._running:
-            return RetrainResult("skipped", detail="a retrain is already running")
+            overlapped = RetrainResult("skipped", detail="a retrain is already running")
+            # Reported like any other outcome. A cron that has started firing
+            # twice is exactly the kind of thing that is invisible in a console
+            # log and obvious in a dashboard.
+            self._emit(overlapped)
+            return overlapped
         self._running = True
         try:
             result = await self._run()
         finally:
             self._running = False
         self.last_result = result
+        self._emit(result)
         return result
+
+    @staticmethod
+    def _emit(result: RetrainResult) -> None:
+        """Structured logging is best-effort: never fail a retrain over a log line."""
+        try:
+            _emit_event(result)
+        except Exception:  # noqa: BLE001 - deliberately swallowing every failure
+            logger.exception("retrain: structured event could not be emitted")
 
     async def _run(self) -> RetrainResult:
         started = time.monotonic()

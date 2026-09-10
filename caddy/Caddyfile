@@ -79,6 +79,18 @@ localhost:8443, {$APP_HOST:127.0.0.1}:8443 {
 		reverse_proxy grafana:3000
 	}
 
+	# Kibana, on the same terms as Grafana: no published port, so this route is
+	# the only way in, and it arrives over the stack's single TLS certificate.
+	# Kibana authenticates against Elasticsearch, so what is behind this route is
+	# a login screen rather than an open console.
+	#
+	# `handle`, not `handle_path`: SERVER_REWRITEBASEPATH tells Kibana the prefix
+	# is still on the request when it arrives, and Kibana strips it itself. The
+	# two settings have to agree or every asset 404s.
+	handle /kibana* {
+		reverse_proxy kibana:5601
+	}
+
 	# Everything else: the Vue app, including Vite's HMR websocket. Caddy
 	# detects and proxies websocket upgrades on its own — no Upgrade/Connection
 	# header plumbing, which is the whole reason this is Caddy and not nginx.

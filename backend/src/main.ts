@@ -7,9 +7,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter } from './filter/http-exception.filter';
 import { PrismaExceptionFilter } from './filter/prisma-exception.filter';
 import { APP_ORIGINS } from './config/origins';
+import { JsonFileLogger } from './logging/json-file.logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Console output exactly as before, with a JSON copy of every record
+    // appended to the shared log volume for Logstash to collect.
+    logger: new JsonFileLogger(),
+  });
   // Caddy is the only thing that can reach this process, and it terminates TLS.
   // Trusting its X-Forwarded-* headers lets `req.protocol` see https (so session
   // cookies get `Secure`) and `req.ip` see the real client, not the container.

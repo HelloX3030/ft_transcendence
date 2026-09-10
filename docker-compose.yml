@@ -46,6 +46,8 @@ services:
       - ./backend:/app
       - ./shared:/shared
       - backend_node_modules:/app/node_modules
+      # Writable here, read-only in Logstash: this service is the producer.
+      - app_logs:/var/log/cinemates
     environment:
       DB_NAME: ${DB_NAME}
       DB_TEST_NAME: ${DB_TEST_NAME}
@@ -113,6 +115,8 @@ services:
       # pip itself, so an empty volume there shadows pip and the install cannot run.
       # Caching the wheel downloads instead turns a ~60s reinstall into ~10s.
       - recommender_pip_cache:/root/.cache/pip
+      # Writable here, read-only in Logstash: this service is the producer.
+      - app_logs:/var/log/cinemates
     environment:
       # The same database the backend uses, composed the same way.
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
@@ -455,9 +459,255 @@ services:
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /:/host/root:ro,rslave
+      # `rslave` propagation, which the upstream node_exporter documentation
+      # suggests, is deliberately not used: Docker Desktop cannot satisfy it
+      # ("path / is mounted on / but it is not a shared or slave mount") and the
+      # container fails to create, which aborts `docker compose up` for the
+      # whole stack on macOS. All it buys is visibility of filesystems mounted
+      # *after* this container starts; everything present at boot is reported
+      # either way, which on these machines is all of them.
+      - /:/host/root:ro
     # Needed to see the host's processes rather than only its own.
     pid: host
+    networks:
+      - web
+
+  # --- Logging (ELK) --------------------------------------------------------
+  # Metrics answer "how many, how fast, is it up"; logs answer "what exactly
+  # happened at 02:31". The Prometheus stack above does the first and cannot do
+  # the second — a counter has no room for a stack trace or the detail line
+  # explaining why a retrain declined to fit a model. These three services do
+  # the second, and share nothing with it but the network.
+
+  # Stores and indexes the logs. Single-node because this is one machine and a
+  # second node on the same disk buys no redundancy, only a second copy of the
+  # RAM cost.
+  #
+  # No published port: Logstash and Kibana reach it by service name on `web`,
+  # and nothing on the host can.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    environment:
+      # Skips the production bootstrap checks that a real cluster must pass
+      # (dedicated masters, seed hosts). Without it the container refuses to
+      # start at all on a single-node setup.
+      discovery.type: single-node
+
+      # The heap, fixed rather than a share of host RAM. Elasticsearch defaults
+      # to half of what it can see, which on a 32 GB laptop reserves 16 GB for a
+      # school project running beside eighteen other containers. Both bounds are
+      # the same number on purpose: a heap that grows has to pause to do it.
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+
+      # Authentication on. This is what makes "secure access to all components"
+      # true rather than aspirational: every client here logs in, including
+      # Logstash and Kibana, and Kibana does so as a restricted account rather
+      # than as the superuser.
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+
+      # TLS inside the cluster is off, and this is the one deliberate weakening
+      # in the stack. The traffic never leaves the Docker network, Caddy
+      # terminates real TLS at the only entrance, and turning it on here means
+      # generating and distributing a CA plus per-node certificates — a
+      # meaningful amount of machinery to encrypt a loopback hop. The trade is
+      # the same one the Postgres and Redis connections already make.
+      xpack.security.http.ssl.enabled: "false"
+      xpack.security.transport.ssl.enabled: "false"
+
+      # Where the snapshot repository is allowed to write. Elasticsearch refuses
+      # to register a filesystem repository outside this path, so the archive
+      # policy in elasticsearch/setup/setup.sh depends on it.
+      path.repo: /snapshots
+
+      # Off for the same reason Grafana's update check is: no outbound traffic
+      # from a machine that may be behind a proxy with no route out.
+      xpack.security.enrollment.enabled: "false"
+    ulimits:
+      # Elasticsearch memory-maps its indices and will not start if it can only
+      # open a few thousand files. The Docker default is usually 1024.
+      nofile:
+        soft: 65536
+        hard: 65536
+      # Locking the heap into RAM is disabled (bootstrap.memory_lock is unset),
+      # so this only needs to be non-zero, not unlimited.
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      # The indices themselves. Losing this volume loses the logs, which is
+      # survivable, but not something a `docker compose restart` should do.
+      - elasticsearch_data:/usr/share/elasticsearch/data
+      # The archive destination. Separate from the data volume on purpose: a
+      # backup stored inside the thing it backs up is not a backup.
+      - elasticsearch_snapshots:/snapshots
+    healthcheck:
+      # yellow, not green: a single node cannot allocate the replica shards it
+      # is asked for, so a healthy one-node cluster sits at yellow forever.
+      # Waiting for green here would mean waiting for a state that never comes.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -u elastic:$$ELASTIC_PASSWORD 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' | grep -q '\"status\"'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      # Elasticsearch takes a while to open its indices on a cold start, and a
+      # container marked unhealthy in the meantime would stop everything that
+      # waits on it.
+      start_period: 90s
+    networks:
+      - web
+
+  # One-shot. Installs the retention policy, the archive schedule, the index
+  # mappings and Kibana's credentials, then exits. Everything it does is a PUT
+  # of a named object, so it is safe to run on every boot — which it does,
+  # because that is what keeps the configuration in the repository rather than
+  # in a volume someone set up by hand once.
+  elk_setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    # The image's entrypoint starts a node; this only needs its shell and curl.
+    entrypoint: ["/bin/bash", "/setup/setup.sh"]
+    # Root, solely to fix the ownership of the snapshot volume below. Docker
+    # creates a named volume's mount point as root when the path does not exist
+    # in the image, and Elasticsearch runs as uid 1000, so without this the
+    # archive repository cannot be registered — it fails with access_denied on
+    # its own backup directory. The container chowns the one directory and then
+    # only makes HTTP calls.
+    user: root
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD}
+    volumes:
+      - ./elasticsearch/setup:/setup:ro
+      # Mounted here only so its ownership can be corrected; nothing in this
+      # container reads or writes the snapshots themselves.
+      - elasticsearch_snapshots:/snapshots
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    # A one-shot container is "failed" the moment it exits non-zero, and this
+    # one exiting non-zero means the cluster is misconfigured. Do not restart it
+    # in a loop hiding that.
+    restart: "no"
+    networks:
+      - web
+
+  # Collects the applications' JSON log files from the shared volume, transforms
+  # them, and writes them to Elasticsearch. See logstash/pipeline/logstash.conf
+  # for why collection is file-based rather than a Docker log driver.
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.0
+    environment:
+      # Read by the pipeline's elasticsearch output. Logstash interpolates
+      # ${...} in its config from its own environment.
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+      # Same reasoning as Elasticsearch's heap, at a smaller size: this process
+      # holds a batch of events, not an index.
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      # Read-only: this service is a reader of the applications' logs, and a
+      # filter bug must not be able to damage the source.
+      - app_logs:/logs:ro
+      # Holds the sincedb that records how far into each file it has read.
+      # Without persistence, a restart re-indexes every existing line.
+      - logstash_data:/usr/share/logstash/data
+    healthcheck:
+      # _health_report is Logstash's own verdict on itself: green when the
+      # pipeline is running and its plugins are happy, yellow while it is still
+      # coming up or is degraded, red when it has stopped processing. Checking
+      # the API merely *answers* would call a Logstash with a dead pipeline
+      # healthy, which is the failure this needs to catch.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:9600/_health_report | grep -qE '\"status\":\"(green|yellow)\"'",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      # The index template and ILM policy must exist before the first document
+      # arrives: a document that creates the data stream on its own gets
+      # Elasticsearch's guessed mappings and no retention policy, and mappings
+      # cannot be changed afterwards without reindexing.
+      elk_setup:
+        condition: service_completed_successfully
+    networks:
+      - web
+
+  # Visualisation and dashboards. Reachable only through Caddy's /kibana route,
+  # exactly like Grafana — no published port, one TLS certificate for the whole
+  # stack, and a login in front of it.
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.0
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      # Not the `elastic` superuser. kibana_system can manage Kibana's own
+      # indices and read what it is shown, and nothing else; its password is set
+      # by elk_setup.
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_SYSTEM_PASSWORD}
+
+      # Where Kibana believes it lives, so it prefixes the asset and API paths
+      # it generates. rewriteBasePath tells it Caddy does NOT strip the prefix,
+      # which is why the Caddy route uses `handle` rather than `handle_path` —
+      # the same arrangement Grafana uses above.
+      SERVER_BASEPATH: /kibana
+      SERVER_REWRITEBASEPATH: "true"
+      SERVER_PUBLICBASEURL: https://localhost:8443/kibana
+
+      # Encrypts saved objects that contain credentials, and session cookies.
+      # Kibana generates a random one at boot if this is unset, which silently
+      # invalidates every existing session and saved query on each restart.
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_ENCRYPTION_KEY}
+
+      # No outbound traffic, for the same reason as Grafana.
+      TELEMETRY_ENABLED: "false"
+      TELEMETRY_OPTIN: "false"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:5601/kibana/api/status | grep -q '\"level\":\"available\"'",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      # Kibana's first boot migrates its own saved-object indices and is slow.
+      start_period: 120s
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      elk_setup:
+        condition: service_completed_successfully
+    networks:
+      - web
+
+  # One-shot, like elk_setup, but for the half of the configuration that lives
+  # in Kibana rather than Elasticsearch: the data view and the dashboards. Runs
+  # after Kibana is answering, imports the saved objects from the repository,
+  # and exits.
+  elk_dashboards:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    entrypoint: ["/bin/bash", "/setup/dashboards.sh"]
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    volumes:
+      - ./elasticsearch/setup:/setup:ro
+      - ./kibana/saved-objects:/saved-objects:ro
+    depends_on:
+      kibana:
+        condition: service_healthy
+    restart: "no"
     networks:
       - web
 
@@ -479,6 +729,12 @@ networks:
     driver: bridge
 
 volumes:
+  # Written by backend and recommender, read by Logstash. The one piece of
+  # shared state between the application and the logging stack.
+  app_logs:
+  elasticsearch_data:
+  elasticsearch_snapshots:
+  logstash_data:
   prometheus_data:
   alertmanager_data:
   grafana_data:

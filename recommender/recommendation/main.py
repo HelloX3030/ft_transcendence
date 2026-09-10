@@ -13,6 +13,7 @@ from .db import Database
 from .diversifier import Diversifier
 from .engagement import EngagementTracker
 from .engine import RecommenderEngine
+from .log_setup import configure as configure_structured_logging
 from .retrain import Retrainer
 from .schemas import EngagementSignal, FeedRequest, HealthResponse, MovieMetadata, ScoredMovie
 from .tmdb_bridge import TMDBBridgeImpl, profile_to_query_plan
@@ -20,6 +21,12 @@ from .tmdb_bridge import TMDBBridgeImpl, profile_to_query_plan
 # uvicorn only configures its own loggers, without this, the service's INFO
 # lines (profile-load count, DB fallback warnings) never reach the console.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s - %(message)s")
+
+# Adds a second handler that writes the same records as JSON to the shared log
+# volume, where Logstash collects them. The console format above is untouched:
+# `docker compose logs recommender` reads exactly as it did before.
+configure_structured_logging()
+
 logger = logging.getLogger(__name__)
 
 
