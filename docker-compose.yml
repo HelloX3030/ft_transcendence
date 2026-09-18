@@ -8,6 +8,16 @@ services:
     image: caddy:2-alpine
     ports:
       - "8443:8443"
+      # Caddy serves HTTP/3 and advertises it on every response with
+      # `alt-svc: h3=":8443"`, which browsers cache for the 30 days that header
+      # asks for. Publishing only TCP makes that advertisement a lie: the first
+      # visit succeeds over HTTP/2, the browser records the offer, and every
+      # later visit tries QUIC against a UDP port with nothing behind it.
+      # Chrome races the two and falls back; Safari does not, and fails outright
+      # with "Safari cannot establish a connection to the server" — on a site
+      # that works perfectly in curl and in a fresh profile, which is what makes
+      # it so hard to recognise. Publishing UDP makes the advertisement true.
+      - "8443:8443/udp"
       - "8080:8080"
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
