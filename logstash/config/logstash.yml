@@ -1,0 +1,27 @@
+# Logstash's own settings. The pipeline itself lives in pipeline/logstash.conf.
+
+# Bind the monitoring API to the container's network interface rather than
+# loopback, so `docker compose exec logstash curl localhost:9600` and the
+# healthcheck can both reach it. Nothing outside the Docker network can: no
+# port is published for this service, same as every other piece of the stack.
+http.host: "0.0.0.0"
+
+# Off deliberately. This ships Logstash's internal metrics to Elasticsearch as
+# a second, parallel monitoring system — which is both a duplicate of the
+# Prometheus stack that already watches this project and a source of
+# connection errors on every boot before Elasticsearch is ready.
+xpack.monitoring.enabled: false
+
+# The pipeline reads files whose contents are already JSON objects, one per
+# line. Batching more of them per round trip costs a little latency and saves a
+# lot of HTTP overhead; 250 is Logstash's default and is kept explicit because
+# it is the knob to turn if the retrain dashboard ever lags behind reality.
+pipeline.batch.size: 250
+
+# ECS compatibility is deliberately left at its default (enabled). It is not
+# optional here: the Elasticsearch output writes to a data stream, and the
+# plugin refuses to start with `ecs_compatibility => disabled` because data
+# streams require Elastic Common Schema field names. The pipeline's own fields
+# (service, level_severity, retrain.*) sit alongside ECS rather than replacing
+# it, and the handful of ECS fields that duplicate them are dropped in the
+# filter block.

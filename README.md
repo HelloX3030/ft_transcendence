@@ -52,6 +52,7 @@ Behind the feed sits a dedicated Python recommendation service that blends colla
 | 🖼️ **Avatar uploads** | Validated, magic-byte-checked uploads stored in MinIO |
 | 📱 **Responsive UI** | Mobile-first, works from a phone up to a wide desktop |
 | 📊 **Monitoring** | Prometheus, Grafana dashboards and alerting across every service |
+| 🔎 **Log management** | ELK pipeline with retention, nightly archives and a retrain report |
 
 ---
 
@@ -108,14 +109,15 @@ Attribution names the person who **drove** each feature. Almost everything was r
 | CI & code quality | GitHub Actions gate, Prettier, ESLint, oxlint, `vue-tsc`/`tsc`, Jest + Vitest, Husky pre-commit hook running in Docker | lseeger |
 | Metrics instrumentation | 63 metric families from the backend — HTTP timings by route, auth outcomes, cache hit ratio, TMDB budget, socket presence — behind a token-guarded `/metrics` | lseeger |
 | Monitoring & alerting | Prometheus over 10 targets, 9 Grafana dashboards, 28 alert rules delivered by Alertmanager | lseeger |
+| Log management | ELK pipeline over the backend and recommender, ILM retention and SLM archives, two Kibana dashboards including the recommender retrain report | lkubler |
 
 ---
 
 ## Modules
 
-**Total: 17 points — 6 Major (2 pts each) + 5 Minor (1 pt each).**
+**Total: 19 points — 7 Major (2 pts each) + 5 Minor (1 pt each).**
 
-The subject requires 14. The three points above that are deliberate: they are the buffer the subject recommends keeping, so that a module not being validated during evaluation does not drop us below the minimum.
+The subject requires 14. The five points above that are deliberate, and five is not an arbitrary stopping place: the subject counts each module beyond the mandatory 14 as a bonus and caps the bonus at 5 points, so 19 is the most this project can be worth. It is also the buffer the subject recommends keeping, so that a module not being validated during evaluation does not drop us below the minimum.
 
 | # | Module | Category | Type | Pts |
 |---|---|---|---|---|
@@ -130,7 +132,8 @@ The subject requires 14. The three points above that are deliberate: they are th
 | 9 | Remote authentication with OAuth 2.0 | User Management | Minor | 1 |
 | 10 | Complete 2FA (Two-Factor Authentication) system | User Management | Minor | 1 |
 | 11 | Monitoring system with Prometheus and Grafana | DevOps | Major | 2 |
-| | | | **Total** | **17** |
+| 12 | Infrastructure for log management with ELK | DevOps | Major | 2 |
+| | | | **Total** | **19** |
 
 ### 1. Framework for both frontend and backend — Major (2 pts)
 
@@ -243,7 +246,27 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 
 **Who.** lseeger.
 
-> **Not claimed.** The notification system, while implemented and in daily use, covers friend and watchlist events rather than every create/update/delete action in the app, so we do not claim the "complete notification system" minor module for it. It is listed above as a feature, not as a module. The same applies to the remaining DevOps modules — log management (ELK) and a status page: we scoped those out and there is no code for them here. Monitoring, which was scoped out alongside them at the start, was subsequently built and *is* claimed — see module 11.
+### 12. Infrastructure for log management with ELK — Major (2 pts)
+
+**What it is.** Elasticsearch, Logstash and Kibana, added to the same `docker compose up` as everything else. Metrics and logs answer different questions and the project needed both: module 11 can tell you the retrain rate doubled at 02:30, and only this one can tell you that each of those runs logged `not enough data to fit a model worth keeping`.
+
+**Collection.** Logstash reads JSON log files that the backend and the recommender append to a shared volume. Deliberately not Docker's `gelf`/`syslog` log driver, and not a Filebeat sidecar: with a log driver, a container whose logging endpoint is unreachable at startup **fails to start**, so a broken logging stack would take the application down with it — an unacceptable trade for a component whose entire job is to observe. Filebeat would instead need the Docker socket mounted, handing one container control of the daemon in a project that claims a Cybersecurity module. With files, a Logstash outage means the logs wait on disk and nothing else notices.
+
+**Transformation.** The pipeline in `logstash/pipeline/logstash.conf` is where two services stop disagreeing. Python's `logging` says `WARNING`, NestJS says `log`; both become one vocabulary, plus a numeric `level_severity` so a dashboard can ask for "warn and above" as a range query rather than a list of names. The applications' own timestamps become `@timestamp`, so a Logstash restart that catches up on a backlog does not stamp every one of those lines with the moment it was read. Retrain events get their numbers coerced to real types — a duration indexed as a string charts as a category, which turns a trend line into one bar per distinct value — and gain a derived `rows_per_second`, because raw duration climbing simply because the dataset grew is not a regression.
+
+**Storage and mappings.** A data stream, `logs-cinemates-default`, with an explicit index template. Without one Elasticsearch infers a type from the first document it sees and infers wrong in the ways that hurt: a duration that happens to arrive as `0` becomes a `long` and then rejects `1.4` forever, since mappings cannot be changed in place.
+
+**Retention and archiving.** Two policies, both installed from `elasticsearch/setup/setup.sh` on every boot so they live in git rather than in a volume someone configured by hand. **ILM** rolls the write index over at one day or 512 MB, force-merges and freezes it at two days, and deletes it at fifteen — the same fifteen days Prometheus keeps, so a log line and the metric beside it expire together and an investigation never finds half its evidence. **SLM** snapshots the indices to a filesystem repository nightly and keeps thirty days of them: twice the ILM window, so a line deleted by retention is still recoverable from the archive for another fortnight. `npm run logs:policies` prints both, and the snapshot repository lives on its own volume, because a backup stored inside the thing it backs up is not a backup.
+
+**The retrain report.** `kibana/saved-objects/` holds two provisioned dashboards. **Retrain report** is the one this module was chosen for: attempts, outcomes split by status, duration over time, training-set growth, and a table of every run with the detail line the job wrote. It is built from a structured event the retrainer emits once per attempt — `{"event":{"kind":"retrain"},"retrain":{...}}` — and not by grepping its prose log lines, so rewording a human-readable message cannot silently break a panel. `skipped` is deliberately not counted as a failure: declining to fit a model on too little data is the job working correctly, and a success-rate panel that says otherwise trains you to ignore it. **Log overview** is the general one: volume by service, the mix of levels, and a count of everything at warn or above. `npm run logs:retrain` prints the same report on the terminal.
+
+**Security.** Elasticsearch runs with authentication on, so every client logs in, Logstash included. Kibana connects as the built-in `kibana_system` account rather than the superuser — it can manage its own indices and nothing else, so a compromised Kibana container is not a compromised cluster. Neither service publishes a port: Kibana is reachable only through Caddy's `/kibana` route over the stack's TLS, exactly as Grafana is, and an unauthenticated request there gets a login page, while the API answers `401`. The one deliberate weakening is that TLS inside the cluster is off — the traffic never leaves the Docker network, Caddy terminates real TLS at the only entrance, and turning it on would mean generating and distributing a CA and per-node certificates to encrypt a loopback hop. It is the same trade the Postgres and Redis connections already make.
+
+**Worth knowing.** Elasticsearch is pinned to a 512 MB heap rather than its default of half the host's RAM, which on a developer laptop would reserve several gigabytes for a school project running beside eighteen other containers. `npm run logs:status` reports whether the pipeline is actually flowing and how much each service has written, which is the question worth asking first when a dashboard looks empty.
+
+**Who.** lkubler.
+
+> **Not claimed.** The notification system, while implemented and in daily use, covers friend and watchlist events rather than every create/update/delete action in the app, so we do not claim the "complete notification system" minor module for it. It is listed above as a feature, not as a module. The same applies to the one remaining DevOps module, a status page with automated backups and disaster recovery: we scoped it out and there is no code for it here. Monitoring and log management, both scoped out alongside it at the start, were subsequently built and *are* claimed — see modules 11 and 12.
 
 ---
 
@@ -302,7 +325,7 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 
 | Technology | Role |
 |---|---|
-| **Docker** + **docker compose** | One-command deployment of all sixteen services |
+| **Docker** + **docker compose** | One-command deployment of all twenty-one services |
 | **Caddy** | Reverse proxy, automatic TLS, single public origin |
 | **GitHub Actions** | CI: format, lint, type-check and tests on every pull request |
 | **Husky + lint-staged** | Pre-commit formatting, run inside Docker |
@@ -314,6 +337,9 @@ Recommendations improve continuously: every swipe posts a `/signal`, and `/retra
 | **Caddy & MinIO metrics** | Both speak Prometheus natively; switched on, no exporter needed |
 | **prometheus-fastapi-instrumentator** | Instruments the recommendation service in its own code |
 | **Alertmanager** | Groups, deduplicates and delivers firing alerts as mail to Mailpit |
+| **Elasticsearch** | Stores and indexes the logs, 15-day retention with nightly archive snapshots |
+| **Logstash** | Collects the services' JSON logs from a shared volume and normalises them |
+| **Kibana** | Log dashboards, behind Caddy at `/kibana` with no published port |
 
 **Why Caddy.** It generates its own certificate and terminates TLS with no configuration, which is what lets `https://` work on a fresh clone with no CA setup. Serving the frontend, the API and the WebSocket through one origin also removes an entire class of CORS and cookie problems, and lets the session cookies stay `sameSite: strict`.
 
@@ -612,12 +638,20 @@ Then edit `.env`:
 
 - Set real values for `DB_PASSWORD`, `MINIO_SECRET_KEY` and `PGADMIN_PASSWORD` if you care (the defaults work for a local run).
 - **Set `TMDB_API_KEY`** to your TMDB Bearer token.
+- **Set `ELASTIC_PASSWORD`, `KIBANA_SYSTEM_PASSWORD` and `KIBANA_ENCRYPTION_KEY`.** All three are required: Elasticsearch runs with authentication on and there are no fallbacks in `docker-compose.yml`, so an unset value leaves the logging stack unable to start rather than quietly open. The encryption key must be at least 32 characters — Kibana invents a random one when it is missing, which logs everyone out on every restart and looks like Kibana losing its memory rather than a missing setting.
 - Optionally generate fresh secrets:
 
   ```bash
-  openssl rand -hex 32   # for MFA_KEY and RETRAIN_SECRET
+  openssl rand -hex 32   # for MFA_KEY, RETRAIN_SECRET and KIBANA_ENCRYPTION_KEY
   openssl rand -hex 64   # for JWT_ACCESS_SECRET / JWT_REFRESH_SECRET
   ```
+
+> **Upgrading an existing `.env`?** The logging and monitoring variables were
+> added after the first release, and a `.env` copied before then is missing
+> them. Compose warns about each one and then substitutes an empty string, so
+> the symptom is a service that starts and does not work rather than one that
+> fails loudly. `diff <(grep -o '^[A-Z_]*=' .env.example) <(grep -o '^[A-Z_]*=' .env)`
+> lists what yours is missing.
 
 - The `GOOGLE_*` keys can stay empty — see [Google Sign-In](#google-sign-in-optional). With `GOOGLE_ENABLED=false` the button is simply hidden and everything else works.
 
@@ -643,7 +677,7 @@ docker compose up --build
 
 That is the whole deployment. Database migrations are applied automatically on backend start (`prisma migrate deploy`), so there is no separate setup step. On later runs `--build` can be omitted.
 
-First boot takes a few minutes: the Python service installs NumPy, SciPy and scikit-learn before it comes up. The recommender is reported unhealthy until it finishes — this is expected.
+First boot takes a few minutes: the Python service installs NumPy, SciPy and scikit-learn before it comes up. The recommender is reported unhealthy until it finishes — this is expected. Elasticsearch and Kibana are the other slow starters, and Kibana in particular migrates its own indices on a cold start; `elk_setup` and `elk_dashboards` are one-shot containers that configure them and exit, so seeing them in `Exited (0)` is the successful outcome, not a failure.
 
 | Service | URL |
 |---|---|
@@ -651,6 +685,7 @@ First boot takes a few minutes: the Python service installs NumPy, SciPy and sci
 | Backend API | https://localhost:8443/api |
 | **API docs (Swagger)** | https://localhost:8443/api/docs |
 | **Grafana** (metrics dashboards) | https://localhost:8443/grafana |
+| **Kibana** (log dashboards) | https://localhost:8443/kibana |
 | Mailpit (all outgoing mail) | http://localhost:8025 |
 | pgAdmin | http://localhost:5050 |
 | MinIO console | http://localhost:9001 |
@@ -663,6 +698,13 @@ It has no published port of its own — that route through Caddy is the only way
 in, which is also why it is the one admin tool here that is not plain HTTP on a
 host port. Prometheus, which it reads, is not reachable from the host at all;
 `npm run metrics:targets` reports what it is scraping.
+
+Kibana signs in with `elastic` and `ELASTIC_PASSWORD` from `.env`, on the same
+terms: no published port, that Caddy route the only way in. Elasticsearch and
+Logstash are not reachable from the host at all. `npm run logs:status` reports
+whether the pipeline is flowing, `npm run logs:policies` prints the retention
+and archive policies, and `npm run logs:retrain` prints the retrain report
+without opening a browser.
 
 > **Expect one certificate warning.** The app is served over HTTPS with a certificate Caddy generates itself, so the first visit to `https://localhost:8443` shows *"your connection is not private"*. Accept it once — this is expected, not a defect. A real CA would need either a public domain or a certificate installed into the machine's trust store, neither of which belongs in a project you clone and run.
 >
@@ -1026,7 +1068,10 @@ AI tooling was used throughout the project, always as an assistant to work the t
 ├── prometheus/        Scrape config and the alert rules, with their unit tests
 ├── grafana/           Provisioned datasource, dashboard provider and 9 dashboards
 ├── alertmanager/      Routing, grouping and inhibition for firing alerts
-├── scripts/           Utility scripts (seeding, retraining, monitoring, console check)
+├── elasticsearch/     Setup scripts: retention, archiving, mappings, credentials
+├── logstash/          Collection pipeline and its transformations
+├── kibana/            Provisioned data view and the two log dashboards
+├── scripts/           Utility scripts (seeding, retraining, monitoring, logs, console check)
 ├── _meta/             Internal notes: formatting pipeline, database, git convention
 ├── docker-compose.yml Sixteen services, one command
 └── .env.example       Every environment variable, documented
