@@ -539,11 +539,6 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-      # Locking the heap into RAM is disabled (bootstrap.memory_lock is unset),
-      # so this only needs to be non-zero, not unlimited.
-      memlock:
-        soft: -1
-        hard: -1
     volumes:
       # The indices themselves. Losing this volume loses the logs, which is
       # survivable, but not something a `docker compose restart` should do.
