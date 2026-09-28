@@ -32,7 +32,9 @@ defineExpose({ mask });
 
 <template>
   <InputGroup>
+    <!-- Before $attrs, so a call site can still pass its own placeholder. -->
     <InputGroupInput
+      placeholder="••••••••••••"
       v-bind="$attrs"
       v-model="model"
       :type="visible ? 'text' : 'password'"
