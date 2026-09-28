@@ -1,4 +1,12 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"],
+  // `nest start --watch` otherwise restarts on every write to node_modules, and
+  // the npm install / prisma generate that `npm run test|check|fix` run in a
+  // side container land in the same node_modules volume, restarting the live
+  // backend several times per run.
+  "watchOptions": {
+    "excludeDirectories": ["**/node_modules"],
+    "excludeFiles": ["**/node_modules/**"]
+  }
 }
