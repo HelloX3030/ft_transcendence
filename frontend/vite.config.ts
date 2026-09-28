@@ -2,7 +2,6 @@ import path from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import vueDevTools from 'vite-plugin-vue-devtools';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -15,7 +14,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [vue(), vueDevTools(), tailwindcss()],
+    plugins: [vue(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
