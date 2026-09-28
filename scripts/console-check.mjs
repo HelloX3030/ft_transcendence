@@ -72,8 +72,8 @@ async function createUser(prefix) {
 async function signIn(page, user) {
   await page.goto(`${BASE_URL}/login`);
   await page.getByLabel(/email/i).fill(user.email);
-  await page.getByLabel(/password/i).fill(PASSWORD);
-  await page.getByRole('button', { name: /sign in|log in/i }).click();
+  await page.locator('input[type=password]').fill(PASSWORD);
+  await page.getByRole('button', { name: /sign in|log ?in/i }).click();
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
 }
 
