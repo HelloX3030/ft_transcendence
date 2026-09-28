@@ -11,7 +11,7 @@ import {
   UserProfileResponse,
   UserSearchResponse,
 } from '@cinemates/shared';
-import { checkCookies, createTestApp } from './utils';
+import { checkCookies, createTestApp, userError } from './utils';
 
 // A real 1x1 PNG and a real 1x1 JPEG, the upload path sniffs magic bytes, so the
 // fixtures must actually be the formats they claim to be.
@@ -89,7 +89,7 @@ describe('Users (e2e)', () => {
       const response = await agent
         .patch('/users/me')
         .send({ username: existing.username })
-        .expect(409);
+        .expect(userError(409));
 
       expect((response.body as apiResponse<null>).message).toBe('Username already taken');
     });
@@ -99,7 +99,10 @@ describe('Users (e2e)', () => {
       await registerUser(app, existing);
       const agent = await registerUser(app, buildRegisterDto('patch-mail'));
 
-      const response = await agent.patch('/users/me').send({ email: existing.email }).expect(409);
+      const response = await agent
+        .patch('/users/me')
+        .send({ email: existing.email })
+        .expect(userError(409));
 
       expect((response.body as apiResponse<null>).message).toBe('Email already taken');
     });
@@ -107,7 +110,7 @@ describe('Users (e2e)', () => {
     it('refuses to set the avatar directly: avatars come only from the upload route', async () => {
       const agent = await registerUser(app, buildRegisterDto('patch-image'));
 
-      await agent.patch('/users/me').send({ avatarFileId: 1 }).expect(400);
+      await agent.patch('/users/me').send({ avatarFileId: 1 }).expect(userError(400));
 
       const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
       expect(body.data!.avatarFileId).toBeNull();
@@ -116,7 +119,7 @@ describe('Users (e2e)', () => {
     it('rejects a malformed email', async () => {
       const agent = await registerUser(app, buildRegisterDto('patch-bad'));
 
-      await agent.patch('/users/me').send({ email: 'not-an-email' }).expect(400);
+      await agent.patch('/users/me').send({ email: 'not-an-email' }).expect(userError(400));
     });
 
     it('rejects an unauthenticated request', async () => {
@@ -221,7 +224,7 @@ describe('Users (e2e)', () => {
       await agent
         .post('/users/me/avatar')
         .attach('file', SVG_XSS, { filename: 'me.png', contentType: 'image/png' })
-        .expect(400);
+        .expect(userError(400));
 
       const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
       expect(body.data!.avatarFileId).toBeNull();
@@ -233,7 +236,7 @@ describe('Users (e2e)', () => {
       await agent
         .post('/users/me/avatar')
         .attach('file', SVG_XSS, { filename: 'me.svg', contentType: 'image/svg+xml' })
-        .expect(400);
+        .expect(userError(400));
     });
 
     it('rejects a file over the size limit', async () => {
@@ -246,7 +249,7 @@ describe('Users (e2e)', () => {
       await agent
         .post('/users/me/avatar')
         .attach('file', oversize, { filename: 'huge.png', contentType: 'image/png' })
-        .expect(413);
+        .expect(userError(413));
 
       const body = (await agent.get('/users/me').expect(200)).body as apiResponse<UserMeResponse>;
       expect(body.data!.avatarFileId).toBeNull();
@@ -255,7 +258,7 @@ describe('Users (e2e)', () => {
     it('rejects a request with no file', async () => {
       const agent = await registerUser(app, buildRegisterDto('avatar-none'));
 
-      await agent.post('/users/me/avatar').expect(400);
+      await agent.post('/users/me/avatar').expect(userError(400));
     });
 
     it('removes the previous file when a new avatar replaces it', async () => {

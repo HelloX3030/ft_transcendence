@@ -5,7 +5,7 @@ import TestAgent from 'supertest/lib/agent';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { createTestApp } from './utils/create-test-app.utils';
-import { login, register } from './utils';
+import { login, register, userError } from './utils';
 
 /**
  * The mailer is replaced rather than pointed at Mailpit: the reset token exists
@@ -100,7 +100,7 @@ describe('Password reset (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: user.email, password: user.password })
-      .expect(403);
+      .expect(userError(403));
 
     await login(request.agent(app.getHttpServer()), {
       email: user.email,
@@ -126,14 +126,14 @@ describe('Password reset (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/password/reset')
       .send({ token, password: 'AThird!Password9' })
-      .expect(400);
+      .expect(userError(400));
   });
 
   it('rejects an unknown token exactly like a used one', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/password/reset')
       .send({ token: 'not-a-real-token', password: 'An0ther!Password' })
-      .expect(400);
+      .expect(userError(400));
 
     expect(JSON.stringify(response.body)).toContain('invalid or has expired');
   });
@@ -150,7 +150,7 @@ describe('Password reset (e2e)', () => {
     await request(app.getHttpServer())
       .post('/auth/password/reset')
       .send({ token: tokenFromLastMail(), password: 'weak' })
-      .expect(400);
+      .expect(userError(400));
   });
 
   it('sends a Google notice instead of a reset link for a password-less account', async () => {

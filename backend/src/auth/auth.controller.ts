@@ -28,6 +28,7 @@ import { ApiOperation, ApiResponse, ApiTooManyRequestsResponse } from '@nestjs/s
 import { SkipThrottle } from '@nestjs/throttler';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
 import { SKIP_AUTH_THROTTLE, SKIP_TMDB_THROTTLES } from 'src/throttle.config';
+import { ExpectedUserErrors } from 'src/filter/user-error.filter';
 
 // Credential endpoints: unauthenticated, and login checks both a password and a
 // 6-digit TOTP, so they get a tight per-IP window. The TMDB windows are far too
@@ -40,6 +41,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Public()
+  @ExpectedUserErrors()
   @Post('register')
   @ApiOperation({ summary: 'Creates a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created' })
@@ -55,6 +57,7 @@ export class AuthController {
   }
 
   @Public()
+  @ExpectedUserErrors()
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'User login with optional TOTP' })
@@ -71,6 +74,7 @@ export class AuthController {
   }
 
   @Public()
+  @ExpectedUserErrors()
   @Post('mfa/verify')
   @HttpCode(200)
   @ApiOperation({ summary: 'Second step of an MFA login: challenge token + TOTP' })
@@ -87,6 +91,7 @@ export class AuthController {
   }
 
   @Public()
+  @ExpectedUserErrors()
   @Post('password/forgot')
   @HttpCode(200)
   @ApiOperation({ summary: 'Requests a password reset link by email' })
@@ -100,6 +105,7 @@ export class AuthController {
   }
 
   @Public()
+  @ExpectedUserErrors()
   @Post('password/reset')
   @HttpCode(200)
   @ApiOperation({ summary: 'Completes a password reset and revokes every session' })

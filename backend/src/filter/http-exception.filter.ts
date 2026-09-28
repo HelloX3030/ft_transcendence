@@ -23,12 +23,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error = res.error || null;
     }
 
-    response.status(status).json({
+    response.status(this.responseStatus(status)).json({
       success: false,
       statusCode: status,
       message: message,
       error: error,
       path: request.url,
     });
+  }
+
+  /** The HTTP status to answer with; the body always carries the real one. */
+  protected responseStatus(status: number): number {
+    return status;
   }
 }

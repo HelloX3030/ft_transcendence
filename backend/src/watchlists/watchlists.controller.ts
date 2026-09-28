@@ -24,6 +24,7 @@ import { watchlistMovieDto } from './dto/movie.dto';
 import { JwtAccessPayload } from 'src/types';
 import { watchlistRoleDto, watchlistUserDto } from './dto/user.dto';
 import { WATCHLIST_NAME_MAX_LENGTH } from '@cinemates/shared';
+import { ExpectedUserErrors } from 'src/filter/user-error.filter';
 
 @ApiTags('Watchlists')
 @ApiBearerAuth()
@@ -111,6 +112,7 @@ export class WatchlistsController {
     return this.watchlistsService.getMovies(id, user.sub);
   }
 
+  @ExpectedUserErrors()
   @Post(':id/movies')
   @ApiOperation({ summary: 'Add movie to watchlist' })
   @ApiResponse({ status: 201, description: 'Movie added successfully' })
@@ -160,6 +162,7 @@ export class WatchlistsController {
     return this.watchlistsService.getUsers(id, user.sub);
   }
 
+  @ExpectedUserErrors()
   @Post(':id/users')
   @ApiOperation({ summary: 'Add user to watchlist with role' })
   @ApiResponse({ status: 201, description: 'User added successfully' })

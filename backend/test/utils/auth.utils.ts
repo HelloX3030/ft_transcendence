@@ -57,3 +57,12 @@ export function checkCookies(response: Response) {
   expect(cookies[0]).toContain('SameSite=Strict');
   expect(cookies[1]).toContain('SameSite=Strict');
 }
+
+/**
+ * Supertest assertion for a user-input failure: routes marked ExpectedUserErrors
+ * answer 200 so Chrome logs nothing, and the real status travels in the body.
+ */
+export const userError = (status: number) => (res: { status: number; body: unknown }) => {
+  expect(res.status).toBe(200);
+  expect(res.body).toMatchObject({ success: false, statusCode: status });
+};

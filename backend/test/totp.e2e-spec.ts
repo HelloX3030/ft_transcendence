@@ -3,7 +3,7 @@ import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jest/globals';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp } from './utils/create-test-app.utils';
-import { checkCookies } from './utils';
+import { checkCookies, userError } from './utils';
 import { RegisterDto } from 'src/auth/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { apiResponse, LoginResponse } from '@cinemates/shared';
@@ -150,7 +150,7 @@ describe('TOTP MFA (e2e)', () => {
       .agent(app.getHttpServer())
       .post('/auth/login')
       .send({ email: credentials.email, password: credentials.password, otp })
-      .expect(400);
+      .expect(userError(400));
 
     // forbidNonWhitelisted: a one-shot login carrying the code is rejected,
     // rather than quietly ignored.
@@ -164,7 +164,7 @@ describe('TOTP MFA (e2e)', () => {
     const response = await loginAgent
       .post('/auth/mfa/verify')
       .send({ mfaToken, otp: '123456' })
-      .expect(403);
+      .expect(userError(403));
 
     expect((response.body as { message: string }).message).toBe('Invalid TOTP');
   });
@@ -177,7 +177,7 @@ describe('TOTP MFA (e2e)', () => {
       .agent(app.getHttpServer())
       .post('/auth/mfa/verify')
       .send({ mfaToken: 'not.a.token', otp })
-      .expect(403);
+      .expect(userError(403));
 
     // Same message as a wrong code, so this cannot be used to tell a valid
     // challenge token from an invalid one.
@@ -204,7 +204,7 @@ describe('TOTP MFA (e2e)', () => {
     await second
       .post('/auth/mfa/verify')
       .send({ mfaToken: await startMfaLogin(second, other), otp })
-      .expect(403);
+      .expect(userError(403));
   });
 
   // Each delete case gets its own account: only one code per time step can be
@@ -213,7 +213,7 @@ describe('TOTP MFA (e2e)', () => {
   it('refuses to disable TOTP with no code at all', async () => {
     const { agent, id } = await freshTotpUser('totp-del-nobody');
 
-    await agent.delete('/users/mfa/totp').expect(400);
+    await agent.delete('/users/mfa/totp').expect(userError(400));
 
     const user = await prisma.users.findUnique({ where: { id } });
     expect(user?.totpActive).toBe(true);
@@ -223,7 +223,7 @@ describe('TOTP MFA (e2e)', () => {
   it('refuses to disable TOTP with a wrong code', async () => {
     const { agent, id } = await freshTotpUser('totp-del-wrong');
 
-    await agent.delete('/users/mfa/totp').send({ otp: '000000' }).expect(400);
+    await agent.delete('/users/mfa/totp').send({ otp: '000000' }).expect(userError(400));
 
     const user = await prisma.users.findUnique({ where: { id } });
     expect(user?.totpActive).toBe(true);
@@ -242,7 +242,7 @@ describe('TOTP MFA (e2e)', () => {
       .send({ mfaToken: await startMfaLogin(loginAgent, dto), otp })
       .expect(200);
 
-    await agent.delete('/users/mfa/totp').send({ otp }).expect(400);
+    await agent.delete('/users/mfa/totp').send({ otp }).expect(userError(400));
 
     const user = await prisma.users.findUnique({ where: { id } });
     expect(user?.totpActive).toBe(true);

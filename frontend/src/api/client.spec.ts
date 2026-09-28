@@ -53,3 +53,23 @@ describe('backendClient: 401 handling', () => {
     expect(notifySessionEnded).not.toHaveBeenCalled();
   });
 });
+
+describe('backendClient: user errors answered with 200', () => {
+  // The backend answers a wrong password with 200 so Chrome logs nothing; the
+  // caller must still see the 403 it checks for.
+  it('throws the ApiError the real status would have produced', async () => {
+    const body = '{"success":false,"statusCode":403,"message":"Invalid credentials"}';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(200, body)));
+
+    const error = await backendClient('/auth/login').catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 403, message: 'Invalid credentials' });
+  });
+
+  it('still returns data for a success body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(200, '{"success":true,"data":1}')));
+
+    await expect(backendClient('/x')).resolves.toBe(1);
+  });
+});

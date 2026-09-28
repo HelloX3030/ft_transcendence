@@ -22,6 +22,7 @@ import { OnboardingDto, SearchUsersDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
 import { disableTotpDto, otpDto } from 'src/utils';
 import { FILE_RULES } from '@cinemates/shared';
+import { ExpectedUserErrors } from 'src/filter/user-error.filter';
 
 @Controller('users')
 export class UsersController {
@@ -36,6 +37,7 @@ export class UsersController {
     return this.usersService.getMe(user.sub);
   }
 
+  @ExpectedUserErrors()
   @Patch('me')
   @ApiOperation({ summary: 'Update authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Updated user profile' })
@@ -59,6 +61,7 @@ export class UsersController {
     return this.usersService.completeOnboarding(user.sub, dto);
   }
 
+  @ExpectedUserErrors()
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload avatar for authenticated user' })
   @ApiResponse({ status: 201, description: 'Updated user profile' })
@@ -153,6 +156,7 @@ export class UsersController {
     return this.usersService.createTOTP(user.sub);
   }
 
+  @ExpectedUserErrors()
   @Post('mfa/totp/activate')
   @ApiOperation({ summary: 'Activate TOTP using verification code' })
   @ApiBody({
@@ -176,6 +180,7 @@ export class UsersController {
     return this.usersService.activateTOTP(user.sub, dto.otp);
   }
 
+  @ExpectedUserErrors()
   @Delete('mfa/totp')
   @ApiOperation({
     summary: 'Disable TOTP for authenticated user',

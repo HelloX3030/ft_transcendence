@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { GoogleCallbackGuard } from 'src/auth/guard';
 import { GoogleProfile } from 'src/types';
 import { createTestApp } from './utils/create-test-app.utils';
-import { register } from './utils';
+import { register, userError } from './utils';
 
 /**
  * The Google exchange itself is never performed here: the callback guard is
@@ -184,7 +184,7 @@ describe('Google OAuth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email, password: 'anything-at-all' })
-        .expect(403);
+        .expect(userError(403));
     });
   });
 });

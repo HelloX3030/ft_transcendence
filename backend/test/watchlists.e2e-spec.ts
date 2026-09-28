@@ -4,7 +4,7 @@ import { describe, expect, it, beforeAll, afterAll, afterEach, jest } from '@jes
 import { RegisterDto } from 'src/auth/dto';
 import TestAgent from 'supertest/lib/agent';
 import { createTestApp } from './utils/create-test-app.utils';
-import { checkCookies } from './utils';
+import { checkCookies, userError } from './utils';
 import { WATCHLIST_NAME_MAX_LENGTH, WatchlistResponse } from '@cinemates/shared';
 
 interface ApiResponse<T = unknown> {
@@ -250,7 +250,7 @@ describe('Watchlists (e2e)', () => {
     const response = await ownerAgent
       .post(`/watchlists/${created.id}/users`)
       .send({ userId: 999999999, role: 'viewer' })
-      .expect(404);
+      .expect(userError(404));
 
     const body = response.body as { message: string };
     expect(body.message).toBe('User not found.');
@@ -267,7 +267,7 @@ describe('Watchlists (e2e)', () => {
     const response = await ownerAgent
       .post(`/watchlists/${created.id}/users`)
       .send({ userId: viewerUserId, role: 'viewer' })
-      .expect(409);
+      .expect(userError(409));
 
     const body = response.body as { message: string };
     expect(body.message).toBe('User already added.');
@@ -414,7 +414,7 @@ describe('Watchlists (e2e)', () => {
     const response = await ownerAgent
       .post(`/watchlists/${created.id}/movies`)
       .send({ tmdbId })
-      .expect(409);
+      .expect(userError(409));
 
     const body = response.body as { message: string };
     expect(body.message).toBe('Movie already added.');

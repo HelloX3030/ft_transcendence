@@ -5,6 +5,7 @@
  */
 import type { AccessTokenExpiry, apiResponse } from '@cinemates/shared';
 import { BACKEND_URL } from '@/lib/constants';
+import { ApiError } from './api-error';
 
 /** Every backend route is versioned; callers pass the path below that prefix. */
 export const API_BASE = BACKEND_URL + '/v1';
@@ -117,12 +118,17 @@ export function parseJson(text: string): unknown {
   }
 }
 
-/** Unwraps the `{ data }` envelope from a 2xx body. */
+/** Unwraps the `{ data }` envelope from a 2xx body, throwing for an error one. */
 export function unwrapEnvelope<T>(text: string): T {
   // An empty body makes JSON.parse throw a SyntaxError that would surface to the
   // caller as an opaque failure rather than as the 2xx it is.
   if (text === '') return undefined as T;
 
-  const json: apiResponse<T> = JSON.parse(text) as apiResponse<T>;
+  const json = JSON.parse(text) as apiResponse<T> & { statusCode?: unknown };
+  // A user-input failure the backend answers with 200 so Chrome does not log it
+  // (see backend UserErrorFilter). Thrown as the ApiError a real 4xx would be.
+  if (json.success === false && typeof json.statusCode === 'number') {
+    throw new ApiError(json.statusCode, errorMessage(json, json.statusCode), json);
+  }
   return json.data as T;
 }

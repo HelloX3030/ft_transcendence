@@ -2,7 +2,15 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import { LoginDto, RegisterDto } from 'src/auth/dto';
-import { checkCookies, createTestApp, getUserId, login, logout, register } from './utils';
+import {
+  checkCookies,
+  createTestApp,
+  getUserId,
+  login,
+  logout,
+  register,
+  userError,
+} from './utils';
 import { apiResponse } from '@cinemates/shared';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -41,7 +49,7 @@ describe('Auth (e2e)', () => {
       .set('Accept', 'application/json')
       .send(mockUserRegister)
       .expect('Content-Type', /json/)
-      .expect(409);
+      .expect(userError(409));
 
     const body = response.body as apiResponse<null>;
     expect(body.message).toBe('Credentials taken');
