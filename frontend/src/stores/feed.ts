@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import type { FeedMovie } from '@cinemates/shared';
 import { moviesApi } from '@/api';
 import { logger } from '@/lib/logger';
+import { useReactionsStore } from './reactions';
 
 type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -15,6 +16,7 @@ type FetchStatus = 'idle' | 'loading' | 'ready' | 'error';
  * "load more" is a refetch filtered through everything already shown.
  */
 export const useFeedStore = defineStore('feed', () => {
+  const reactions = useReactionsStore();
   const cards = ref<FeedMovie[]>([]);
   const status = ref<FetchStatus>('idle');
   // True once a refetch came back with nothing new. Terminal until the user
@@ -40,6 +42,7 @@ export const useFeedStore = defineStore('feed', () => {
       const data = await moviesApi.getFeed();
       if (gen !== generation) return;
       data.forEach((card) => shown.add(card.tmdbId));
+      reactions.markUnreacted(data.map((card) => card.tmdbId));
       cards.value = data;
       status.value = 'ready';
     } catch (error) {
@@ -58,6 +61,7 @@ export const useFeedStore = defineStore('feed', () => {
       if (gen !== generation) return;
       const fresh = data.filter((card) => !shown.has(card.tmdbId));
       fresh.forEach((card) => shown.add(card.tmdbId));
+      reactions.markUnreacted(fresh.map((card) => card.tmdbId));
       cards.value = [...cards.value, ...fresh];
       // Judged on what is *new*, not on what came back: the backend almost
       // always answers with a full page.

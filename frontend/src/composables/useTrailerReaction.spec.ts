@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
 import { ApiError } from '@/api/api-error';
 
 const setReaction = vi.fn();
+const getReaction = vi.fn();
 const error = vi.fn();
 
 vi.mock('@/api', () => ({
-  moviesApi: { setReaction: (...args: unknown[]) => setReaction(...args) },
+  moviesApi: {
+    setReaction: (...args: unknown[]) => setReaction(...args),
+    getReaction: (...args: unknown[]) => getReaction(...args),
+  },
 }));
 vi.mock('vue-sonner', () => ({ toast: { error: (...args: unknown[]) => error(...args) } }));
 
 const { useTrailerReaction } = await import('./useTrailerReaction');
+
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve));
 
 /** A promise plus the handles to settle it, so the pending window is testable. */
 function deferred() {
@@ -26,8 +33,10 @@ function deferred() {
 
 describe('useTrailerReaction', () => {
   beforeEach(() => {
+    setActivePinia(createPinia());
     vi.clearAllMocks();
     setReaction.mockResolvedValue(undefined);
+    getReaction.mockResolvedValue({ reaction: null });
   });
 
   // The swipe interaction cannot wait on a round-trip; a spinner on a like
@@ -99,6 +108,36 @@ describe('useTrailerReaction', () => {
     await Promise.all([react('like'), react('like')]);
 
     expect(setReaction).toHaveBeenCalledTimes(1);
+  });
+
+  // The player is unmounted whenever its card leaves the view; the next
+  // instance must show the reaction the server already holds.
+  it('keeps the reaction across a remount', async () => {
+    await useTrailerReaction(640146).react('like');
+
+    const { isLiked, isLocked } = useTrailerReaction(640146);
+
+    expect(isLiked.value).toBe(true);
+    expect(isLocked.value).toBe(true);
+  });
+
+  // A reaction from an earlier session: the trailer modal on the detail page
+  // can show any film, not only unrated feed cards.
+  it('shows a reaction the server already holds', async () => {
+    getReaction.mockResolvedValue({ reaction: 'dislike' });
+
+    const { isDisliked, isLocked } = useTrailerReaction(640146);
+    await flushPromises();
+
+    expect(getReaction).toHaveBeenCalledWith(640146);
+    expect(isDisliked.value).toBe(true);
+    expect(isLocked.value).toBe(true);
+  });
+
+  it('does not share a reaction between movies', async () => {
+    await useTrailerReaction(640146).react('like');
+
+    expect(useTrailerReaction(1).isLocked.value).toBe(false);
   });
 
   it('reads a getter id at request time', async () => {

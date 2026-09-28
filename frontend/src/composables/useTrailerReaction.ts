@@ -1,7 +1,8 @@
-import { computed, ref, toValue, type MaybeRefOrGetter } from 'vue';
+import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { toast } from 'vue-sonner';
 import { moviesApi } from '@/api';
 import { ApiError } from '@/api/api-error';
+import { useReactionsStore } from '@/stores/reactions';
 import type { ReactionType } from '@cinemates/shared';
 
 /**
@@ -11,9 +12,17 @@ import type { ReactionType } from '@cinemates/shared';
  * `Controls.vue` so the node test suite can cover it without `@vue/test-utils`.
  */
 export function useTrailerReaction(tmdbId: MaybeRefOrGetter<number>) {
-  // null = no reaction yet. Once set, it returns to null only on failure.
-  const reaction = ref<ReactionType | null>(null);
+  // Held in the store so it survives the player being unmounted. null = no
+  // reaction yet; once set, it returns to null only on failure.
+  const store = useReactionsStore();
+  const reaction = computed(() => store.reactions[toValue(tmdbId)] ?? null);
   const pending = ref(false);
+
+  watch(
+    () => toValue(tmdbId),
+    (id) => void store.ensureLoaded(id),
+    { immediate: true },
+  );
 
   const isLiked = computed(() => reaction.value === 'like');
   const isDisliked = computed(() => reaction.value === 'dislike');
@@ -25,17 +34,21 @@ export function useTrailerReaction(tmdbId: MaybeRefOrGetter<number>) {
     // server.
     if (isLocked.value) return;
 
-    reaction.value = next; // optimistic: fills and locks both buttons
+    // Read once: a getter id may change while the request is in flight.
+    const id = toValue(tmdbId);
+    const previous = store.reactions[id];
+    store.reactions[id] = next; // optimistic: fills and locks both buttons
     pending.value = true;
     try {
-      await moviesApi.setReaction(toValue(tmdbId), next);
+      await moviesApi.setReaction(id, next);
     } catch (error) {
       // 409 means a row already exists, the state we were asking for is the
       // state the server is in. Keep the lock; there is nothing to tell the user.
       if (error instanceof ApiError && error.status === 409) return;
       // Anything else: a filled heart with no row behind it is a silent lie.
       // Unlock and say so.
-      reaction.value = null;
+      if (previous === undefined) delete store.reactions[id];
+      else store.reactions[id] = previous;
       toast.error((error as Error).message);
     } finally {
       pending.value = false;
