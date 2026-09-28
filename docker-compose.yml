@@ -199,7 +199,11 @@ services:
       - db
 
   minio:
-    image: minio/minio
+    # MinIO stopped publishing images, and minio/minio is gone from Docker Hub.
+    # pgsty/minio is a maintained community build of the same server: same
+    # entrypoint, env vars, console and metrics. Pinned so a rebuild cannot
+    # change the server under us.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address ":9001"
     # :9000 is deliberately not published. The bucket is private and reachable
     # only from the backend — every file a browser sees comes from GET /files/:id.
