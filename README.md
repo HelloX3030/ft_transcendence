@@ -939,6 +939,8 @@ npx playwright install chromium
 npm run check:console
 ```
 
+On a Chrome without a WebGPU adapter, every YouTube trailer logs one `No available adapters.` warning that no code of ours can prevent — see [Known Limitations](#known-limitations).
+
 Details of the formatting and linting pipeline: [`_meta/01-formatting-pipeline.md`](_meta/01-formatting-pipeline.md).
 
 ---
@@ -948,6 +950,7 @@ Details of the formatting and linting pipeline: [`_meta/01-formatting-pipeline.m
 Honest list of what does not work, or works only under conditions.
 
 - **Google sign-in is `localhost`-only.** Google rejects private IP addresses as authorised redirect URIs, so without a public domain the OAuth flow cannot complete from another device on the network. Email/password authentication — the mandatory path — is unaffected. Set `GOOGLE_ENABLED=false` for a LAN demo.
+- **YouTube trailers log one console warning in a Chrome without WebGPU.** `No available adapters.` comes from Google's anti-abuse script inside every YouTube embed, which calls `navigator.gpu.requestAdapter()`; Chrome logs the warning itself when it has no WebGPU adapter, the default on many Linux machines. It appears for any embed, with or without playback, and neither the embed URL nor the iframe's `allow` attribute can turn it off. Where Chrome has an adapter (Windows, macOS, or Linux started with `--enable-unsafe-webgpu --enable-features=Vulkan`) the console stays empty. Check with `chrome://gpu` → *WebGPU*.
 - **The TLS certificate is self-signed**, so every browser shows a warning on first visit and it must be accepted once per device. A trusted certificate needs a public domain or a CA in the machine's trust store.
 - **Mail is never delivered.** Everything the app sends is captured by Mailpit and readable at http://localhost:8025. This is deliberate (see above), but it means password reset cannot be demonstrated from a real inbox.
 - **Notification coverage is partial.** Notifications exist for friend and watchlist events. They do not yet cover every create/update/delete action in the application, which is why we do not claim the corresponding module.
