@@ -9,6 +9,12 @@ export interface MovieReactionResponse {
   reaction: ReactionType;
 }
 
+/** The current user's reaction to a trailer; null if they have not reacted. */
+export interface MovieReactionStatus {
+  tmdbId: number;
+  reaction: ReactionType | null;
+}
+
 /**
  * One playable card in the personalised trailer feed.
  *

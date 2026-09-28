@@ -105,6 +105,16 @@ export class MoviesService {
     }
   }
 
+  async getReaction(tmdbId: number, userId: number) {
+    // No ensureMovie: a movie nobody has reacted to has no row, and a read must
+    // not create one.
+    const rating = await this.prisma.ratings.findFirst({
+      where: { userId, movie: { tmdbId } },
+      select: { trailerRating: true },
+    });
+    return successResponse({ tmdbId, reaction: rating?.trailerRating ?? null });
+  }
+
   async setReaction(tmdbId: number, reaction: reaction_type, userId: number) {
     const movie = await this.movieUtils.ensureMovie(tmdbId);
 

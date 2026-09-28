@@ -17,6 +17,7 @@ const mockMovie = { id: 42, tmdbId: 640146, name: 'Quantumania', posterPath: '/p
 // PrismaService inherits a large generated client; only type the slice this service uses.
 const mockPrisma = {
   ratings: {
+    findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     upsert: jest.fn(),
@@ -92,6 +93,29 @@ describe('MoviesService', () => {
     jest.clearAllMocks();
     mockMovieUtils.ensureMovie.mockResolvedValue(mockMovie);
     mockPrisma.ratings.create.mockResolvedValue(undefined);
+  });
+
+  describe('getReaction', () => {
+    it("returns the user's reaction", async () => {
+      mockPrisma.ratings.findFirst.mockResolvedValue({ trailerRating: 'like' });
+
+      const result = await service.getReaction(640146, 7);
+
+      expect(mockPrisma.ratings.findFirst).toHaveBeenCalledWith({
+        where: { userId: 7, movie: { tmdbId: 640146 } },
+        select: { trailerRating: true },
+      });
+      expect(result.data).toEqual({ tmdbId: 640146, reaction: 'like' });
+    });
+
+    it('returns null without creating the movie when there is no reaction', async () => {
+      mockPrisma.ratings.findFirst.mockResolvedValue(null);
+
+      const result = await service.getReaction(640146, 7);
+
+      expect(result.data).toEqual({ tmdbId: 640146, reaction: null });
+      expect(mockMovieUtils.ensureMovie).not.toHaveBeenCalled();
+    });
   });
 
   describe('setReaction', () => {

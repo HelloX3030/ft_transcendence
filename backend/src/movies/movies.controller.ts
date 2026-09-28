@@ -41,6 +41,16 @@ export class MoviesController {
     return this.moviesService.getFeed(user.sub, dto.limit);
   }
 
+  @Get(':tmdbId/rating')
+  @ApiOperation({ summary: "The current user's reaction to a trailer, or null if none" })
+  @ApiParam({ name: 'tmdbId', type: Number })
+  @ApiResponse({ status: 200, description: 'The reaction, or null' })
+  @ApiResponse({ status: 401, description: 'Not authenticated' })
+  getReaction(@Param('tmdbId', ParseIntPipe) tmdbId: number, @Request() req: ExpressRequest) {
+    const user = req.user as JwtAccessPayload;
+    return this.moviesService.getReaction(tmdbId, user.sub);
+  }
+
   @Post(':tmdbId/rating')
   @ApiOperation({ summary: 'React to a trailer. A reaction is permanent and cannot be changed.' })
   @ApiParam({ name: 'tmdbId', type: Number })
